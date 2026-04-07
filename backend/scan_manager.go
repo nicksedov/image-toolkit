@@ -14,18 +14,27 @@ type ScanManager struct {
 	progress       string
 	filesProcessed int
 	db             *gorm.DB
-	scanDirs       []string
 }
 
 // NewScanManager creates a new ScanManager
-func NewScanManager(db *gorm.DB, scanDirs []string) *ScanManager {
+func NewScanManager(db *gorm.DB) *ScanManager {
 	return &ScanManager{
-		db:       db,
-		scanDirs: scanDirs,
+		db: db,
 	}
 }
 
-// StartScan launches an asynchronous scan of all directories
+// getGalleryDirs reads current gallery folder paths from the database
+func (sm *ScanManager) getGalleryDirs() []string {
+	var folders []GalleryFolder
+	sm.db.Find(&folders)
+	dirs := make([]string, len(folders))
+	for i, f := range folders {
+		dirs[i] = f.Path
+	}
+	return dirs
+}
+
+// StartScan launches an asynchronous scan of all gallery directories
 func (sm *ScanManager) StartScan() error {
 	sm.mu.Lock()
 	if sm.isScanning {
@@ -57,13 +66,55 @@ func (sm *ScanManager) StartScan() error {
 		sm.mu.Unlock()
 		cleanupMissingFiles(sm.db, progressChan)
 
+		// Read gallery dirs from DB at scan time
+		scanDirs := sm.getGalleryDirs()
+
 		// Scan all directories
-		for _, dir := range sm.scanDirs {
+		for _, dir := range scanDirs {
 			sm.mu.Lock()
 			sm.progress = fmt.Sprintf("Scanning: %s", dir)
 			sm.mu.Unlock()
 			scanDirectory(sm.db, dir, progressChan)
 		}
+
+		close(progressChan)
+
+		sm.mu.Lock()
+		sm.isScanning = false
+		sm.progress = "Scan complete"
+		sm.mu.Unlock()
+	}()
+
+	return nil
+}
+
+// ScanSingleDir launches an asynchronous scan of a single directory
+func (sm *ScanManager) ScanSingleDir(dirPath string) error {
+	sm.mu.Lock()
+	if sm.isScanning {
+		sm.mu.Unlock()
+		return fmt.Errorf("scan already in progress")
+	}
+	sm.isScanning = true
+	sm.progress = fmt.Sprintf("Scanning: %s", dirPath)
+	sm.filesProcessed = 0
+	sm.mu.Unlock()
+
+	go func() {
+		progressChan := make(chan string, 200)
+
+		go func() {
+			count := 0
+			for msg := range progressChan {
+				count++
+				sm.mu.Lock()
+				sm.progress = msg
+				sm.filesProcessed = count
+				sm.mu.Unlock()
+			}
+		}()
+
+		scanDirectory(sm.db, dirPath, progressChan)
 
 		close(progressChan)
 

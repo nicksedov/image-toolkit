@@ -41,3 +41,11 @@ func isImageFile(path string) bool {
 	ext := strings.ToLower(filepath.Ext(path))
 	return supportedExtensions[ext]
 }
+
+// GalleryFolder represents a configured gallery folder in the database
+type GalleryFolder struct {
+	ID        uint      `gorm:"primaryKey" json:"id"`
+	Path      string    `gorm:"uniqueIndex;not null" json:"path"`
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
+}

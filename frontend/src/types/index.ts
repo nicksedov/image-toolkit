@@ -97,3 +97,54 @@ export interface BatchDeleteResponse {
 export interface ApiError {
   error: string
 }
+
+// --- Gallery Folder Types ---
+
+export interface GalleryFolderDTO {
+  id: number
+  path: string
+  fileCount: number
+  createdAt: string
+}
+
+export interface GalleryFoldersResponse {
+  folders: GalleryFolderDTO[]
+  totalFolders: number
+}
+
+export interface AddFolderRequest {
+  path: string
+}
+
+export interface AddFolderResponse {
+  message: string
+  folder: GalleryFolderDTO
+  scanStarted: boolean
+}
+
+export interface RemoveFolderResponse {
+  message: string
+  filesRemoved: number
+}
+
+// --- Gallery Image Types ---
+
+export interface GalleryImageDTO {
+  id: number
+  path: string
+  fileName: string
+  dirPath: string
+  size: number
+  sizeHuman: string
+  modTime: string
+  thumbnail?: string
+}
+
+export interface GalleryImagesResponse {
+  images: GalleryImageDTO[]
+  totalImages: number
+  currentPage: number
+  pageSize: number
+  totalPages: number
+  hasNextPage: boolean
+}

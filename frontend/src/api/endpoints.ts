@@ -1,4 +1,4 @@
-import { apiGet, apiPost } from "./client"
+import { apiGet, apiPost, apiDelete } from "./client"
 import type {
   DuplicatesResponse,
   ScanResponse,
@@ -11,6 +11,11 @@ import type {
   FolderPatternsResponse,
   BatchDeleteRequest,
   BatchDeleteResponse,
+  GalleryFoldersResponse,
+  AddFolderRequest,
+  AddFolderResponse,
+  RemoveFolderResponse,
+  GalleryImagesResponse,
 } from "@/types"
 
 export function fetchDuplicates(page: number, pageSize: number): Promise<DuplicatesResponse> {
@@ -46,4 +51,32 @@ export function fetchFolderPatterns(): Promise<FolderPatternsResponse> {
 
 export function batchDelete(req: BatchDeleteRequest): Promise<BatchDeleteResponse> {
   return apiPost<BatchDeleteResponse>("/api/batch-delete", req)
+}
+
+// --- Gallery Folders ---
+
+export function fetchFolders(): Promise<GalleryFoldersResponse> {
+  return apiGet<GalleryFoldersResponse>("/api/folders")
+}
+
+export function addFolder(req: AddFolderRequest): Promise<AddFolderResponse> {
+  return apiPost<AddFolderResponse>("/api/folders", req)
+}
+
+export function removeFolder(id: number): Promise<RemoveFolderResponse> {
+  return apiDelete<RemoveFolderResponse>(`/api/folders/${id}`)
+}
+
+// --- Gallery Images ---
+
+export function fetchGalleryImages(
+  page: number,
+  pageSize: number,
+  view: string
+): Promise<GalleryImagesResponse> {
+  return apiGet<GalleryImagesResponse>("/api/gallery", {
+    page: String(page),
+    pageSize: String(pageSize),
+    view,
+  })
 }

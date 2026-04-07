@@ -19,17 +19,15 @@ import (
 type Server struct {
 	db             *gorm.DB
 	thumbnailCache *ThumbnailCache
-	scanDirs       []string
 	scanManager    *ScanManager
 	config         *AppConfig
 }
 
 // NewServer creates a new server instance
-func NewServer(db *gorm.DB, scanDirs []string, scanManager *ScanManager, config *AppConfig) *Server {
+func NewServer(db *gorm.DB, scanManager *ScanManager, config *AppConfig) *Server {
 	return &Server{
 		db:             db,
 		thumbnailCache: NewThumbnailCache(),
-		scanDirs:       scanDirs,
 		scanManager:    scanManager,
 		config:         config,
 	}
@@ -134,12 +132,20 @@ func (s *Server) handleGetDuplicates(c *gin.Context) {
 
 	wg.Wait()
 
+	// Get scanned dirs from gallery folders
+	var galleryFolders []GalleryFolder
+	s.db.Order("created_at").Find(&galleryFolders)
+	scannedDirs := make([]string, len(galleryFolders))
+	for i, f := range galleryFolders {
+		scannedDirs[i] = f.Path
+	}
+
 	response := DuplicatesResponse{
 		Groups:      groupDTOs,
 		TotalFiles:  totalFiles,
 		PageFiles:   pageFiles,
 		TotalGroups: totalGroups,
-		ScannedDirs: s.scanDirs,
+		ScannedDirs: scannedDirs,
 		CurrentPage: page,
 		PageSize:    pageSize,
 		TotalPages:  totalPages,
@@ -542,6 +548,221 @@ func (s *Server) handleBatchDelete(c *gin.Context) {
 	})
 }
 
+// --- Gallery Folder Handlers ---
+
+// handleGetFolders returns all gallery folders
+func (s *Server) handleGetFolders(c *gin.Context) {
+	var folders []GalleryFolder
+	s.db.Order("created_at").Find(&folders)
+
+	folderDTOs := make([]GalleryFolderDTO, len(folders))
+	for i, f := range folders {
+		var count int64
+		prefix := f.Path + "/"
+		s.db.Model(&ImageFile{}).Where("path LIKE ?", prefix+"%").Count(&count)
+
+		folderDTOs[i] = GalleryFolderDTO{
+			ID:        f.ID,
+			Path:      f.Path,
+			FileCount: int(count),
+			CreatedAt: f.CreatedAt.Format("2006-01-02 15:04:05"),
+		}
+	}
+
+	c.JSON(http.StatusOK, GalleryFoldersResponse{
+		Folders:      folderDTOs,
+		TotalFolders: len(folderDTOs),
+	})
+}
+
+// handleAddFolder adds a new gallery folder and triggers a scan
+func (s *Server) handleAddFolder(c *gin.Context) {
+	var req AddFolderRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Path is required"})
+		return
+	}
+
+	// Validate directory exists
+	absPath, err := filepath.Abs(req.Path)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Invalid path: %v", err)})
+		return
+	}
+
+	info, err := os.Stat(absPath)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Cannot access path: %v", err)})
+		return
+	}
+	if !info.IsDir() {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Path is not a directory"})
+		return
+	}
+
+	normalizedPath := filepath.ToSlash(absPath)
+
+	folder := GalleryFolder{Path: normalizedPath}
+	if result := s.db.Create(&folder); result.Error != nil {
+		if strings.Contains(result.Error.Error(), "duplicate") || strings.Contains(result.Error.Error(), "UNIQUE") {
+			c.JSON(http.StatusConflict, gin.H{"error": "This folder is already in the gallery"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to add folder: %v", result.Error)})
+		return
+	}
+
+	// Trigger background scan for this folder
+	scanStarted := true
+	if err := s.scanManager.ScanSingleDir(normalizedPath); err != nil {
+		scanStarted = false
+	}
+
+	c.JSON(http.StatusOK, AddFolderResponse{
+		Message: "Folder added to gallery",
+		Folder: GalleryFolderDTO{
+			ID:        folder.ID,
+			Path:      folder.Path,
+			FileCount: 0,
+			CreatedAt: folder.CreatedAt.Format("2006-01-02 15:04:05"),
+		},
+		ScanStarted: scanStarted,
+	})
+}
+
+// handleRemoveFolder removes a gallery folder and its files from the database
+func (s *Server) handleRemoveFolder(c *gin.Context) {
+	id := c.Param("id")
+
+	var folder GalleryFolder
+	if result := s.db.First(&folder, id); result.Error != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Folder not found"})
+		return
+	}
+
+	// Delete all image files under this folder
+	prefix := folder.Path + "/"
+	result := s.db.Where("path LIKE ?", prefix+"%").Delete(&ImageFile{})
+	filesRemoved := int(result.RowsAffected)
+
+	// Delete the folder record
+	s.db.Delete(&folder)
+
+	c.JSON(http.StatusOK, RemoveFolderResponse{
+		Message:      "Folder removed from gallery",
+		FilesRemoved: filesRemoved,
+	})
+}
+
+// handleGetGalleryImages returns paginated gallery images
+func (s *Server) handleGetGalleryImages(c *gin.Context) {
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("pageSize", "50"))
+	view := c.DefaultQuery("view", "list")
+
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 200 {
+		pageSize = 50
+	}
+
+	var totalImages int64
+	s.db.Model(&ImageFile{}).Count(&totalImages)
+
+	totalPages := (int(totalImages) + pageSize - 1) / pageSize
+	if totalPages < 1 {
+		totalPages = 1
+	}
+	if page > totalPages {
+		page = totalPages
+	}
+
+	offset := (page - 1) * pageSize
+
+	var files []ImageFile
+	s.db.Order("path").Offset(offset).Limit(pageSize).Find(&files)
+
+	imageDTOs := make([]GalleryImageDTO, len(files))
+	for i, f := range files {
+		imageDTOs[i] = GalleryImageDTO{
+			ID:        f.ID,
+			Path:      f.Path,
+			FileName:  filepath.Base(f.Path),
+			DirPath:   filepath.Dir(f.Path),
+			Size:      f.Size,
+			SizeHuman: formatSize(f.Size),
+			ModTime:   f.ModTime.Format("2006-01-02 15:04:05"),
+		}
+	}
+
+	// Generate thumbnails in parallel if thumbnail view
+	if view == "thumbnails" && len(files) > 0 {
+		const maxWorkers = 16
+		var wg sync.WaitGroup
+		semaphore := make(chan struct{}, maxWorkers)
+
+		for i, f := range files {
+			wg.Add(1)
+			go func(idx int, filePath string) {
+				defer wg.Done()
+				semaphore <- struct{}{}
+				defer func() { <-semaphore }()
+
+				thumb, err := generateThumbnail(filePath, s.thumbnailCache)
+				if err == nil {
+					imageDTOs[idx].Thumbnail = thumb
+				}
+			}(i, f.Path)
+		}
+		wg.Wait()
+	}
+
+	c.JSON(http.StatusOK, GalleryImagesResponse{
+		Images:      imageDTOs,
+		TotalImages: int(totalImages),
+		CurrentPage: page,
+		PageSize:    pageSize,
+		TotalPages:  totalPages,
+		HasNextPage: page < totalPages,
+	})
+}
+
+// handleServeImage serves a full-size image file
+func (s *Server) handleServeImage(c *gin.Context) {
+	path := c.Query("path")
+	if path == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Path required"})
+		return
+	}
+
+	// Security: verify the path is within a gallery folder
+	var folders []GalleryFolder
+	s.db.Find(&folders)
+
+	allowed := false
+	for _, f := range folders {
+		if strings.HasPrefix(path, f.Path+"/") || strings.HasPrefix(path, f.Path+"\\") {
+			allowed = true
+			break
+		}
+	}
+	if !allowed {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Access denied: path is not within a gallery folder"})
+		return
+	}
+
+	// Convert slash path to OS path for file serving
+	osPath := filepath.FromSlash(path)
+
+	if _, err := os.Stat(osPath); os.IsNotExist(err) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "File not found"})
+		return
+	}
+
+	c.File(osPath)
+}
+
 // SetupRouter sets up the Gin router with all API routes
 func (s *Server) SetupRouter() *gin.Engine {
 	gin.SetMode(gin.ReleaseMode)
@@ -561,6 +782,11 @@ func (s *Server) SetupRouter() *gin.Engine {
 		api.GET("/thumbnail", s.handleThumbnail)
 		api.GET("/folder-patterns", s.handleGetFolderPatterns)
 		api.POST("/batch-delete", s.handleBatchDelete)
+		api.GET("/folders", s.handleGetFolders)
+		api.POST("/folders", s.handleAddFolder)
+		api.DELETE("/folders/:id", s.handleRemoveFolder)
+		api.GET("/gallery", s.handleGetGalleryImages)
+		api.GET("/image", s.handleServeImage)
 	}
 
 	return r

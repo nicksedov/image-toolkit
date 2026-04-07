@@ -1,173 +1,83 @@
-import { useCallback, useMemo, useState } from "react"
-import { Toaster, toast } from "sonner"
+import { useCallback, useEffect, useState } from "react"
+import { Toaster } from "sonner"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Header } from "@/components/layout/Header"
-import { Toolbar } from "@/components/layout/Toolbar"
-import { DuplicateGroupList } from "@/components/duplicates/DuplicateGroupList"
-import { Pagination } from "@/components/pagination/Pagination"
-import { EmptyState } from "@/components/EmptyState"
-import { ScanProgressBanner } from "@/components/ScanProgressBanner"
-import { GenerateScriptModal } from "@/components/modals/GenerateScriptModal"
-import { DeleteFilesModal } from "@/components/modals/DeleteFilesModal"
-import { BatchDeduplicationModal } from "@/components/modals/BatchDeduplicationModal"
-import { useDuplicates } from "@/hooks/useDuplicates"
-import { useSelection } from "@/hooks/useSelection"
-import { useScanStatus } from "@/hooks/useScanStatus"
-import { triggerScan } from "@/api/endpoints"
-import { DEFAULT_PAGE_SIZE } from "@/lib/constants"
-import { Skeleton } from "@/components/ui/skeleton"
-import type { FileDTO } from "@/types"
+import { SettingsTab } from "@/components/tabs/SettingsTab"
+import { GalleryTab } from "@/components/tabs/GalleryTab"
+import { DeduplicationTab } from "@/components/tabs/DeduplicationTab"
+import { fetchFolders } from "@/api/endpoints"
+import { Settings, ImageIcon, FileScan } from "lucide-react"
 
 export default function App() {
-  const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
-  const { data, isLoading, error, refetch } = useDuplicates(page, pageSize)
-  const selection = useSelection()
-  const { status, startPolling, setOnScanComplete } = useScanStatus()
+  const [activeTab, setActiveTab] = useState<string>("deduplication")
+  const [isCheckingGallery, setIsCheckingGallery] = useState(true)
 
-  // Modals
-  const [generateModalOpen, setGenerateModalOpen] = useState(false)
-  const [deleteModalOpen, setDeleteModalOpen] = useState(false)
-  const [batchModalOpen, setBatchModalOpen] = useState(false)
-
-  // Collect all files from current page for folder selection
-  const allFiles: FileDTO[] = useMemo(() => {
-    if (!data) return []
-    return data.groups.flatMap((g) => g.files)
-  }, [data])
-
-  const handleRescan = useCallback(async () => {
-    try {
-      await triggerScan()
-      toast.success("Scan started")
-      setOnScanComplete(() => {
-        refetch()
-        selection.reset()
-        toast.success("Scan complete!")
-      })
-      startPolling()
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to start scan")
+  // On mount, check if gallery has folders. If not, force settings tab.
+  useEffect(() => {
+    async function checkGallery() {
+      try {
+        const result = await fetchFolders()
+        if (result.totalFolders === 0) {
+          setActiveTab("settings")
+        }
+      } catch {
+        // If API fails, still allow normal navigation
+      } finally {
+        setIsCheckingGallery(false)
+      }
     }
-  }, [startPolling, setOnScanComplete, refetch, selection])
-
-  const handlePageSizeChange = useCallback((size: number) => {
-    setPageSize(size)
-    setPage(1)
+    checkGallery()
   }, [])
 
-  const handlePageChange = useCallback((newPage: number) => {
-    setPage(newPage)
+  const handleFolderAdded = useCallback(() => {
+    // Gallery is no longer empty -- user can now switch tabs freely
   }, [])
 
-  const handleSelectFolder = useCallback(
-    (dirPath: string, files: FileDTO[]) => {
-      selection.selectByFolder(dirPath, files)
-    },
-    [selection]
-  )
-
-  const handleMutationComplete = useCallback(() => {
-    selection.reset()
-    refetch()
-  }, [selection, refetch])
-
-  const handleSuccess = useCallback((message: string) => {
-    toast.success(message)
-  }, [])
-
-  const handleError = useCallback((message: string) => {
-    toast.error(message)
-  }, [])
+  if (isCheckingGallery) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <div className="flex items-center justify-center py-20">
+          <div className="text-sm text-muted-foreground">Loading...</div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-background">
-      <Header data={data} />
+      <Header />
 
-      <main className="mx-auto max-w-7xl px-4 py-4 sm:px-6 space-y-4">
-        <Toolbar
-          selectedCount={selection.selectedCount}
-          pageSize={pageSize}
-          onPageSizeChange={handlePageSizeChange}
-          onRescan={handleRescan}
-          onResetSelection={selection.reset}
-          onOpenGenerateScript={() => {
-            if (selection.selectedCount === 0) {
-              toast.error("Please select at least one file.")
-              return
-            }
-            setGenerateModalOpen(true)
-          }}
-          onOpenDeleteFiles={() => {
-            if (selection.selectedCount === 0) {
-              toast.error("Please select at least one file.")
-              return
-            }
-            setDeleteModalOpen(true)
-          }}
-          onOpenBatchDedup={() => setBatchModalOpen(true)}
-          isScanning={status.scanning}
-        />
+      <main className="mx-auto max-w-7xl px-4 py-4 sm:px-6">
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="mb-4">
+            <TabsTrigger value="settings" className="gap-1.5">
+              <Settings className="h-3.5 w-3.5" />
+              Settings
+            </TabsTrigger>
+            <TabsTrigger value="gallery" className="gap-1.5">
+              <ImageIcon className="h-3.5 w-3.5" />
+              Gallery
+            </TabsTrigger>
+            <TabsTrigger value="deduplication" className="gap-1.5">
+              <FileScan className="h-3.5 w-3.5" />
+              Deduplication
+            </TabsTrigger>
+          </TabsList>
 
-        <ScanProgressBanner status={status} />
+          <TabsContent value="settings">
+            <SettingsTab onFolderAdded={handleFolderAdded} />
+          </TabsContent>
 
-        {error && (
-          <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
-            {error}
-          </div>
-        )}
+          <TabsContent value="gallery">
+            <GalleryTab />
+          </TabsContent>
 
-        {isLoading ? (
-          <div className="space-y-3">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <Skeleton key={i} className="h-40 w-full rounded-lg" />
-            ))}
-          </div>
-        ) : data && data.groups.length > 0 ? (
-          <>
-            <DuplicateGroupList
-              groups={data.groups}
-              allFiles={allFiles}
-              isSelected={selection.isSelected}
-              onToggleFile={selection.toggle}
-              onSelectFolder={handleSelectFolder}
-            />
-            <Pagination
-              currentPage={data.currentPage}
-              totalPages={data.totalPages}
-              hasPrevPage={data.hasPrevPage}
-              hasNextPage={data.hasNextPage}
-              onPageChange={handlePageChange}
-            />
-          </>
-        ) : (
-          <EmptyState />
-        )}
+          <TabsContent value="deduplication">
+            <DeduplicationTab />
+          </TabsContent>
+        </Tabs>
       </main>
-
-      <GenerateScriptModal
-        open={generateModalOpen}
-        onOpenChange={setGenerateModalOpen}
-        selectedPaths={selection.selectedPaths}
-        onSuccess={handleSuccess}
-        onError={handleError}
-      />
-
-      <DeleteFilesModal
-        open={deleteModalOpen}
-        onOpenChange={setDeleteModalOpen}
-        selectedPaths={selection.selectedPaths}
-        onSuccess={handleSuccess}
-        onError={handleError}
-        onComplete={handleMutationComplete}
-      />
-
-      <BatchDeduplicationModal
-        open={batchModalOpen}
-        onOpenChange={setBatchModalOpen}
-        onSuccess={handleSuccess}
-        onError={handleError}
-        onComplete={handleMutationComplete}
-      />
 
       <Toaster richColors position="top-right" />
     </div>

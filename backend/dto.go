@@ -124,3 +124,61 @@ type BatchDeleteResponse struct {
 type ThumbnailResponse struct {
 	Thumbnail string `json:"thumbnail"`
 }
+
+// --- Gallery Folders API ---
+
+// GalleryFolderDTO represents a gallery folder in JSON responses
+type GalleryFolderDTO struct {
+	ID        uint   `json:"id"`
+	Path      string `json:"path"`
+	FileCount int    `json:"fileCount"`
+	CreatedAt string `json:"createdAt"`
+}
+
+// GalleryFoldersResponse is the JSON response for GET /api/folders
+type GalleryFoldersResponse struct {
+	Folders      []GalleryFolderDTO `json:"folders"`
+	TotalFolders int                `json:"totalFolders"`
+}
+
+// AddFolderRequest represents the request for adding a gallery folder
+type AddFolderRequest struct {
+	Path string `json:"path" binding:"required"`
+}
+
+// AddFolderResponse is the JSON response for POST /api/folders
+type AddFolderResponse struct {
+	Message     string           `json:"message"`
+	Folder      GalleryFolderDTO `json:"folder"`
+	ScanStarted bool             `json:"scanStarted"`
+}
+
+// RemoveFolderResponse is the JSON response for DELETE /api/folders/:id
+type RemoveFolderResponse struct {
+	Message      string `json:"message"`
+	FilesRemoved int    `json:"filesRemoved"`
+}
+
+// --- Gallery Images API ---
+
+// GalleryImageDTO represents an image in the gallery browser
+type GalleryImageDTO struct {
+	ID        uint   `json:"id"`
+	Path      string `json:"path"`
+	FileName  string `json:"fileName"`
+	DirPath   string `json:"dirPath"`
+	Size      int64  `json:"size"`
+	SizeHuman string `json:"sizeHuman"`
+	ModTime   string `json:"modTime"`
+	Thumbnail string `json:"thumbnail,omitempty"`
+}
+
+// GalleryImagesResponse is the JSON response for GET /api/gallery
+type GalleryImagesResponse struct {
+	Images      []GalleryImageDTO `json:"images"`
+	TotalImages int               `json:"totalImages"`
+	CurrentPage int               `json:"currentPage"`
+	PageSize    int               `json:"pageSize"`
+	TotalPages  int               `json:"totalPages"`
+	HasNextPage bool              `json:"hasNextPage"`
+}

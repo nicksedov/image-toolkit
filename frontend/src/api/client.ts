@@ -33,3 +33,17 @@ export async function apiPost<T>(path: string, body?: unknown): Promise<T> {
 
   return data as T
 }
+
+export async function apiDelete<T>(path: string): Promise<T> {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method: "DELETE",
+  })
+
+  const data = await response.json()
+
+  if (!response.ok) {
+    throw new Error(data.error || `Request failed with status ${response.status}`)
+  }
+
+  return data as T
+}
