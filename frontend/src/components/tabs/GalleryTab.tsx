@@ -6,6 +6,7 @@ import { ImageLightbox } from "@/components/gallery/ImageLightbox"
 import { useGalleryImages } from "@/hooks/useGalleryImages"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Grid3X3, List, ImageIcon } from "lucide-react"
+import { useTranslation } from "@/i18n"
 import type { GalleryImageDTO } from "@/types"
 
 export function GalleryTab() {
@@ -13,6 +14,7 @@ export function GalleryTab() {
   const [selectedImage, setSelectedImage] = useState<string | null>(null)
   const { images, totalImages, hasMore, isLoading, error, initialized, loadMore, reset } =
     useGalleryImages(viewMode)
+  const { t } = useTranslation()
 
   const sentinelRef = useRef<HTMLDivElement>(null)
 
@@ -59,7 +61,9 @@ export function GalleryTab() {
         <div className="flex items-center gap-2">
           <ImageIcon className="h-5 w-5 text-muted-foreground" />
           <span className="text-sm text-muted-foreground">
-            {totalImages.toLocaleString()} image{totalImages !== 1 ? "s" : ""} in gallery
+            {totalImages === 1
+              ? t("gallery.imageCountOne", { count: totalImages.toLocaleString() })
+              : t("gallery.imageCount", { count: totalImages.toLocaleString() })}
           </span>
         </div>
         <div className="flex items-center gap-1 rounded-md border p-0.5">
@@ -70,7 +74,7 @@ export function GalleryTab() {
             onClick={() => handleViewModeChange("thumbnails")}
           >
             <Grid3X3 className="h-3.5 w-3.5 mr-1" />
-            Thumbnails
+            {t("gallery.thumbnails")}
           </Button>
           <Button
             variant={viewMode === "list" ? "default" : "ghost"}
@@ -79,7 +83,7 @@ export function GalleryTab() {
             onClick={() => handleViewModeChange("list")}
           >
             <List className="h-3.5 w-3.5 mr-1" />
-            List
+            {t("gallery.list")}
           </Button>
         </div>
       </div>
@@ -100,10 +104,10 @@ export function GalleryTab() {
         <div className="rounded-lg border border-dashed p-12 text-center">
           <ImageIcon className="mx-auto h-10 w-10 text-muted-foreground/50" />
           <p className="mt-2 text-sm font-medium text-muted-foreground">
-            No images in the gallery
+            {t("gallery.empty")}
           </p>
           <p className="text-xs text-muted-foreground/70">
-            Add folders in the Settings tab to start browsing images.
+            {t("gallery.emptyHint")}
           </p>
         </div>
       ) : (
@@ -119,13 +123,13 @@ export function GalleryTab() {
 
           {isLoading && (
             <div className="flex justify-center py-4">
-              <div className="text-sm text-muted-foreground">Loading more images...</div>
+              <div className="text-sm text-muted-foreground">{t("gallery.loadingMore")}</div>
             </div>
           )}
 
           {!hasMore && images.length > 0 && (
             <div className="text-center text-xs text-muted-foreground py-4">
-              All {totalImages.toLocaleString()} images loaded
+              {t("gallery.allLoaded", { count: totalImages.toLocaleString() })}
             </div>
           )}
         </>

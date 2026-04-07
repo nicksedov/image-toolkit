@@ -14,6 +14,7 @@ import { useScanStatus } from "@/hooks/useScanStatus"
 import { triggerScan } from "@/api/endpoints"
 import { DEFAULT_PAGE_SIZE } from "@/lib/constants"
 import { Skeleton } from "@/components/ui/skeleton"
+import { useTranslation } from "@/i18n"
 import type { FileDTO } from "@/types"
 
 export function DeduplicationTab() {
@@ -22,6 +23,7 @@ export function DeduplicationTab() {
   const { data, isLoading, error, refetch } = useDuplicates(page, pageSize)
   const selection = useSelection()
   const { status, startPolling, setOnScanComplete } = useScanStatus()
+  const { t } = useTranslation()
 
   // Modals
   const [generateModalOpen, setGenerateModalOpen] = useState(false)
@@ -37,17 +39,17 @@ export function DeduplicationTab() {
   const handleRescan = useCallback(async () => {
     try {
       await triggerScan()
-      toast.success("Scan started")
+      toast.success(t("dedup.toastScanStarted"))
       setOnScanComplete(() => {
         refetch()
         selection.reset()
-        toast.success("Scan complete!")
+        toast.success(t("dedup.toastScanComplete"))
       })
       startPolling()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to start scan")
+      toast.error(err instanceof Error ? err.message : t("dedup.toastScanFailed"))
     }
-  }, [startPolling, setOnScanComplete, refetch, selection])
+  }, [startPolling, setOnScanComplete, refetch, selection, t])
 
   const handlePageSizeChange = useCallback((size: number) => {
     setPageSize(size)
@@ -88,14 +90,14 @@ export function DeduplicationTab() {
         onResetSelection={selection.reset}
         onOpenGenerateScript={() => {
           if (selection.selectedCount === 0) {
-            toast.error("Please select at least one file.")
+            toast.error(t("dedup.toastSelectFile"))
             return
           }
           setGenerateModalOpen(true)
         }}
         onOpenDeleteFiles={() => {
           if (selection.selectedCount === 0) {
-            toast.error("Please select at least one file.")
+            toast.error(t("dedup.toastSelectFile"))
             return
           }
           setDeleteModalOpen(true)

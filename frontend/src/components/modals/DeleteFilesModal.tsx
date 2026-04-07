@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { deleteFiles } from "@/api/endpoints"
+import { useTranslation } from "@/i18n"
 
 interface DeleteFilesModalProps {
   open: boolean
@@ -26,10 +27,11 @@ export function DeleteFilesModal({
 }: DeleteFilesModalProps) {
   const [trashDir, setTrashDir] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const { t } = useTranslation()
 
   const handleDelete = async () => {
     if (!trashDir.trim()) {
-      if (!window.confirm("No trash directory specified. Files will be PERMANENTLY deleted. Continue?")) {
+      if (!window.confirm(t("deleteFiles.confirmPermanent"))) {
         return
       }
     }
@@ -41,14 +43,16 @@ export function DeleteFilesModal({
         trashDir: trashDir.trim(),
       })
       onOpenChange(false)
-      let message = `Successfully deleted ${result.success} file(s).`
+      let message: string
       if (result.failed > 0) {
-        message += ` Failed: ${result.failed}.`
+        message = t("deleteFiles.successWithFailed", { count: result.success, failed: result.failed })
+      } else {
+        message = t("deleteFiles.success", { count: result.success })
       }
       onSuccess(message)
       onComplete()
     } catch (err) {
-      onError(err instanceof Error ? err.message : "Failed to delete files")
+      onError(err instanceof Error ? err.message : t("deleteFiles.errorFailed"))
     } finally {
       setIsSubmitting(false)
     }
@@ -58,33 +62,32 @@ export function DeleteFilesModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Delete Selected Files</DialogTitle>
+          <DialogTitle>{t("deleteFiles.title")}</DialogTitle>
           <DialogDescription>
-            This action will delete <strong>{selectedPaths.length}</strong> file(s).
+            {t("deleteFiles.description", { count: selectedPaths.length })}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <div className="rounded-md bg-destructive/10 border border-destructive/20 p-3 text-sm text-destructive">
-            Warning: Deleted files cannot be easily recovered unless you specify a trash directory.
+            {t("deleteFiles.warning")}
           </div>
           <div className="space-y-2">
-            <Label htmlFor="delete-trash-dir">Trash directory (optional)</Label>
+            <Label htmlFor="delete-trash-dir">{t("deleteFiles.trashDir")}</Label>
             <Input
               id="delete-trash-dir"
-              placeholder="C:\path\to\trash (leave empty to delete permanently)"
+              placeholder={t("deleteFiles.trashPlaceholder")}
               value={trashDir}
               onChange={(e) => setTrashDir(e.target.value)}
             />
           </div>
           <p className="text-sm text-muted-foreground">
-            If a trash directory is specified, files will be moved there.
-            Otherwise, files will be permanently deleted.
+            {t("deleteFiles.hint")}
           </p>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>{t("common.cancel")}</Button>
           <Button variant="destructive" onClick={handleDelete} disabled={isSubmitting}>
-            {isSubmitting ? "Deleting..." : "Delete Files"}
+            {isSubmitting ? t("deleteFiles.deleting") : t("deleteFiles.button")}
           </Button>
         </DialogFooter>
       </DialogContent>

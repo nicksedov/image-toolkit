@@ -2,6 +2,7 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { FolderPlus } from "lucide-react"
+import { useTranslation } from "@/i18n"
 
 interface AddFolderFormProps {
   onAdd: (path: string) => Promise<void>
@@ -11,6 +12,7 @@ interface AddFolderFormProps {
 export function AddFolderForm({ onAdd, disabled }: AddFolderFormProps) {
   const [path, setPath] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const { t } = useTranslation()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -31,7 +33,7 @@ export function AddFolderForm({ onAdd, disabled }: AddFolderFormProps) {
       <Input
         value={path}
         onChange={(e) => setPath(e.target.value)}
-        placeholder="Enter folder path, e.g. C:\Photos or /home/user/photos"
+        placeholder={t("addFolder.placeholder")}
         disabled={disabled || isSubmitting}
         className="flex-1 font-mono text-sm"
       />
@@ -41,7 +43,7 @@ export function AddFolderForm({ onAdd, disabled }: AddFolderFormProps) {
         size="sm"
       >
         <FolderPlus className="mr-1.5 h-3.5 w-3.5" />
-        Add Folder
+        {t("addFolder.button")}
       </Button>
     </form>
   )

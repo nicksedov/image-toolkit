@@ -49,3 +49,11 @@ type GalleryFolder struct {
 	CreatedAt time.Time `json:"createdAt"`
 	UpdatedAt time.Time `json:"updatedAt"`
 }
+
+// AppSettings stores global application settings (singleton, ID=1)
+type AppSettings struct {
+	ID        uint      `gorm:"primaryKey" json:"id"`
+	Theme     string    `gorm:"default:light;not null" json:"theme"`
+	Language  string    `gorm:"default:en;not null" json:"language"`
+	UpdatedAt time.Time `json:"updatedAt"`
+}

@@ -182,3 +182,17 @@ type GalleryImagesResponse struct {
 	TotalPages  int               `json:"totalPages"`
 	HasNextPage bool              `json:"hasNextPage"`
 }
+
+// --- App Settings API ---
+
+// AppSettingsDTO is the JSON response for GET /api/settings
+type AppSettingsDTO struct {
+	Theme    string `json:"theme"`
+	Language string `json:"language"`
+}
+
+// UpdateSettingsRequest is the JSON request for PUT /api/settings
+type UpdateSettingsRequest struct {
+	Theme    string `json:"theme"`
+	Language string `json:"language"`
+}

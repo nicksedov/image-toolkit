@@ -1,0 +1,84 @@
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
+import { ThemeProvider, type Theme } from "@/theme"
+import { I18nProvider, type Language } from "@/i18n"
+import { fetchSettings, updateSettings } from "@/api/endpoints"
+import { SettingsContext } from "./settingsContext"
+
+interface SettingsProviderProps {
+  children: ReactNode
+}
+
+export function SettingsProvider({ children }: SettingsProviderProps) {
+  const [theme, setThemeState] = useState<Theme>("light")
+  const [language, setLanguageState] = useState<Language>("en")
+  const [isLoading, setIsLoading] = useState(true)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    fetchSettings()
+      .then((settings) => {
+        setThemeState(settings.theme)
+        setLanguageState(settings.language)
+      })
+      .catch(() => {
+        // Use defaults on failure
+      })
+      .finally(() => setIsLoading(false))
+  }, [])
+
+  const persistSettings = useCallback((newTheme: Theme, newLanguage: Language) => {
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current)
+    }
+    debounceRef.current = setTimeout(() => {
+      updateSettings({ theme: newTheme, language: newLanguage }).catch(() => {
+        // Silently fail - UI already updated
+      })
+    }, 300)
+  }, [])
+
+  const setTheme = useCallback(
+    (newTheme: Theme) => {
+      setThemeState(newTheme)
+      setLanguageState((lang) => {
+        persistSettings(newTheme, lang)
+        return lang
+      })
+    },
+    [persistSettings]
+  )
+
+  const toggleTheme = useCallback(() => {
+    setThemeState((prev) => {
+      const next = prev === "light" ? "dark" : "light"
+      setLanguageState((lang) => {
+        persistSettings(next, lang)
+        return lang
+      })
+      return next
+    })
+  }, [persistSettings])
+
+  const setLanguage = useCallback(
+    (newLanguage: Language) => {
+      setLanguageState(newLanguage)
+      setThemeState((th) => {
+        persistSettings(th, newLanguage)
+        return th
+      })
+    },
+    [persistSettings]
+  )
+
+  return (
+    <SettingsContext.Provider
+      value={{ theme, setTheme, toggleTheme, language, setLanguage, isLoading }}
+    >
+      <ThemeProvider theme={theme}>
+        <I18nProvider language={language}>
+          {children}
+        </I18nProvider>
+      </ThemeProvider>
+    </SettingsContext.Provider>
+  )
+}

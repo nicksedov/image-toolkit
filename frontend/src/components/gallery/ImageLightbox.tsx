@@ -6,6 +6,7 @@ import {
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden"
 import { Button } from "@/components/ui/button"
 import { X } from "lucide-react"
+import { useTranslation } from "@/i18n"
 
 interface ImageLightboxProps {
   imagePath: string | null
@@ -15,6 +16,8 @@ interface ImageLightboxProps {
 const API_BASE_URL = import.meta.env.VITE_API_URL || ""
 
 export function ImageLightbox({ imagePath, onClose }: ImageLightboxProps) {
+  const { t } = useTranslation()
+
   if (!imagePath) return null
 
   const imageUrl = `${API_BASE_URL}/api/image?path=${encodeURIComponent(imagePath)}`
@@ -23,7 +26,7 @@ export function ImageLightbox({ imagePath, onClose }: ImageLightboxProps) {
     <Dialog open={!!imagePath} onOpenChange={() => onClose()}>
       <DialogContent className="max-w-[90vw] max-h-[90vh] p-0 overflow-hidden">
         <VisuallyHidden>
-          <DialogTitle>Image preview</DialogTitle>
+          <DialogTitle>{t("lightbox.title")}</DialogTitle>
         </VisuallyHidden>
         <Button
           variant="ghost"
@@ -36,7 +39,7 @@ export function ImageLightbox({ imagePath, onClose }: ImageLightboxProps) {
         <div className="flex items-center justify-center bg-black min-h-[300px]">
           <img
             src={imageUrl}
-            alt="Full size preview"
+            alt={t("lightbox.alt")}
             className="max-w-full max-h-[85vh] object-contain"
           />
         </div>

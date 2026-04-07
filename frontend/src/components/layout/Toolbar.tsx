@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { PAGE_SIZES } from "@/lib/constants"
 import { RefreshCw, RotateCcw, FileCode, Trash2, Layers } from "lucide-react"
+import { useTranslation } from "@/i18n"
 
 interface ToolbarProps {
   selectedCount: number
@@ -27,35 +28,41 @@ export function Toolbar({
   onOpenBatchDedup,
   isScanning,
 }: ToolbarProps) {
+  const { t } = useTranslation()
+
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-card p-3">
       <Button size="sm" onClick={onRescan} disabled={isScanning}>
         <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${isScanning ? "animate-spin" : ""}`} />
-        Rescan
+        {t("toolbar.rescan")}
       </Button>
       <Button size="sm" variant="outline" onClick={onResetSelection}>
         <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
-        Reset Selection
+        {t("toolbar.resetSelection")}
       </Button>
       <Button size="sm" variant="outline" onClick={onOpenGenerateScript} disabled={selectedCount === 0}>
         <FileCode className="mr-1.5 h-3.5 w-3.5" />
-        Generate Script
+        {t("toolbar.generateScript")}
       </Button>
       <Button size="sm" variant="destructive" onClick={onOpenDeleteFiles} disabled={selectedCount === 0}>
         <Trash2 className="mr-1.5 h-3.5 w-3.5" />
-        Delete Selected
+        {t("toolbar.deleteSelected")}
       </Button>
       <Button size="sm" variant="outline" onClick={onOpenBatchDedup}>
         <Layers className="mr-1.5 h-3.5 w-3.5" />
-        Batch Dedup
+        {t("toolbar.batchDedup")}
       </Button>
 
       <div className="ml-auto flex items-center gap-3">
         {selectedCount > 0 && (
-          <Badge variant="secondary">{selectedCount} file{selectedCount !== 1 ? "s" : ""} selected</Badge>
+          <Badge variant="secondary">
+            {selectedCount === 1
+              ? t("toolbar.filesSelectedOne", { count: selectedCount })
+              : t("toolbar.filesSelected", { count: selectedCount })}
+          </Badge>
         )}
         <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground whitespace-nowrap">Groups per page:</span>
+          <span className="text-xs text-muted-foreground whitespace-nowrap">{t("toolbar.groupsPerPage")}</span>
           <Select value={String(pageSize)} onValueChange={(v) => onPageSizeChange(Number(v))}>
             <SelectTrigger className="w-20 h-8 text-xs">
               <SelectValue />

@@ -1,4 +1,4 @@
-import { apiGet, apiPost, apiDelete } from "./client"
+import { apiGet, apiPost, apiDelete, apiPut } from "./client"
 import type {
   DuplicatesResponse,
   ScanResponse,
@@ -16,6 +16,8 @@ import type {
   AddFolderResponse,
   RemoveFolderResponse,
   GalleryImagesResponse,
+  AppSettingsDTO,
+  UpdateSettingsRequest,
 } from "@/types"
 
 export function fetchDuplicates(page: number, pageSize: number): Promise<DuplicatesResponse> {
@@ -79,4 +81,14 @@ export function fetchGalleryImages(
     pageSize: String(pageSize),
     view,
   })
+}
+
+// --- App Settings ---
+
+export function fetchSettings(): Promise<AppSettingsDTO> {
+  return apiGet<AppSettingsDTO>("/api/settings")
+}
+
+export function updateSettings(req: UpdateSettingsRequest): Promise<AppSettingsDTO> {
+  return apiPut<AppSettingsDTO>("/api/settings", req)
 }

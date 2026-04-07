@@ -1,5 +1,6 @@
 import { Skeleton } from "@/components/ui/skeleton"
 import { ImageOff } from "lucide-react"
+import { useTranslation } from "@/i18n"
 
 interface ThumbnailImageProps {
   src: string
@@ -7,6 +8,8 @@ interface ThumbnailImageProps {
 }
 
 export function ThumbnailImage({ src, isLoading }: ThumbnailImageProps) {
+  const { t } = useTranslation()
+
   if (isLoading) {
     return <Skeleton className="h-32 w-32 rounded-md" />
   }
@@ -22,7 +25,7 @@ export function ThumbnailImage({ src, isLoading }: ThumbnailImageProps) {
   return (
     <img
       src={src}
-      alt="Thumbnail"
+      alt={t("thumbnail.alt")}
       className="h-32 w-32 rounded-md object-cover border bg-muted"
     />
   )

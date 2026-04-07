@@ -763,6 +763,61 @@ func (s *Server) handleServeImage(c *gin.Context) {
 	c.File(osPath)
 }
 
+// --- App Settings Handlers ---
+
+// handleGetSettings returns the current application settings
+func (s *Server) handleGetSettings(c *gin.Context) {
+	var settings AppSettings
+	if result := s.db.First(&settings, 1); result.Error != nil {
+		c.JSON(http.StatusOK, AppSettingsDTO{Theme: "light", Language: "en"})
+		return
+	}
+	c.JSON(http.StatusOK, AppSettingsDTO{
+		Theme:    settings.Theme,
+		Language: settings.Language,
+	})
+}
+
+// handleUpdateSettings updates the application settings
+func (s *Server) handleUpdateSettings(c *gin.Context) {
+	var req UpdateSettingsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	validThemes := map[string]bool{"light": true, "dark": true}
+	validLanguages := map[string]bool{"en": true, "ru": true}
+
+	if req.Theme != "" && !validThemes[req.Theme] {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid theme. Must be 'light' or 'dark'"})
+		return
+	}
+	if req.Language != "" && !validLanguages[req.Language] {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid language. Must be 'en' or 'ru'"})
+		return
+	}
+
+	var settings AppSettings
+	if result := s.db.First(&settings, 1); result.Error != nil {
+		settings = AppSettings{ID: 1, Theme: "light", Language: "en"}
+	}
+
+	if req.Theme != "" {
+		settings.Theme = req.Theme
+	}
+	if req.Language != "" {
+		settings.Language = req.Language
+	}
+
+	s.db.Save(&settings)
+
+	c.JSON(http.StatusOK, AppSettingsDTO{
+		Theme:    settings.Theme,
+		Language: settings.Language,
+	})
+}
+
 // SetupRouter sets up the Gin router with all API routes
 func (s *Server) SetupRouter() *gin.Engine {
 	gin.SetMode(gin.ReleaseMode)
@@ -787,6 +842,8 @@ func (s *Server) SetupRouter() *gin.Engine {
 		api.DELETE("/folders/:id", s.handleRemoveFolder)
 		api.GET("/gallery", s.handleGetGalleryImages)
 		api.GET("/image", s.handleServeImage)
+		api.GET("/settings", s.handleGetSettings)
+		api.PUT("/settings", s.handleUpdateSettings)
 	}
 
 	return r

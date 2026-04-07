@@ -1,4 +1,5 @@
 import { Checkbox } from "@/components/ui/checkbox"
+import { useTranslation } from "@/i18n"
 import type { FileDTO } from "@/types"
 import { Folder } from "lucide-react"
 
@@ -10,6 +11,8 @@ interface FileItemProps {
 }
 
 export function FileItem({ file, isSelected, onToggle, onSelectFolder }: FileItemProps) {
+  const { t } = useTranslation()
+
   return (
     <div
       className={`flex items-start gap-3 rounded-md px-3 py-2 transition-colors ${
@@ -26,13 +29,13 @@ export function FileItem({ file, isSelected, onToggle, onSelectFolder }: FileIte
         <button
           className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors truncate max-w-full text-left"
           onClick={() => onSelectFolder(file.dirPath)}
-          title="Click to select all files from this folder"
+          title={t("fileItem.selectFolder")}
           type="button"
         >
           <Folder className="h-3 w-3 shrink-0" />
           <span className="truncate">{file.dirPath}</span>
         </button>
-        <div className="text-xs text-muted-foreground mt-0.5">Modified: {file.modTime}</div>
+        <div className="text-xs text-muted-foreground mt-0.5">{t("fileItem.modified", { date: file.modTime })}</div>
       </div>
     </div>
   )

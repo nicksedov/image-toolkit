@@ -1,3 +1,4 @@
+import { useTranslation } from "@/i18n"
 import type { GalleryImageDTO } from "@/types"
 
 interface GalleryImageGridProps {
@@ -6,6 +7,8 @@ interface GalleryImageGridProps {
 }
 
 export function GalleryImageGrid({ images, onImageClick }: GalleryImageGridProps) {
+  const { t } = useTranslation()
+
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2">
       {images.map((image) => (
@@ -23,7 +26,7 @@ export function GalleryImageGrid({ images, onImageClick }: GalleryImageGridProps
             />
           ) : (
             <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
-              No preview
+              {t("gallery.noPreview")}
             </div>
           )}
           <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-2 opacity-0 group-hover:opacity-100 transition-opacity">

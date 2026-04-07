@@ -1,4 +1,5 @@
 import { FileImage } from "lucide-react"
+import { useTranslation } from "@/i18n"
 import type { GalleryImageDTO } from "@/types"
 
 interface GalleryImageListProps {
@@ -7,16 +8,18 @@ interface GalleryImageListProps {
 }
 
 export function GalleryImageList({ images, onImageClick }: GalleryImageListProps) {
+  const { t } = useTranslation()
+
   return (
     <div className="rounded-lg border">
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b bg-muted/50">
             <th className="p-2 text-left font-medium w-10"></th>
-            <th className="p-2 text-left font-medium">File Name</th>
-            <th className="p-2 text-left font-medium hidden md:table-cell">Directory</th>
-            <th className="p-2 text-right font-medium">Size</th>
-            <th className="p-2 text-right font-medium hidden sm:table-cell">Modified</th>
+            <th className="p-2 text-left font-medium">{t("galleryList.fileName")}</th>
+            <th className="p-2 text-left font-medium hidden md:table-cell">{t("galleryList.directory")}</th>
+            <th className="p-2 text-right font-medium">{t("galleryList.size")}</th>
+            <th className="p-2 text-right font-medium hidden sm:table-cell">{t("galleryList.modified")}</th>
           </tr>
         </thead>
         <tbody>

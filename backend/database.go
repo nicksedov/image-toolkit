@@ -22,8 +22,15 @@ func initDatabase(config *AppConfig) (*gorm.DB, error) {
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
 
-	if err := db.AutoMigrate(&ImageFile{}, &GalleryFolder{}); err != nil {
+	if err := db.AutoMigrate(&ImageFile{}, &GalleryFolder{}, &AppSettings{}); err != nil {
 		return nil, fmt.Errorf("failed to migrate database: %w", err)
+	}
+
+	// Seed default settings row if not exists
+	var count int64
+	db.Model(&AppSettings{}).Count(&count)
+	if count == 0 {
+		db.Create(&AppSettings{ID: 1, Theme: "light", Language: "en"})
 	}
 
 	return db, nil

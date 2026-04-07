@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useFolderPatterns } from "@/hooks/useFolderPatterns"
 import { batchDelete } from "@/api/endpoints"
+import { useTranslation } from "@/i18n"
 import type { BatchDeleteRule } from "@/types"
 
 interface BatchDeduplicationModalProps {
@@ -31,6 +32,7 @@ export function BatchDeduplicationModal({
   const [selectedFolders, setSelectedFolders] = useState<Record<string, string>>({})
   const [trashDir, setTrashDir] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const { t } = useTranslation()
 
   useEffect(() => {
     if (open) {
@@ -45,11 +47,11 @@ export function BatchDeduplicationModal({
       .map(([patternId, keepFolder]) => ({ patternId, keepFolder }))
 
     if (rules.length === 0) {
-      onError("Please select at least one folder to keep.")
+      onError(t("batchDedup.errorNoRules"))
       return
     }
 
-    if (!window.confirm(`This will apply ${rules.length} rule(s) to delete duplicate files. Continue?`)) {
+    if (!window.confirm(t("batchDedup.confirmApply", { count: rules.length }))) {
       return
     }
 
@@ -57,14 +59,16 @@ export function BatchDeduplicationModal({
     try {
       const result = await batchDelete({ rules, trashDir: trashDir.trim() })
       onOpenChange(false)
-      let message = `Successfully deleted ${result.success} file(s).`
+      let message: string
       if (result.failed > 0) {
-        message += ` Failed: ${result.failed}.`
+        message = t("batchDedup.successWithFailed", { count: result.success, failed: result.failed })
+      } else {
+        message = t("batchDedup.success", { count: result.success })
       }
       onSuccess(message)
       onComplete()
     } catch (err) {
-      onError(err instanceof Error ? err.message : "Failed to apply batch rules")
+      onError(err instanceof Error ? err.message : t("batchDedup.errorFailed"))
     } finally {
       setIsSubmitting(false)
     }
@@ -74,10 +78,9 @@ export function BatchDeduplicationModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Batch Deduplication</DialogTitle>
+          <DialogTitle>{t("batchDedup.title")}</DialogTitle>
           <DialogDescription>
-            Select which folder should keep the file for each pattern.
-            Files in other folders will be deleted.
+            {t("batchDedup.description")}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
@@ -90,17 +93,17 @@ export function BatchDeduplicationModal({
           ) : error ? (
             <p className="text-sm text-destructive">{error}</p>
           ) : patterns.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-4">No folder patterns found.</p>
+            <p className="text-sm text-muted-foreground text-center py-4">{t("batchDedup.noPatterns")}</p>
           ) : (
             <div className="max-h-80 overflow-y-auto space-y-3 pr-1">
               {patterns.map((pattern) => (
                 <div key={pattern.id} className="rounded-md border p-3 space-y-2">
                   <div className="flex items-center gap-2">
                     <Badge variant="secondary" className="text-xs">
-                      {pattern.duplicateCount} groups
+                      {t("batchDedup.groups", { count: pattern.duplicateCount })}
                     </Badge>
                     <Badge variant="outline" className="text-xs">
-                      {pattern.totalFiles} files
+                      {t("batchDedup.files", { count: pattern.totalFiles })}
                     </Badge>
                   </div>
                   <RadioGroup
@@ -126,19 +129,19 @@ export function BatchDeduplicationModal({
             </div>
           )}
           <div className="space-y-2">
-            <Label htmlFor="batch-trash-dir">Trash directory (optional)</Label>
+            <Label htmlFor="batch-trash-dir">{t("batchDedup.trashDir")}</Label>
             <Input
               id="batch-trash-dir"
-              placeholder="C:\path\to\trash (leave empty to delete permanently)"
+              placeholder={t("batchDedup.trashPlaceholder")}
               value={trashDir}
               onChange={(e) => setTrashDir(e.target.value)}
             />
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>{t("common.cancel")}</Button>
           <Button variant="destructive" onClick={handleApply} disabled={isSubmitting || isLoading}>
-            {isSubmitting ? "Applying..." : "Apply Rules"}
+            {isSubmitting ? t("batchDedup.applying") : t("batchDedup.applyRules")}
           </Button>
         </DialogFooter>
       </DialogContent>

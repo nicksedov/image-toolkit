@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { generateScript } from "@/api/endpoints"
+import { useTranslation } from "@/i18n"
 import type { GenerateScriptRequest } from "@/types"
 
 interface GenerateScriptModalProps {
@@ -28,10 +29,11 @@ export function GenerateScriptModal({
   const [outputDir, setOutputDir] = useState("")
   const [trashDir, setTrashDir] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const { t } = useTranslation()
 
   const handleGenerate = async () => {
     if (!outputDir.trim()) {
-      onError("Please specify an output directory for the script.")
+      onError(t("generateScript.errorOutputDir"))
       return
     }
 
@@ -45,9 +47,9 @@ export function GenerateScriptModal({
       }
       const result = await generateScript(req)
       onOpenChange(false)
-      onSuccess(`Script generated successfully! Saved to: ${result.scriptPath}`)
+      onSuccess(t("generateScript.success", { path: result.scriptPath }))
     } catch (err) {
-      onError(err instanceof Error ? err.message : "Failed to generate script")
+      onError(err instanceof Error ? err.message : t("generateScript.errorFailed"))
     } finally {
       setIsSubmitting(false)
     }
@@ -57,51 +59,50 @@ export function GenerateScriptModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Generate Removal Script</DialogTitle>
+          <DialogTitle>{t("generateScript.title")}</DialogTitle>
           <DialogDescription>
-            Generate a script to move {selectedPaths.length} selected file(s) to a trash directory.
+            {t("generateScript.description", { count: selectedPaths.length })}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="script-type">Script type</Label>
+            <Label htmlFor="script-type">{t("generateScript.scriptType")}</Label>
             <Select value={scriptType} onValueChange={(v) => setScriptType(v as "windows" | "bash")}>
               <SelectTrigger id="script-type">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="windows">Windows (PowerShell .ps1)</SelectItem>
-                <SelectItem value="bash">Linux/macOS (Bash .sh)</SelectItem>
+                <SelectItem value="windows">{t("generateScript.windows")}</SelectItem>
+                <SelectItem value="bash">{t("generateScript.bash")}</SelectItem>
               </SelectContent>
             </Select>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="output-dir">Output directory for script</Label>
+            <Label htmlFor="output-dir">{t("generateScript.outputDir")}</Label>
             <Input
               id="output-dir"
-              placeholder="C:\path\to\output"
+              placeholder={t("generateScript.outputPlaceholder")}
               value={outputDir}
               onChange={(e) => setOutputDir(e.target.value)}
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="trash-dir">Trash directory (where files will be moved)</Label>
+            <Label htmlFor="trash-dir">{t("generateScript.trashDir")}</Label>
             <Input
               id="trash-dir"
-              placeholder="C:\path\to\trash (optional)"
+              placeholder={t("generateScript.trashPlaceholder")}
               value={trashDir}
               onChange={(e) => setTrashDir(e.target.value)}
             />
           </div>
           <p className="text-sm text-muted-foreground">
-            The script will move selected files to the trash directory.
-            Review the script before running it.
+            {t("generateScript.hint")}
           </p>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>{t("common.cancel")}</Button>
           <Button onClick={handleGenerate} disabled={isSubmitting}>
-            {isSubmitting ? "Generating..." : "Generate Script"}
+            {isSubmitting ? t("generateScript.generating") : t("generateScript.button")}
           </Button>
         </DialogFooter>
       </DialogContent>

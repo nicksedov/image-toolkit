@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button"
 import { ChevronFirst, ChevronLast, ChevronLeft, ChevronRight } from "lucide-react"
+import { useTranslation } from "@/i18n"
 
 interface PaginationProps {
   currentPage: number
@@ -16,6 +17,8 @@ export function Pagination({
   hasNextPage,
   onPageChange,
 }: PaginationProps) {
+  const { t } = useTranslation()
+
   if (totalPages <= 1) return null
 
   return (
@@ -27,7 +30,7 @@ export function Pagination({
         disabled={!hasPrevPage}
       >
         <ChevronFirst className="h-4 w-4" />
-        <span className="sr-only sm:not-sr-only sm:ml-1">First</span>
+        <span className="sr-only sm:not-sr-only sm:ml-1">{t("pagination.first")}</span>
       </Button>
       <Button
         variant="outline"
@@ -36,10 +39,10 @@ export function Pagination({
         disabled={!hasPrevPage}
       >
         <ChevronLeft className="h-4 w-4" />
-        <span className="sr-only sm:not-sr-only sm:ml-1">Prev</span>
+        <span className="sr-only sm:not-sr-only sm:ml-1">{t("pagination.prev")}</span>
       </Button>
       <span className="text-sm text-muted-foreground px-3">
-        Page {currentPage} of {totalPages}
+        {t("pagination.pageInfo", { current: currentPage, total: totalPages })}
       </span>
       <Button
         variant="outline"
@@ -47,7 +50,7 @@ export function Pagination({
         onClick={() => onPageChange(currentPage + 1)}
         disabled={!hasNextPage}
       >
-        <span className="sr-only sm:not-sr-only sm:mr-1">Next</span>
+        <span className="sr-only sm:not-sr-only sm:mr-1">{t("pagination.next")}</span>
         <ChevronRight className="h-4 w-4" />
       </Button>
       <Button
@@ -56,7 +59,7 @@ export function Pagination({
         onClick={() => onPageChange(totalPages)}
         disabled={!hasNextPage}
       >
-        <span className="sr-only sm:not-sr-only sm:mr-1">Last</span>
+        <span className="sr-only sm:not-sr-only sm:mr-1">{t("pagination.last")}</span>
         <ChevronLast className="h-4 w-4" />
       </Button>
     </div>

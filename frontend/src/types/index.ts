@@ -148,3 +148,15 @@ export interface GalleryImagesResponse {
   totalPages: number
   hasNextPage: boolean
 }
+
+// --- App Settings Types ---
+
+export interface AppSettingsDTO {
+  theme: "light" | "dark"
+  language: "en" | "ru"
+}
+
+export interface UpdateSettingsRequest {
+  theme?: "light" | "dark"
+  language?: "en" | "ru"
+}

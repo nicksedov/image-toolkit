@@ -8,6 +8,7 @@ import { useGalleryFolders } from "@/hooks/useGalleryFolders"
 import { useScanStatus } from "@/hooks/useScanStatus"
 import { triggerScan } from "@/api/endpoints"
 import { RefreshCw } from "lucide-react"
+import { useTranslation } from "@/i18n"
 
 interface SettingsTabProps {
   onFolderAdded: () => void
@@ -16,6 +17,7 @@ interface SettingsTabProps {
 export function SettingsTab({ onFolderAdded }: SettingsTabProps) {
   const { folders, isLoading, add, remove, refetch } = useGalleryFolders()
   const { status, startPolling, setOnScanComplete } = useScanStatus()
+  const { t } = useTranslation()
 
   const handleAdd = useCallback(
     async (path: string) => {
@@ -25,55 +27,54 @@ export function SettingsTab({ onFolderAdded }: SettingsTabProps) {
         if (result.scanStarted) {
           setOnScanComplete(() => {
             refetch()
-            toast.success("Scan complete!")
+            toast.success(t("settings.toastScanComplete"))
           })
           startPolling()
         }
         onFolderAdded()
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Failed to add folder")
+        toast.error(err instanceof Error ? err.message : t("settings.toastAddFailed"))
       }
     },
-    [add, startPolling, setOnScanComplete, refetch, onFolderAdded]
+    [add, startPolling, setOnScanComplete, refetch, onFolderAdded, t]
   )
 
   const handleRemove = useCallback(
     async (id: number) => {
       try {
         const result = await remove(id)
-        toast.success(`${result.message} (${result.filesRemoved} files removed)`)
+        toast.success(t("settings.toastFilesRemoved", { message: result.message, count: result.filesRemoved }))
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Failed to remove folder")
+        toast.error(err instanceof Error ? err.message : t("settings.toastRemoveFailed"))
       }
     },
-    [remove]
+    [remove, t]
   )
 
   const handleRescanAll = useCallback(async () => {
     if (folders.length === 0) {
-      toast.error("No folders in the gallery to scan")
+      toast.error(t("settings.toastNoFolders"))
       return
     }
     try {
       await triggerScan()
-      toast.success("Rescan started")
+      toast.success(t("settings.toastRescanStarted"))
       setOnScanComplete(() => {
         refetch()
-        toast.success("Rescan complete!")
+        toast.success(t("settings.toastRescanComplete"))
       })
       startPolling()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to start rescan")
+      toast.error(err instanceof Error ? err.message : t("settings.toastRescanFailed"))
     }
-  }, [folders.length, startPolling, setOnScanComplete, refetch])
+  }, [folders.length, startPolling, setOnScanComplete, refetch, t])
 
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-semibold mb-1">Gallery</h2>
+        <h2 className="text-lg font-semibold mb-1">{t("settings.title")}</h2>
         <p className="text-sm text-muted-foreground">
-          Manage the folders included in your image gallery. Adding a folder will
-          automatically start scanning it for images.
+          {t("settings.description")}
         </p>
       </div>
 
@@ -83,7 +84,9 @@ export function SettingsTab({ onFolderAdded }: SettingsTabProps) {
 
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-medium text-muted-foreground">
-          {folders.length} folder{folders.length !== 1 ? "s" : ""} in gallery
+          {folders.length === 1
+            ? t("settings.folderCountOne", { count: folders.length })
+            : t("settings.folderCount", { count: folders.length })}
         </h3>
         <Button
           variant="outline"
@@ -92,7 +95,7 @@ export function SettingsTab({ onFolderAdded }: SettingsTabProps) {
           disabled={status.scanning || folders.length === 0}
         >
           <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${status.scanning ? "animate-spin" : ""}`} />
-          Rescan All
+          {t("settings.rescanAll")}
         </Button>
       </div>
 

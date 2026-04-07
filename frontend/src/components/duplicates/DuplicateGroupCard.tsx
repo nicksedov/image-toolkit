@@ -2,6 +2,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { ThumbnailImage } from "./ThumbnailImage"
 import { FileItem } from "./FileItem"
+import { useTranslation } from "@/i18n"
 import type { DuplicateGroupDTO, FileDTO } from "@/types"
 
 interface DuplicateGroupCardProps {
@@ -18,15 +19,16 @@ export function DuplicateGroupCard({
   onSelectFolder,
 }: DuplicateGroupCardProps) {
   const allFiles: FileDTO[] = group.files
+  const { t } = useTranslation()
 
   return (
     <Card>
       <CardHeader className="pb-2">
         <div className="flex flex-wrap items-center gap-2">
-          <CardTitle className="text-sm">Group #{group.index}</CardTitle>
-          <Badge variant="secondary" className="text-xs">{group.files.length} files</Badge>
-          <Badge variant="outline" className="text-xs">{group.sizeHuman} each</Badge>
-          <span className="text-xs text-muted-foreground font-mono">MD5: {group.hash}</span>
+          <CardTitle className="text-sm">{t("duplicateGroup.title", { index: group.index })}</CardTitle>
+          <Badge variant="secondary" className="text-xs">{t("duplicateGroup.files", { count: group.files.length })}</Badge>
+          <Badge variant="outline" className="text-xs">{t("duplicateGroup.sizeEach", { size: group.sizeHuman })}</Badge>
+          <span className="text-xs text-muted-foreground font-mono">{t("duplicateGroup.md5", { hash: group.hash })}</span>
         </div>
       </CardHeader>
       <CardContent>

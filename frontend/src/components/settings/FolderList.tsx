@@ -10,6 +10,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog"
 import { Folder, Trash2, FileImage } from "lucide-react"
+import { useTranslation } from "@/i18n"
 import type { GalleryFolderDTO } from "@/types"
 
 interface FolderListProps {
@@ -21,6 +22,7 @@ interface FolderListProps {
 export function FolderList({ folders, onRemove, isLoading }: FolderListProps) {
   const [removingId, setRemovingId] = useState<number | null>(null)
   const [confirmFolder, setConfirmFolder] = useState<GalleryFolderDTO | null>(null)
+  const { t } = useTranslation()
 
   const handleRemove = async () => {
     if (!confirmFolder) return
@@ -36,7 +38,7 @@ export function FolderList({ folders, onRemove, isLoading }: FolderListProps) {
   if (isLoading) {
     return (
       <div className="text-sm text-muted-foreground py-8 text-center">
-        Loading gallery folders...
+        {t("folderList.loading")}
       </div>
     )
   }
@@ -46,10 +48,10 @@ export function FolderList({ folders, onRemove, isLoading }: FolderListProps) {
       <div className="rounded-lg border border-dashed p-8 text-center">
         <Folder className="mx-auto h-10 w-10 text-muted-foreground/50" />
         <p className="mt-2 text-sm font-medium text-muted-foreground">
-          No folders in the gallery
+          {t("folderList.empty")}
         </p>
         <p className="text-xs text-muted-foreground/70">
-          Add a folder above to start scanning images.
+          {t("folderList.emptyHint")}
         </p>
       </div>
     )
@@ -66,9 +68,9 @@ export function FolderList({ folders, onRemove, isLoading }: FolderListProps) {
               <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
                 <span className="flex items-center gap-1">
                   <FileImage className="h-3 w-3" />
-                  {folder.fileCount} files
+                  {t("folderList.files", { count: folder.fileCount })}
                 </span>
-                <span>Added: {folder.createdAt}</span>
+                <span>{t("folderList.added", { date: folder.createdAt })}</span>
               </div>
             </div>
             <Button
@@ -87,11 +89,9 @@ export function FolderList({ folders, onRemove, isLoading }: FolderListProps) {
       <Dialog open={!!confirmFolder} onOpenChange={() => setConfirmFolder(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Remove Folder</DialogTitle>
+            <DialogTitle>{t("folderList.removeTitle")}</DialogTitle>
             <DialogDescription>
-              Are you sure you want to remove this folder from the gallery?
-              All indexed files from this folder will be removed from the database.
-              The actual files on disk will NOT be deleted.
+              {t("folderList.removeDescription")}
             </DialogDescription>
           </DialogHeader>
           {confirmFolder && (
@@ -101,14 +101,14 @@ export function FolderList({ folders, onRemove, isLoading }: FolderListProps) {
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setConfirmFolder(null)}>
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button
               variant="destructive"
               onClick={handleRemove}
               disabled={removingId !== null}
             >
-              {removingId !== null ? "Removing..." : "Remove"}
+              {removingId !== null ? t("folderList.removing") : t("folderList.removeButton")}
             </Button>
           </DialogFooter>
         </DialogContent>
