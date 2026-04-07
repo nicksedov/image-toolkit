@@ -14,12 +14,14 @@ type ScanManager struct {
 	progress       string
 	filesProcessed int
 	db             *gorm.DB
+	scanWorkers    int
 }
 
 // NewScanManager creates a new ScanManager
-func NewScanManager(db *gorm.DB) *ScanManager {
+func NewScanManager(db *gorm.DB, scanWorkers int) *ScanManager {
 	return &ScanManager{
-		db: db,
+		db:          db,
+		scanWorkers: scanWorkers,
 	}
 }
 
@@ -74,7 +76,7 @@ func (sm *ScanManager) StartScan() error {
 			sm.mu.Lock()
 			sm.progress = fmt.Sprintf("Scanning: %s", dir)
 			sm.mu.Unlock()
-			scanDirectory(sm.db, dir, progressChan)
+			scanDirectory(sm.db, dir, progressChan, sm.scanWorkers)
 		}
 
 		close(progressChan)
@@ -114,7 +116,7 @@ func (sm *ScanManager) ScanSingleDir(dirPath string) error {
 			}
 		}()
 
-		scanDirectory(sm.db, dirPath, progressChan)
+		scanDirectory(sm.db, dirPath, progressChan, sm.scanWorkers)
 
 		close(progressChan)
 

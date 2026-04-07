@@ -2,6 +2,8 @@ package main
 
 import (
 	"os"
+	"runtime"
+	"strconv"
 	"strings"
 )
 
@@ -16,6 +18,8 @@ type AppConfig struct {
 	ServerHost  string
 	ServerPort  string
 	CORSOrigins []string
+
+	ScanWorkers int
 }
 
 // LoadConfig reads configuration from environment variables
@@ -24,6 +28,13 @@ func LoadConfig() *AppConfig {
 	origins := strings.Split(originsStr, ",")
 	for i := range origins {
 		origins[i] = strings.TrimSpace(origins[i])
+	}
+
+	scanWorkers := runtime.NumCPU()
+	if v := getEnv("SCAN_WORKERS", ""); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			scanWorkers = n
+		}
 	}
 
 	return &AppConfig{
@@ -35,6 +46,7 @@ func LoadConfig() *AppConfig {
 		ServerHost:  getEnv("SERVER_HOST", "0.0.0.0"),
 		ServerPort:  getEnv("SERVER_PORT", "5170"),
 		CORSOrigins: origins,
+		ScanWorkers: scanWorkers,
 	}
 }
 

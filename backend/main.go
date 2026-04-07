@@ -35,13 +35,14 @@ func main() {
 	fmt.Println("Database connected successfully!")
 
 	// Create scan manager (reads gallery folders from DB dynamically)
-	scanManager := NewScanManager(db)
+	scanManager := NewScanManager(db, config.ScanWorkers)
 
 	// Start web server
 	server := NewServer(db, scanManager, config)
 	router := server.SetupRouter()
 
 	fmt.Printf("\nStarting API server on http://%s:%s\n", config.ServerHost, config.ServerPort)
+	fmt.Printf("Scan workers: %d\n", config.ScanWorkers)
 	fmt.Printf("CORS allowed origins: %s\n", strings.Join(config.CORSOrigins, ", "))
 	fmt.Println("Configure gallery folders via the web UI Settings tab.")
 	fmt.Println("Press Ctrl+C to stop the server")

@@ -7,7 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strings"
+	"sync"
 	"time"
 
 	"gorm.io/gorm"
@@ -37,160 +37,177 @@ type fileInfo struct {
 	modTime        time.Time
 }
 
-// progressBuffer accumulates progress messages for batch output
-type progressBuffer struct {
-	messages []string
-	limit    int
-	channel  chan<- string
+// hashResult holds the result of a file hash computation
+type hashResult struct {
+	fi       fileInfo
+	hash     string
+	err      error
+	existing *ImageFile
 }
 
-func newProgressBuffer(ch chan<- string, limit int) *progressBuffer {
-	return &progressBuffer{
-		messages: make([]string, 0, limit),
-		limit:    limit,
-		channel:  ch,
-	}
-}
-
-func (pb *progressBuffer) add(msg string) {
-	pb.messages = append(pb.messages, msg)
-	if len(pb.messages) >= pb.limit {
-		pb.flush()
-	}
-}
-
-func (pb *progressBuffer) flush() {
-	if len(pb.messages) == 0 {
-		return
-	}
-	var sb strings.Builder
-	for i, msg := range pb.messages {
-		if i > 0 {
-			sb.WriteByte('\n')
-		}
-		sb.WriteString(msg)
-	}
-	pb.channel <- sb.String()
-	pb.messages = pb.messages[:0]
-}
-
-// scanDirectory scans a directory for image files and updates the database
-func scanDirectory(db *gorm.DB, dirPath string, progressChan chan<- string) error {
+// scanDirectory scans a directory for image files and updates the database.
+// numWorkers controls the number of parallel goroutines used for file hashing.
+func scanDirectory(db *gorm.DB, dirPath string, progressChan chan<- string, numWorkers int) error {
 	absPath, err := filepath.Abs(dirPath)
 	if err != nil {
 		return fmt.Errorf("failed to get absolute path: %w", err)
 	}
 
-	const batchSize = 50
-	const progressBufferSize = 100
-	var batch []fileInfo
-	progress := newProgressBuffer(progressChan, progressBufferSize)
-
-	processBatch := func(batch []fileInfo) {
-		if len(batch) == 0 {
-			return
-		}
-
-		paths := make([]string, len(batch))
-		pathToInfo := make(map[string]fileInfo)
-		for i, fi := range batch {
-			paths[i] = fi.normalizedPath
-			pathToInfo[fi.normalizedPath] = fi
-		}
-
-		var existingFiles []ImageFile
-		db.Where("path IN ?", paths).Find(&existingFiles)
-
-		existingMap := make(map[string]ImageFile)
-		for _, ef := range existingFiles {
-			existingMap[ef.Path] = ef
-		}
-
-		var toCreate []ImageFile
-		var toUpdate []ImageFile
-
-		for _, fi := range batch {
-			existing, exists := existingMap[fi.normalizedPath]
-
-			if exists {
-				if existing.ModTime.Equal(fi.modTime) && existing.Size == fi.size {
-					progress.add("Skipping (cached): " + fi.path)
-					continue
-				}
-			}
-
-			progress.add("Processing: " + fi.path)
-
-			hash, err := calculateFileHash(fi.path)
-			if err != nil {
-				progress.add("Error hashing " + fi.path + ": " + err.Error())
-				continue
-			}
-
-			imageFile := ImageFile{
-				Path:    fi.normalizedPath,
-				Size:    fi.size,
-				Hash:    hash,
-				ModTime: fi.modTime,
-			}
-
-			if exists {
-				imageFile.ID = existing.ID
-				toUpdate = append(toUpdate, imageFile)
-			} else {
-				toCreate = append(toCreate, imageFile)
-			}
-		}
-
-		if len(toCreate) > 0 {
-			db.Create(&toCreate)
-		}
-
-		for _, f := range toUpdate {
-			db.Save(&f)
-		}
-
-		progress.flush()
+	if numWorkers <= 0 {
+		numWorkers = 1
 	}
 
+	// Phase 1: Collect all image files from the directory tree
+	var allFiles []fileInfo
 	err = filepath.Walk(absPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			progress.add("Error accessing " + path + ": " + err.Error())
+			progressChan <- "Error accessing " + path + ": " + err.Error()
 			return nil
 		}
-
 		if info.IsDir() {
 			return nil
 		}
-
 		if !isImageFile(path) {
 			return nil
 		}
-
-		normalizedPath := filepath.ToSlash(path)
-
-		batch = append(batch, fileInfo{
+		allFiles = append(allFiles, fileInfo{
 			path:           path,
-			normalizedPath: normalizedPath,
+			normalizedPath: filepath.ToSlash(path),
 			size:           info.Size(),
 			modTime:        info.ModTime(),
 		})
-
-		if len(batch) >= batchSize {
-			processBatch(batch)
-			batch = batch[:0]
-		}
-
 		return nil
 	})
-
-	if len(batch) > 0 {
-		processBatch(batch)
+	if err != nil {
+		return err
 	}
 
-	progress.flush()
+	if len(allFiles) == 0 {
+		return nil
+	}
 
-	return err
+	// Phase 2: Batch query existing files from DB to build a cache map
+	existingMap := make(map[string]ImageFile)
+	const dbBatchSize = 500
+	for i := 0; i < len(allFiles); i += dbBatchSize {
+		end := i + dbBatchSize
+		if end > len(allFiles) {
+			end = len(allFiles)
+		}
+		paths := make([]string, end-i)
+		for j, fi := range allFiles[i:end] {
+			paths[j] = fi.normalizedPath
+		}
+		var existingFiles []ImageFile
+		db.Where("path IN ?", paths).Find(&existingFiles)
+		for _, ef := range existingFiles {
+			existingMap[ef.Path] = ef
+		}
+	}
+
+	// Phase 3: Separate cached (unchanged) files from files that need hashing
+	var filesToHash []fileInfo
+	for _, fi := range allFiles {
+		if existing, ok := existingMap[fi.normalizedPath]; ok {
+			if existing.ModTime.Equal(fi.modTime) && existing.Size == fi.size {
+				progressChan <- "Skipping (cached): " + fi.path
+				continue
+			}
+		}
+		filesToHash = append(filesToHash, fi)
+	}
+
+	if len(filesToHash) == 0 {
+		return nil
+	}
+
+	// Phase 4: Hash files in parallel using a worker pool
+	jobs := make(chan fileInfo, numWorkers*2)
+	results := make(chan hashResult, numWorkers*2)
+
+	var wg sync.WaitGroup
+	for w := 0; w < numWorkers; w++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for fi := range jobs {
+				hash, err := calculateFileHash(fi.path)
+				var existing *ImageFile
+				if ef, ok := existingMap[fi.normalizedPath]; ok {
+					existing = &ef
+				}
+				results <- hashResult{
+					fi:       fi,
+					hash:     hash,
+					err:      err,
+					existing: existing,
+				}
+			}
+		}()
+	}
+
+	// Close results channel when all workers finish
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+
+	// Send jobs to workers
+	go func() {
+		for _, fi := range filesToHash {
+			jobs <- fi
+		}
+		close(jobs)
+	}()
+
+	// Phase 5: Collect results and batch write to DB
+	const writeBatchSize = 50
+	var toCreate []ImageFile
+	var toUpdate []ImageFile
+
+	for result := range results {
+		if result.err != nil {
+			progressChan <- "Error hashing " + result.fi.path + ": " + result.err.Error()
+			continue
+		}
+
+		progressChan <- "Processed: " + result.fi.path
+
+		imageFile := ImageFile{
+			Path:    result.fi.normalizedPath,
+			Size:    result.fi.size,
+			Hash:    result.hash,
+			ModTime: result.fi.modTime,
+		}
+
+		if result.existing != nil {
+			imageFile.ID = result.existing.ID
+			toUpdate = append(toUpdate, imageFile)
+		} else {
+			toCreate = append(toCreate, imageFile)
+		}
+
+		if len(toCreate)+len(toUpdate) >= writeBatchSize {
+			flushDBBatch(db, &toCreate, &toUpdate)
+		}
+	}
+
+	// Flush remaining
+	flushDBBatch(db, &toCreate, &toUpdate)
+
+	return nil
+}
+
+// flushDBBatch writes accumulated create/update records to the database and resets the slices
+func flushDBBatch(db *gorm.DB, toCreate *[]ImageFile, toUpdate *[]ImageFile) {
+	if len(*toCreate) > 0 {
+		db.Create(toCreate)
+		*toCreate = (*toCreate)[:0]
+	}
+	for _, f := range *toUpdate {
+		db.Save(&f)
+	}
+	*toUpdate = (*toUpdate)[:0]
 }
 
 // findDuplicates finds all duplicate groups from the database
