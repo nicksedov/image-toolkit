@@ -14,6 +14,7 @@ export const translations = {
     // Loading
     "common.loading": "Loading...",
     "common.cancel": "Cancel",
+    "common.close": "Close",
 
     // Settings tab
     "settings.title": "Gallery",
@@ -180,6 +181,7 @@ export const translations = {
     "batchDedup.success": "Successfully deleted {count} file(s).",
     "batchDedup.successWithFailed": "Successfully deleted {count} file(s). Failed: {failed}.",
     "batchDedup.errorFailed": "Failed to apply batch rules",
+    "batchDedup.returnBack": "Return to skipped ({count})",
   },
 
   ru: {
@@ -197,6 +199,7 @@ export const translations = {
     // Loading
     "common.loading": "Загрузка...",
     "common.cancel": "Отмена",
+    "common.close": "Закрыть",    
 
     // Settings tab
     "settings.title": "Галерея",
@@ -363,5 +366,6 @@ export const translations = {
     "batchDedup.success": "Успешно удалено {count} файлов.",
     "batchDedup.successWithFailed": "Успешно удалено {count} файлов. Ошибок: {failed}.",
     "batchDedup.errorFailed": "Не удалось применить пакетные правила",
+    "batchDedup.returnBack": "Вернуться к пропущенным ({count})",
   },
 } as const

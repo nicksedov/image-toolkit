@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useState, useMemo } from "react"
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog"
@@ -12,7 +12,7 @@ import { useFolderPatterns } from "@/hooks/useFolderPatterns"
 import { batchDelete } from "@/api/endpoints"
 import { useSettings } from "@/providers/useSettings"
 import { useTranslation } from "@/i18n"
-import type { BatchDeleteRule } from "@/types"
+import type { BatchDeleteRule, FolderPattern } from "@/types"
 
 interface BatchDeduplicationModalProps {
   open: boolean
@@ -30,21 +30,62 @@ export function BatchDeduplicationModal({
   onComplete,
 }: BatchDeduplicationModalProps) {
   const { patterns, isLoading, error, load } = useFolderPatterns()
+  const [currentStep, setCurrentStep] = useState(0)
   const [selectedFolders, setSelectedFolders] = useState<Record<string, string>>({})
   const [useTrash, setUseTrash] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isCompleted, setIsCompleted] = useState(false)
   const { trashDir } = useSettings()
   const { t } = useTranslation()
+
+  const skippedPatterns = useMemo(() => {
+    return patterns
+      .filter((_, index) => index < currentStep && !selectedFolders[patterns[index].id])
+      .map(p => p.id)
+  }, [patterns, currentStep, selectedFolders])
 
   useEffect(() => {
     if (open) {
       load()
+      setCurrentStep(0)
       setSelectedFolders({})
       setUseTrash(true)
+      setIsCompleted(false)
     }
   }, [open, load])
 
-  const handleApply = async () => {
+  const currentPattern: FolderPattern | undefined = useMemo(() => {
+    return patterns[currentStep]
+  }, [patterns, currentStep])
+
+  const totalSteps = patterns.length
+  const canGoBack = currentStep > 0 || skippedPatterns.length > 0
+
+  const handleNext = () => {
+    if (currentStep < totalSteps - 1) {
+      setCurrentStep(currentStep + 1)
+    } else {
+      setCurrentStep(totalSteps)
+    }
+  }
+
+  const handleBack = () => {
+    if (skippedPatterns.length > 0 && currentStep === totalSteps) {
+      setCurrentStep(skippedPatterns.length - 1)
+      return
+    }
+    if (currentStep > 0 && skippedPatterns.length > 0 && currentStep > skippedPatterns.length - 1) {
+      setCurrentStep(skippedPatterns.length - 1)
+    } else {
+      setCurrentStep(currentStep - 1)
+    }
+  }
+
+  const handlePatternSkip = (patternId: string) => {
+    setSelectedFolders(prev => ({ ...prev, [patternId]: "" }))
+  }
+
+  const handleApplyStep = async (currentStepIndex: number) => {
     const rules: BatchDeleteRule[] = Object.entries(selectedFolders)
       .filter(([, folder]) => folder)
       .map(([patternId, keepFolder]) => ({ patternId, keepFolder }))
@@ -70,7 +111,6 @@ export function BatchDeduplicationModal({
         rules,
         trashDir: useTrash ? trashDir : "",
       })
-      onOpenChange(false)
       let message: string
       if (result.failed > 0) {
         message = t("batchDedup.successWithFailed", { count: result.success, failed: result.failed })
@@ -78,12 +118,28 @@ export function BatchDeduplicationModal({
         message = t("batchDedup.success", { count: result.success })
       }
       onSuccess(message)
+      setIsCompleted(true)
       onComplete()
     } catch (err) {
       onError(err instanceof Error ? err.message : t("batchDedup.errorFailed"))
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  const handleFinalApply = () => {
+    handleApplyStep(currentStep)
+  }
+
+  const handleBackToSkipped = () => {
+    const nextSkippedIndex = skippedPatterns.length - (totalSteps - currentStep)
+    if (nextSkippedIndex >= 0) {
+      setCurrentStep(nextSkippedIndex)
+    }
+  }
+
+  const handleCompleteClose = () => {
+    onOpenChange(false)
   }
 
   return (
@@ -104,43 +160,60 @@ export function BatchDeduplicationModal({
             </div>
           ) : error ? (
             <p className="text-sm text-destructive">{error}</p>
+          ) : isCompleted ? (
+            <div className="py-8 text-center space-y-2">
+              <p className="text-muted-foreground">
+                {t("batchDedup.success", { count: Object.keys(selectedFolders).filter(k => selectedFolders[k]).length })}
+              </p>
+            </div>
           ) : patterns.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-4">{t("batchDedup.noPatterns")}</p>
-          ) : (
-            <div className="overflow-y-auto space-y-3 pr-3 max-h-[50vh]">
-              {patterns.map((pattern) => (
-                <div key={pattern.id} className="rounded-md border p-3 space-y-2">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <Badge variant="secondary" className="text-xs">
-                      {t("batchDedup.groups", { count: pattern.duplicateCount })}
-                    </Badge>
-                    <Badge variant="outline" className="text-xs">
-                      {t("batchDedup.files", { count: pattern.totalFiles })}
-                    </Badge>
-                  </div>
-                  <RadioGroup
-                    value={selectedFolders[pattern.id] || ""}
-                    onValueChange={(value) =>
-                      setSelectedFolders((prev) => ({ ...prev, [pattern.id]: value }))
-                    }
-                  >
-                    {pattern.folders.map((folder) => (
-                      <div key={folder} className="flex items-center gap-2 min-w-0">
-                        <RadioGroupItem value={folder} id={`${pattern.id}-${folder}`} className="flex-shrink-0" />
-                        <Label
-                          htmlFor={`${pattern.id}-${folder}`}
-                          className="text-xs font-mono cursor-pointer truncate"
-                        >
-                          {folder}
-                        </Label>
-                      </div>
-                    ))}
-                  </RadioGroup>
+          ) : currentPattern ? (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between text-sm text-muted-foreground pb-2 border-b">
+                <span>Шаг {currentStep + 1} из {totalSteps}</span>
+                {skippedPatterns.length > 0 && (
+                  <span className="text-xs">
+                    Пропущено: {skippedPatterns.length}
+                  </span>
+                )}
+              </div>
+              <div className="rounded-md border p-3 space-y-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Badge variant="secondary" className="text-xs">
+                    {t("batchDedup.groups", { count: currentPattern.duplicateCount })}
+                  </Badge>
+                  <Badge variant="outline" className="text-xs">
+                    {t("batchDedup.files", { count: currentPattern.totalFiles })}
+                  </Badge>
                 </div>
-              ))}
+                <RadioGroup
+                  value={selectedFolders[currentPattern.id] || ""}
+                  onValueChange={(value) =>
+                    setSelectedFolders((prev) => ({ ...prev, [currentPattern.id]: value }))
+                  }
+                >
+                  {currentPattern.folders.map((folder) => (
+                    <div key={folder} className="flex items-center gap-2 min-w-0">
+                      <RadioGroupItem value={folder} id={`${currentPattern.id}-${folder}`} className="flex-shrink-0" />
+                      <Label
+                        htmlFor={`${currentPattern.id}-${folder}`}
+                        className="text-xs font-mono cursor-pointer truncate"
+                      >
+                        {folder}
+                      </Label>
+                    </div>
+                  ))}
+                </RadioGroup>
+              </div>
+              {skippedPatterns.length > 0 && currentStep === totalSteps - 1 && (
+                <div className="text-xs text-muted-foreground py-2">
+                  {t("batchDedup.returnBack", { count: skippedPatterns.length })}
+                </div>
+              )}
             </div>
-          )}
-          <div className="flex items-center gap-2 flex-shrink-0">
+          ) : null}
+          <div className="flex items-center gap-2 flex-shrink-0 pt-2 border-t">
             <Checkbox
               id="batch-use-trash"
               checked={useTrash}
@@ -157,10 +230,41 @@ export function BatchDeduplicationModal({
           )}
         </div>
         <DialogFooter className="flex-shrink-0">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>{t("common.cancel")}</Button>
-          <Button variant="destructive" onClick={handleApply} disabled={isSubmitting || isLoading}>
-            {isSubmitting ? t("batchDedup.applying") : t("batchDedup.applyRules")}
-          </Button>
+          {isCompleted ? (
+            <Button variant="outline" onClick={handleCompleteClose}>{t("common.close")}</Button>
+          ) : currentStep < totalSteps - 1 ? (
+            <>
+              {skippedPatterns.length > 0 && currentStep === totalSteps - 2 && (
+                <Button variant="ghost" onClick={handleBackToSkipped} className="mr-auto">
+                  Вернуться к пропускам
+                </Button>
+              )}
+              {canGoBack ? (
+                <Button variant="secondary" onClick={handleBack}>
+                  {skippedPatterns.length > 0 ? 'Назад к пропускам' : 'Назад'}
+                </Button>
+              ) : null}
+              <Button onClick={handleNext}>
+                {skippedPatterns.length > 0 || currentStep < totalSteps - 2 ? 'Вперед →' : 'Завершить'}
+              </Button>
+            </>
+          ) : (
+            <div className="flex items-center gap-2 w-full">
+              {canGoBack ? (
+                <Button variant="secondary" onClick={handleBack} disabled={isSubmitting}>
+                  {skippedPatterns.includes(currentPattern?.id || "") ? 'Вернуться к шаблону' : 'Назад'}
+                </Button>
+              ) : null}
+              {skippedPatterns.length > 0 ? (
+                <Button variant="outline" onClick={() => handlePatternSkip(currentPattern?.id || "")} disabled={isSubmitting}>
+                  Пропустить этот
+                </Button>
+              ) : null}
+              <Button variant="destructive" onClick={handleFinalApply} disabled={isSubmitting || isLoading} className="ml-auto">
+                {isSubmitting ? t("batchDedup.applying") : t("batchDedup.applyRules")}
+              </Button>
+            </div>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
