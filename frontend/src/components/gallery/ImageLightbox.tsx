@@ -1,7 +1,9 @@
 import {
   Dialog,
   DialogContent,
+  DialogTitle,
 } from "@/components/ui/dialog"
+import { VisuallyHidden } from "@radix-ui/react-visually-hidden"
 import { Button } from "@/components/ui/button"
 import { X } from "lucide-react"
 
@@ -20,6 +22,9 @@ export function ImageLightbox({ imagePath, onClose }: ImageLightboxProps) {
   return (
     <Dialog open={!!imagePath} onOpenChange={() => onClose()}>
       <DialogContent className="max-w-[90vw] max-h-[90vh] p-0 overflow-hidden">
+        <VisuallyHidden>
+          <DialogTitle>Image preview</DialogTitle>
+        </VisuallyHidden>
         <Button
           variant="ghost"
           size="sm"
