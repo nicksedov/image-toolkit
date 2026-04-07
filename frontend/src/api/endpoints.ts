@@ -16,6 +16,9 @@ import type {
   GalleryImagesResponse,
   AppSettingsDTO,
   UpdateSettingsRequest,
+  TrashInfoResponse,
+  CleanTrashResponse,
+  ImageMetadataResponse,
 } from "@/types"
 
 export function fetchDuplicates(page: number, pageSize: number): Promise<DuplicatesResponse> {
@@ -95,4 +98,10 @@ export function fetchTrashInfo(): Promise<TrashInfoResponse> {
 
 export function cleanTrash(): Promise<CleanTrashResponse> {
   return apiPost<CleanTrashResponse>("/api/trash-clean")
+}
+
+// --- Image Metadata ---
+
+export function fetchImageMetadata(path: string): Promise<ImageMetadataResponse> {
+  return apiGet<ImageMetadataResponse>("/api/image-metadata", { path })
 }

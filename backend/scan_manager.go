@@ -15,6 +15,7 @@ type ScanManager struct {
 	filesProcessed int
 	db             *gorm.DB
 	scanWorkers    int
+	OnScanComplete func() // called after each scan finishes (if non-nil)
 }
 
 // NewScanManager creates a new ScanManager
@@ -85,6 +86,10 @@ func (sm *ScanManager) StartScan() error {
 		sm.isScanning = false
 		sm.progress = "Scan complete"
 		sm.mu.Unlock()
+
+		if sm.OnScanComplete != nil {
+			sm.OnScanComplete()
+		}
 	}()
 
 	return nil
@@ -124,6 +129,10 @@ func (sm *ScanManager) ScanSingleDir(dirPath string) error {
 		sm.isScanning = false
 		sm.progress = "Scan complete"
 		sm.mu.Unlock()
+
+		if sm.OnScanComplete != nil {
+			sm.OnScanComplete()
+		}
 	}()
 
 	return nil

@@ -162,3 +162,32 @@ export interface CleanTrashResponse {
   deleted: number
   failed: number
 }
+
+// --- Image Metadata Types ---
+
+export interface ImageMetadataDTO {
+  width: number
+  height: number
+  dimensions: string
+  cameraModel: string
+  lensModel: string
+  iso: number
+  aperture: string
+  shutterSpeed: string
+  focalLength: string
+  dateTaken: string
+  orientation: number
+  colorSpace: string
+  software: string
+  gpsLatitude: number | null
+  gpsLongitude: number | null
+  geoCountry: string
+  geoCity: string
+  hasGps: boolean
+  hasExif: boolean
+}
+
+export interface ImageMetadataResponse {
+  found: boolean
+  metadata?: ImageMetadataDTO
+}

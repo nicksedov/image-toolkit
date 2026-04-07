@@ -42,6 +42,30 @@ func isImageFile(path string) bool {
 	return supportedExtensions[ext]
 }
 
+// ImageMetadata stores extracted EXIF metadata and geolocation for an image
+type ImageMetadata struct {
+	ID           uint       `gorm:"primaryKey" json:"id"`
+	ImageFileID  uint       `gorm:"uniqueIndex;not null" json:"imageFileId"`
+	Width        int        `json:"width"`
+	Height       int        `json:"height"`
+	CameraModel  string     `json:"cameraModel"`
+	LensModel    string     `json:"lensModel"`
+	ISO          int        `json:"iso"`
+	Aperture     string     `json:"aperture"`
+	ShutterSpeed string     `json:"shutterSpeed"`
+	FocalLength  string     `json:"focalLength"`
+	DateTaken    *time.Time `json:"dateTaken"`
+	Orientation  int        `json:"orientation"`
+	ColorSpace   string     `json:"colorSpace"`
+	Software     string     `json:"software"`
+	GPSLatitude  *float64   `json:"gpsLatitude"`
+	GPSLongitude *float64   `json:"gpsLongitude"`
+	GeoCountry   string     `json:"geoCountry"`
+	GeoCity      string     `json:"geoCity"`
+	CreatedAt    time.Time  `json:"createdAt"`
+	UpdatedAt    time.Time  `json:"updatedAt"`
+}
+
 // GalleryFolder represents a configured gallery folder in the database
 type GalleryFolder struct {
 	ID        uint      `gorm:"primaryKey" json:"id"`

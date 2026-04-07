@@ -86,6 +86,28 @@ export const translations = {
     "lightbox.title": "Image preview",
     "lightbox.alt": "Full size preview",
 
+    // Metadata panel
+    "metadata.title": "Image Details",
+    "metadata.dimensions": "Dimensions",
+    "metadata.camera": "Camera",
+    "metadata.lens": "Lens",
+    "metadata.iso": "ISO",
+    "metadata.aperture": "Aperture",
+    "metadata.shutterSpeed": "Shutter Speed",
+    "metadata.focalLength": "Focal Length",
+    "metadata.dateTaken": "Date Taken",
+    "metadata.orientation": "Orientation",
+    "metadata.colorSpace": "Color Space",
+    "metadata.software": "Software",
+    "metadata.location": "Location",
+    "metadata.coordinates": "Coordinates",
+    "metadata.noData": "No metadata available",
+    "metadata.loading": "Loading metadata...",
+    "metadata.sectionCamera": "Camera",
+    "metadata.sectionImage": "Image",
+    "metadata.sectionLocation": "Location",
+    "metadata.sectionTechnical": "Technical",
+
     // Thumbnail
     "thumbnail.alt": "Thumbnail",
 
@@ -246,6 +268,28 @@ export const translations = {
     // Image lightbox
     "lightbox.title": "Просмотр изображения",
     "lightbox.alt": "Полноразмерный просмотр",
+
+    // Metadata panel
+    "metadata.title": "Информация об изображении",
+    "metadata.dimensions": "Размеры",
+    "metadata.camera": "Камера",
+    "metadata.lens": "Объектив",
+    "metadata.iso": "ISO",
+    "metadata.aperture": "Диафрагма",
+    "metadata.shutterSpeed": "Выдержка",
+    "metadata.focalLength": "Фокусное расстояние",
+    "metadata.dateTaken": "Дата съёмки",
+    "metadata.orientation": "Ориентация",
+    "metadata.colorSpace": "Цветовое пространство",
+    "metadata.software": "Программа",
+    "metadata.location": "Местоположение",
+    "metadata.coordinates": "Координаты",
+    "metadata.noData": "Метаданные недоступны",
+    "metadata.loading": "Загрузка метаданных...",
+    "metadata.sectionCamera": "Камера",
+    "metadata.sectionImage": "Изображение",
+    "metadata.sectionLocation": "Местоположение",
+    "metadata.sectionTechnical": "Техническая информация",
 
     // Thumbnail
     "thumbnail.alt": "Миниатюра",

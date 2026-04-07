@@ -19,7 +19,9 @@ type AppConfig struct {
 	ServerPort  string
 	CORSOrigins []string
 
-	ScanWorkers int
+	ScanWorkers        int
+	MetadataWorkers    int
+	MetadataIntervalMin int
 }
 
 // LoadConfig reads configuration from environment variables
@@ -37,16 +39,35 @@ func LoadConfig() *AppConfig {
 		}
 	}
 
+	metadataWorkers := runtime.NumCPU() / 2
+	if metadataWorkers < 1 {
+		metadataWorkers = 1
+	}
+	if v := getEnv("METADATA_WORKERS", ""); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			metadataWorkers = n
+		}
+	}
+
+	metadataInterval := 30
+	if v := getEnv("METADATA_INTERVAL_MINUTES", ""); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			metadataInterval = n
+		}
+	}
+
 	return &AppConfig{
-		DBHost:      getEnv("DB_HOST", "localhost"),
-		DBPort:      getEnv("DB_PORT", "5432"),
-		DBUser:      getEnv("DB_USER", "postgres"),
-		DBPassword:  getEnv("DB_PASSWORD", "postgres"),
-		DBName:      getEnv("DB_NAME", "image_dedup"),
-		ServerHost:  getEnv("SERVER_HOST", "0.0.0.0"),
-		ServerPort:  getEnv("SERVER_PORT", "5170"),
-		CORSOrigins: origins,
-		ScanWorkers: scanWorkers,
+		DBHost:              getEnv("DB_HOST", "localhost"),
+		DBPort:              getEnv("DB_PORT", "5432"),
+		DBUser:              getEnv("DB_USER", "postgres"),
+		DBPassword:          getEnv("DB_PASSWORD", "postgres"),
+		DBName:              getEnv("DB_NAME", "image_dedup"),
+		ServerHost:          getEnv("SERVER_HOST", "0.0.0.0"),
+		ServerPort:          getEnv("SERVER_PORT", "5170"),
+		CORSOrigins:         origins,
+		ScanWorkers:         scanWorkers,
+		MetadataWorkers:     metadataWorkers,
+		MetadataIntervalMin: metadataInterval,
 	}
 }
 

@@ -17,19 +17,21 @@ import (
 
 // Server holds the application state
 type Server struct {
-	db             *gorm.DB
-	thumbnailCache *ThumbnailCache
-	scanManager    *ScanManager
-	config         *AppConfig
+	db              *gorm.DB
+	thumbnailCache  *ThumbnailCache
+	scanManager     *ScanManager
+	metadataManager *MetadataManager
+	config          *AppConfig
 }
 
 // NewServer creates a new server instance
-func NewServer(db *gorm.DB, scanManager *ScanManager, config *AppConfig) *Server {
+func NewServer(db *gorm.DB, scanManager *ScanManager, metadataManager *MetadataManager, config *AppConfig) *Server {
 	return &Server{
-		db:             db,
-		thumbnailCache: NewThumbnailCache(),
-		scanManager:    scanManager,
-		config:         config,
+		db:              db,
+		thumbnailCache:  NewThumbnailCache(),
+		scanManager:     scanManager,
+		metadataManager: metadataManager,
+		config:          config,
 	}
 }
 
@@ -826,6 +828,62 @@ func (s *Server) handleCleanTrash(c *gin.Context) {
 	})
 }
 
+// handleGetImageMetadata returns EXIF metadata for a single image
+func (s *Server) handleGetImageMetadata(c *gin.Context) {
+	path := c.Query("path")
+	if path == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Path required"})
+		return
+	}
+
+	// Find the image file in DB
+	var imageFile ImageFile
+	if result := s.db.Where("path = ?", path).First(&imageFile); result.Error != nil {
+		c.JSON(http.StatusOK, ImageMetadataResponse{Found: false})
+		return
+	}
+
+	// Find metadata for this image
+	var meta ImageMetadata
+	if result := s.db.Where("image_file_id = ?", imageFile.ID).First(&meta); result.Error != nil {
+		c.JSON(http.StatusOK, ImageMetadataResponse{Found: false})
+		return
+	}
+
+	// Build the DTO
+	dto := &ImageMetadataDTO{
+		Width:        meta.Width,
+		Height:       meta.Height,
+		Dimensions:   fmt.Sprintf("%d \u00d7 %d", meta.Width, meta.Height),
+		CameraModel:  meta.CameraModel,
+		LensModel:    meta.LensModel,
+		ISO:          meta.ISO,
+		Aperture:     meta.Aperture,
+		ShutterSpeed: meta.ShutterSpeed,
+		FocalLength:  meta.FocalLength,
+		Orientation:  meta.Orientation,
+		ColorSpace:   meta.ColorSpace,
+		Software:     meta.Software,
+		GPSLatitude:  meta.GPSLatitude,
+		GPSLongitude: meta.GPSLongitude,
+		GeoCountry:   meta.GeoCountry,
+		GeoCity:      meta.GeoCity,
+		HasGPS:       meta.GPSLatitude != nil && meta.GPSLongitude != nil,
+		HasExif:      hasExifData(&meta),
+	}
+
+	if meta.DateTaken != nil {
+		dto.DateTaken = meta.DateTaken.Format("2006-01-02 15:04:05")
+	}
+
+	c.JSON(http.StatusOK, ImageMetadataResponse{Found: true, Metadata: dto})
+}
+
+// handleGetMetadataStatus returns the current metadata extraction status
+func (s *Server) handleGetMetadataStatus(c *gin.Context) {
+	c.JSON(http.StatusOK, s.metadataManager.GetStatus())
+}
+
 // SetupRouter sets up the Gin router with all API routes
 func (s *Server) SetupRouter() *gin.Engine {
 	gin.SetMode(gin.ReleaseMode)
@@ -854,6 +912,8 @@ func (s *Server) SetupRouter() *gin.Engine {
 		api.PUT("/settings", s.handleUpdateSettings)
 		api.GET("/trash-info", s.handleGetTrashInfo)
 		api.POST("/trash-clean", s.handleCleanTrash)
+		api.GET("/image-metadata", s.handleGetImageMetadata)
+		api.GET("/metadata-status", s.handleGetMetadataStatus)
 	}
 
 	return r

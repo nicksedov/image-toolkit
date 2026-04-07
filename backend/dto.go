@@ -196,3 +196,43 @@ type CleanTrashResponse struct {
 	Deleted int `json:"deleted"`
 	Failed  int `json:"failed"`
 }
+
+// --- Image Metadata API ---
+
+// ImageMetadataDTO represents image EXIF metadata and geolocation in JSON responses
+type ImageMetadataDTO struct {
+	Width        int      `json:"width"`
+	Height       int      `json:"height"`
+	Dimensions   string   `json:"dimensions"`
+	CameraModel  string   `json:"cameraModel"`
+	LensModel    string   `json:"lensModel"`
+	ISO          int      `json:"iso"`
+	Aperture     string   `json:"aperture"`
+	ShutterSpeed string   `json:"shutterSpeed"`
+	FocalLength  string   `json:"focalLength"`
+	DateTaken    string   `json:"dateTaken"`
+	Orientation  int      `json:"orientation"`
+	ColorSpace   string   `json:"colorSpace"`
+	Software     string   `json:"software"`
+	GPSLatitude  *float64 `json:"gpsLatitude"`
+	GPSLongitude *float64 `json:"gpsLongitude"`
+	GeoCountry   string   `json:"geoCountry"`
+	GeoCity      string   `json:"geoCity"`
+	HasGPS       bool     `json:"hasGps"`
+	HasExif      bool     `json:"hasExif"`
+}
+
+// ImageMetadataResponse is the JSON response for GET /api/image-metadata
+type ImageMetadataResponse struct {
+	Found    bool              `json:"found"`
+	Metadata *ImageMetadataDTO `json:"metadata,omitempty"`
+}
+
+// --- Metadata Status API ---
+
+// MetadataStatusResponse is the JSON response for GET /api/metadata-status
+type MetadataStatusResponse struct {
+	Processing     bool   `json:"processing"`
+	Progress       string `json:"progress"`
+	FilesProcessed int    `json:"filesProcessed"`
+}
