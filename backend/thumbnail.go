@@ -21,7 +21,7 @@ const (
 
 // ThumbnailCache stores generated thumbnails in memory
 type ThumbnailCache struct {
-	cache map[string]string // path -> base64 encoded thumbnail
+	cache map[string]string
 	mu    sync.RWMutex
 }
 
@@ -48,55 +48,45 @@ func (tc *ThumbnailCache) Set(path, thumbnail string) {
 }
 
 // generateThumbnail creates a thumbnail for an image file
-// Returns base64-encoded JPEG data
 func generateThumbnail(imagePath string, cache *ThumbnailCache) (string, error) {
-	// Check cache first
 	if cached, ok := cache.Get(imagePath); ok {
 		return cached, nil
 	}
 
-	// Open the image file
 	file, err := os.Open(imagePath)
 	if err != nil {
 		return "", fmt.Errorf("failed to open image: %w", err)
 	}
 	defer file.Close()
 
-	// Decode the image
 	img, _, err := image.Decode(file)
 	if err != nil {
 		return "", fmt.Errorf("failed to decode image: %w", err)
 	}
 
-	// Get original dimensions
 	bounds := img.Bounds()
 	width := bounds.Dx()
 	height := bounds.Dy()
 
-	// Calculate new dimensions (max 128px on longest side)
 	var newWidth, newHeight int
 	if width >= height {
 		newWidth = maxThumbnailSize
-		newHeight = 0 // Preserve aspect ratio
+		newHeight = 0
 	} else {
-		newWidth = 0 // Preserve aspect ratio
+		newWidth = 0
 		newHeight = maxThumbnailSize
 	}
 
-	// Resize the image using Lanczos filter for high quality
 	thumbnail := imaging.Resize(img, newWidth, newHeight, imaging.Lanczos)
 
-	// Encode to JPEG
 	var buf bytes.Buffer
 	if err := jpeg.Encode(&buf, thumbnail, &jpeg.Options{Quality: 80}); err != nil {
 		return "", fmt.Errorf("failed to encode thumbnail: %w", err)
 	}
 
-	// Convert to base64
 	base64Str := base64.StdEncoding.EncodeToString(buf.Bytes())
 	result := "data:image/jpeg;base64," + base64Str
 
-	// Store in cache
 	cache.Set(imagePath, result)
 
 	return result, nil
@@ -125,7 +115,6 @@ func getImageMimeType(path string) string {
 
 // init registers additional image formats
 func init() {
-	// Register additional image formats
 	image.RegisterFormat("jpeg", "\xff\xd8", jpeg.Decode, jpeg.DecodeConfig)
 	image.RegisterFormat("png", "\x89PNG\r\n\x1a\n", png.Decode, png.DecodeConfig)
 }

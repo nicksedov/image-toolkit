@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"html/template"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -21,53 +20,19 @@ type Server struct {
 	db             *gorm.DB
 	thumbnailCache *ThumbnailCache
 	scanDirs       []string
+	scanManager    *ScanManager
+	config         *AppConfig
 }
 
 // NewServer creates a new server instance
-func NewServer(db *gorm.DB, scanDirs []string) *Server {
+func NewServer(db *gorm.DB, scanDirs []string, scanManager *ScanManager, config *AppConfig) *Server {
 	return &Server{
 		db:             db,
 		thumbnailCache: NewThumbnailCache(),
 		scanDirs:       scanDirs,
+		scanManager:    scanManager,
+		config:         config,
 	}
-}
-
-// TemplateData represents data passed to the HTML template
-type TemplateData struct {
-	Groups       []DuplicateGroupView
-	TotalFiles   int
-	PageFiles    int
-	TotalGroups  int
-	ScannedDirs  []string
-	LastScanTime string
-	// Pagination
-	CurrentPage  int
-	PageSize     int
-	TotalPages   int
-	HasPrevPage  bool
-	HasNextPage  bool
-	PrevPage     int
-	NextPage     int
-	PageSizes    []int
-}
-
-// DuplicateGroupView represents a duplicate group for template rendering
-type DuplicateGroupView struct {
-	Index     int
-	Hash      string
-	Size      int64
-	SizeHuman string
-	Files     []FileView
-	Thumbnail template.URL
-}
-
-// FileView represents a file for template rendering
-type FileView struct {
-	ID       uint
-	Path     string
-	FileName string
-	DirPath  string
-	ModTime  string
 }
 
 // formatSize formats file size in human readable format
@@ -84,13 +49,11 @@ func formatSize(size int64) string {
 	return fmt.Sprintf("%.1f %cB", float64(size)/float64(div), "KMGTPE"[exp])
 }
 
-// handleIndex renders the main page
-func (s *Server) handleIndex(c *gin.Context) {
-	// Parse pagination parameters
+// handleGetDuplicates returns paginated duplicate groups as JSON
+func (s *Server) handleGetDuplicates(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("pageSize", "50"))
 
-	// Validate page size
 	validPageSizes := []int{50, 100, 250, 500}
 	isValidPageSize := false
 	for _, ps := range validPageSizes {
@@ -107,15 +70,13 @@ func (s *Server) handleIndex(c *gin.Context) {
 		page = 1
 	}
 
-	// Fetch only the groups needed for this page
 	offset := (page - 1) * pageSize
 	groups, totalGroups, totalFiles, err := findDuplicatesPaginated(s.db, offset, pageSize)
 	if err != nil {
-		c.String(http.StatusInternalServerError, "Failed to find duplicates: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to find duplicates: %v", err)})
 		return
 	}
 
-	// Calculate pagination
 	totalPages := (totalGroups + pageSize - 1) / pageSize
 	if totalPages < 1 {
 		totalPages = 1
@@ -124,25 +85,22 @@ func (s *Server) handleIndex(c *gin.Context) {
 		page = totalPages
 	}
 
-	// Prepare group views with parallel thumbnail generation
-	groupViews := make([]DuplicateGroupView, len(groups))
+	// Prepare group DTOs with parallel thumbnail generation
+	groupDTOs := make([]DuplicateGroupDTO, len(groups))
 	pageFiles := 0
 
-	// Count files on current page
 	for _, g := range groups {
 		pageFiles += len(g.Files)
 	}
 
-	// Generate thumbnails in parallel (up to 16 workers)
 	const maxWorkers = 16
 	var wg sync.WaitGroup
 	semaphore := make(chan struct{}, maxWorkers)
 
 	for i, g := range groups {
-		// Prepare file views (fast, no I/O)
-		fileViews := make([]FileView, len(g.Files))
+		fileDTOs := make([]FileDTO, len(g.Files))
 		for j, f := range g.Files {
-			fileViews[j] = FileView{
+			fileDTOs[j] = FileDTO{
 				ID:       f.ID,
 				Path:     f.Path,
 				FileName: filepath.Base(f.Path),
@@ -151,25 +109,24 @@ func (s *Server) handleIndex(c *gin.Context) {
 			}
 		}
 
-		groupViews[i] = DuplicateGroupView{
+		groupDTOs[i] = DuplicateGroupDTO{
 			Index:     offset + i + 1,
 			Hash:      g.Hash,
 			Size:      g.Size,
 			SizeHuman: formatSize(g.Size),
-			Files:     fileViews,
+			Files:     fileDTOs,
 		}
 
-		// Generate thumbnail in parallel
 		if len(g.Files) > 0 {
 			wg.Add(1)
 			go func(idx int, filePath string) {
 				defer wg.Done()
-				semaphore <- struct{}{}        // Acquire
-				defer func() { <-semaphore }() // Release
+				semaphore <- struct{}{}
+				defer func() { <-semaphore }()
 
 				thumb, err := generateThumbnail(filePath, s.thumbnailCache)
 				if err == nil {
-					groupViews[idx].Thumbnail = template.URL(thumb)
+					groupDTOs[idx].Thumbnail = thumb
 				}
 			}(i, g.Files[0].Path)
 		}
@@ -177,54 +134,35 @@ func (s *Server) handleIndex(c *gin.Context) {
 
 	wg.Wait()
 
-	data := TemplateData{
-		Groups:       groupViews,
-		TotalFiles:   totalFiles,
-		PageFiles:    pageFiles,
-		TotalGroups:  totalGroups,
-		ScannedDirs:  s.scanDirs,
-		LastScanTime: time.Now().Format("2006-01-02 15:04:05"),
-		CurrentPage:  page,
-		PageSize:     pageSize,
-		TotalPages:   totalPages,
-		HasPrevPage:  page > 1,
-		HasNextPage:  page < totalPages,
-		PrevPage:     page - 1,
-		NextPage:     page + 1,
-		PageSizes:    validPageSizes,
+	response := DuplicatesResponse{
+		Groups:      groupDTOs,
+		TotalFiles:  totalFiles,
+		PageFiles:   pageFiles,
+		TotalGroups: totalGroups,
+		ScannedDirs: s.scanDirs,
+		CurrentPage: page,
+		PageSize:    pageSize,
+		TotalPages:  totalPages,
+		HasPrevPage: page > 1,
+		HasNextPage: page < totalPages,
+		PageSizes:   validPageSizes,
 	}
 
-	c.HTML(http.StatusOK, "index.html", data)
+	c.JSON(http.StatusOK, response)
 }
 
-// handleScan triggers a new scan of directories
+// handleScan triggers an async scan of directories
 func (s *Server) handleScan(c *gin.Context) {
-	progressChan := make(chan string, 200)
-
-	go func() {
-		// First cleanup missing files
-		cleanupMissingFiles(s.db, progressChan)
-
-		// Then scan all directories
-		for _, dir := range s.scanDirs {
-			scanDirectory(s.db, dir, progressChan)
-		}
-		close(progressChan)
-	}()
-
-	// Drain the channel (we could implement SSE for real-time progress)
-	for range progressChan {
+	if err := s.scanManager.StartScan(); err != nil {
+		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+		return
 	}
-
-	c.Redirect(http.StatusSeeOther, "/")
+	c.JSON(http.StatusAccepted, ScanResponse{Message: "Scan started"})
 }
 
-// GenerateScriptRequest represents the request for script generation
-type GenerateScriptRequest struct {
-	FilePaths  []string `json:"filePaths"`
-	OutputDir  string   `json:"outputDir"`
-	TrashDir   string   `json:"trashDir"`
-	ScriptType string   `json:"scriptType"` // "bash" or "windows"
+// handleGetStatus returns the current scan status
+func (s *Server) handleGetStatus(c *gin.Context) {
+	c.JSON(http.StatusOK, s.scanManager.GetStatus())
 }
 
 // handleGenerateScript generates a script for moving files
@@ -258,7 +196,6 @@ func (s *Server) handleGenerateScript(c *gin.Context) {
 	var scriptBytes []byte
 
 	if req.ScriptType == "windows" {
-		// Convert paths to Windows format (backslashes)
 		windowsPaths := make([]string, len(req.FilePaths))
 		for i, p := range req.FilePaths {
 			windowsPaths[i] = strings.ReplaceAll(p, "/", "\\")
@@ -268,7 +205,6 @@ func (s *Server) handleGenerateScript(c *gin.Context) {
 		script = generateWindowsScript(windowsPaths, windowsTrashDir)
 		scriptPath = filepath.Join(req.OutputDir, "remove_duplicates.ps1")
 
-		// Encode script in Windows-1251
 		encoder := charmap.Windows1251.NewEncoder()
 		encoded, err := encoder.String(script)
 		if err != nil {
@@ -282,16 +218,15 @@ func (s *Server) handleGenerateScript(c *gin.Context) {
 		scriptBytes = []byte(script)
 	}
 
-	// Save to file
 	if err := os.WriteFile(scriptPath, scriptBytes, 0755); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to save script: %v", err)})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"message":    "Script generated successfully",
-		"scriptPath": scriptPath,
-		"fileCount":  len(req.FilePaths),
+	c.JSON(http.StatusOK, GenerateScriptResponse{
+		Message:    "Script generated successfully",
+		ScriptPath: scriptPath,
+		FileCount:  len(req.FilePaths),
 	})
 }
 
@@ -303,18 +238,15 @@ func generateBashScript(filePaths []string, trashDir string) string {
 	sb.WriteString(fmt.Sprintf("# Generated at: %s\n", time.Now().Format("2006-01-02 15:04:05")))
 	sb.WriteString(fmt.Sprintf("# Files to move: %d\n\n", len(filePaths)))
 
-	// Create trash directory
 	sb.WriteString("# Create trash directory\n")
 	sb.WriteString(fmt.Sprintf("TRASH_DIR=\"%s\"\n", trashDir))
 	sb.WriteString("mkdir -p \"$TRASH_DIR\"\n\n")
 
 	sb.WriteString("# Move files to trash\n")
 	for _, path := range filePaths {
-		// Escape special characters in path
 		escapedPath := strings.ReplaceAll(path, "\"", "\\\"")
 		escapedPath = strings.ReplaceAll(escapedPath, "$", "\\$")
 
-		// Generate unique destination name to avoid overwrites
 		baseName := filepath.Base(path)
 		sb.WriteString(fmt.Sprintf("mv \"%s\" \"$TRASH_DIR/%s\" 2>/dev/null && echo \"Moved: %s\" || echo \"Failed: %s\"\n",
 			escapedPath, baseName, baseName, baseName))
@@ -331,10 +263,8 @@ func generateWindowsScript(filePaths []string, trashDir string) string {
 	sb.WriteString(fmt.Sprintf("# Generated at: %s\n", time.Now().Format("2006-01-02 15:04:05")))
 	sb.WriteString(fmt.Sprintf("# Files to move: %d\n\n", len(filePaths)))
 
-	// Create trash directory
-	sb.WriteString("# Create trash directory\n")
-	// Escape backslashes for PowerShell string
 	escapedTrashDir := strings.ReplaceAll(trashDir, "'", "''")
+	sb.WriteString("# Create trash directory\n")
 	sb.WriteString(fmt.Sprintf("$TrashDir = '%s'\n", escapedTrashDir))
 	sb.WriteString("if (-not (Test-Path -Path $TrashDir)) {\n")
 	sb.WriteString("    New-Item -ItemType Directory -Path $TrashDir -Force | Out-Null\n")
@@ -342,7 +272,6 @@ func generateWindowsScript(filePaths []string, trashDir string) string {
 
 	sb.WriteString("# Move files to trash\n")
 	for _, path := range filePaths {
-		// Escape single quotes for PowerShell
 		escapedPath := strings.ReplaceAll(path, "'", "''")
 		baseName := filepath.Base(path)
 		escapedBaseName := strings.ReplaceAll(baseName, "'", "''")
@@ -366,30 +295,17 @@ func generateWindowsScript(filePaths []string, trashDir string) string {
 func (s *Server) handleThumbnail(c *gin.Context) {
 	path := c.Query("path")
 	if path == "" {
-		c.String(http.StatusBadRequest, "Path required")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Path required"})
 		return
 	}
 
 	thumbnail, err := generateThumbnail(path, s.thumbnailCache)
 	if err != nil {
-		c.String(http.StatusInternalServerError, "Failed to generate thumbnail: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to generate thumbnail: %v", err)})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"thumbnail": thumbnail})
-}
-
-// DeleteFilesRequest represents the request for direct file deletion
-type DeleteFilesRequest struct {
-	FilePaths []string `json:"filePaths"`
-	TrashDir  string   `json:"trashDir"`
-}
-
-// DeleteFilesResponse represents the response from file deletion
-type DeleteFilesResponse struct {
-	Success     int      `json:"success"`
-	Failed      int      `json:"failed"`
-	FailedFiles []string `json:"failedFiles,omitempty"`
+	c.JSON(http.StatusOK, ThumbnailResponse{Thumbnail: thumbnail})
 }
 
 // handleDeleteFiles deletes selected files directly (moves to trash)
@@ -408,9 +324,7 @@ func (s *Server) handleDeleteFiles(c *gin.Context) {
 	var successCount, failedCount int
 	var failedFiles []string
 
-	// If trash directory is specified, move files there
 	if req.TrashDir != "" {
-		// Create trash directory if it doesn't exist
 		if err := os.MkdirAll(req.TrashDir, 0755); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create trash directory: " + err.Error()})
 			return
@@ -420,7 +334,6 @@ func (s *Server) handleDeleteFiles(c *gin.Context) {
 			baseName := filepath.Base(filePath)
 			destPath := filepath.Join(req.TrashDir, baseName)
 
-			// Handle duplicate names in trash by adding timestamp
 			if _, err := os.Stat(destPath); err == nil {
 				ext := filepath.Ext(baseName)
 				nameWithoutExt := strings.TrimSuffix(baseName, ext)
@@ -433,12 +346,10 @@ func (s *Server) handleDeleteFiles(c *gin.Context) {
 				continue
 			}
 
-			// Remove from database
 			s.db.Where("path = ?", filepath.ToSlash(filePath)).Delete(&ImageFile{})
 			successCount++
 		}
 	} else {
-		// Permanently delete files
 		for _, filePath := range req.FilePaths {
 			baseName := filepath.Base(filePath)
 
@@ -448,7 +359,6 @@ func (s *Server) handleDeleteFiles(c *gin.Context) {
 				continue
 			}
 
-			// Remove from database
 			s.db.Where("path = ?", filepath.ToSlash(filePath)).Delete(&ImageFile{})
 			successCount++
 		}
@@ -461,48 +371,30 @@ func (s *Server) handleDeleteFiles(c *gin.Context) {
 	})
 }
 
-// FolderPattern represents a unique combination of folders containing duplicates
-type FolderPattern struct {
-	ID            string   `json:"id"`             // Hash of sorted folder paths
-	Folders       []string `json:"folders"`        // List of folder paths
-	DuplicateCount int     `json:"duplicateCount"` // Number of duplicate groups with this pattern
-	TotalFiles    int      `json:"totalFiles"`     // Total number of files across all groups
-}
-
-// FolderPatternsResponse represents the response for folder patterns
-type FolderPatternsResponse struct {
-	Patterns []FolderPattern `json:"patterns"`
-}
-
 // handleGetFolderPatterns returns all unique folder patterns from duplicates
 func (s *Server) handleGetFolderPatterns(c *gin.Context) {
-	groups, _, _, err := findDuplicatesPaginated(s.db, 0, 100000) // Get all groups
+	groups, _, _, err := findDuplicatesPaginated(s.db, 0, 100000)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to find duplicates: " + err.Error()})
 		return
 	}
 
-	// Map to track patterns: patternID -> FolderPattern
 	patternMap := make(map[string]*FolderPattern)
 
 	for _, group := range groups {
-		// Extract unique folders for this group
 		folderSet := make(map[string]bool)
 		for _, file := range group.Files {
 			dir := filepath.Dir(file.Path)
 			folderSet[dir] = true
 		}
 
-		// Convert to sorted slice for consistent ID
 		folders := make([]string, 0, len(folderSet))
 		for folder := range folderSet {
 			folders = append(folders, folder)
 		}
-		
-		// Sort folders for consistent pattern ID
+
 		sortStrings(folders)
 
-		// Create pattern ID from sorted folders
 		patternID := createPatternID(folders)
 
 		if existing, ok := patternMap[patternID]; ok {
@@ -518,13 +410,11 @@ func (s *Server) handleGetFolderPatterns(c *gin.Context) {
 		}
 	}
 
-	// Convert map to slice
 	patterns := make([]FolderPattern, 0, len(patternMap))
 	for _, p := range patternMap {
 		patterns = append(patterns, *p)
 	}
 
-	// Sort patterns by duplicate count descending
 	sortPatternsByCount(patterns)
 
 	c.JSON(http.StatusOK, FolderPatternsResponse{Patterns: patterns})
@@ -557,25 +447,6 @@ func createPatternID(folders []string) string {
 	return strings.Join(folders, "|")
 }
 
-// BatchDeleteRequest represents a request for batch deletion
-type BatchDeleteRequest struct {
-	Rules    []BatchDeleteRule `json:"rules"`
-	TrashDir string            `json:"trashDir"`
-}
-
-// BatchDeleteRule specifies which folder to keep for a pattern
-type BatchDeleteRule struct {
-	PatternID  string `json:"patternId"`
-	KeepFolder string `json:"keepFolder"`
-}
-
-// BatchDeleteResponse represents the response from batch deletion
-type BatchDeleteResponse struct {
-	Success     int      `json:"success"`
-	Failed      int      `json:"failed"`
-	FailedFiles []string `json:"failedFiles,omitempty"`
-}
-
 // handleBatchDelete applies batch deletion rules to all matching duplicates
 func (s *Server) handleBatchDelete(c *gin.Context) {
 	var req BatchDeleteRequest
@@ -589,13 +460,11 @@ func (s *Server) handleBatchDelete(c *gin.Context) {
 		return
 	}
 
-	// Create rule map for quick lookup
 	ruleMap := make(map[string]string)
 	for _, rule := range req.Rules {
 		ruleMap[rule.PatternID] = rule.KeepFolder
 	}
 
-	// Get all duplicate groups
 	groups, _, _, err := findDuplicatesPaginated(s.db, 0, 100000)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to find duplicates: " + err.Error()})
@@ -605,7 +474,6 @@ func (s *Server) handleBatchDelete(c *gin.Context) {
 	var successCount, failedCount int
 	var failedFiles []string
 
-	// Create trash directory if specified
 	if req.TrashDir != "" {
 		if err := os.MkdirAll(req.TrashDir, 0755); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create trash directory: " + err.Error()})
@@ -614,7 +482,6 @@ func (s *Server) handleBatchDelete(c *gin.Context) {
 	}
 
 	for _, group := range groups {
-		// Extract unique folders for this group
 		folderSet := make(map[string]bool)
 		for _, file := range group.Files {
 			dir := filepath.Dir(file.Path)
@@ -629,25 +496,21 @@ func (s *Server) handleBatchDelete(c *gin.Context) {
 
 		patternID := createPatternID(folders)
 
-		// Check if there's a rule for this pattern
 		keepFolder, hasRule := ruleMap[patternID]
 		if !hasRule {
 			continue
 		}
 
-		// Delete files not in the keep folder
 		for _, file := range group.Files {
 			fileDir := filepath.Dir(file.Path)
 			if fileDir == keepFolder {
-				continue // Keep this file
+				continue
 			}
 
-			// Delete or move to trash
 			if req.TrashDir != "" {
 				baseName := filepath.Base(file.Path)
 				destPath := filepath.Join(req.TrashDir, baseName)
 
-				// Handle duplicate names in trash
 				if _, err := os.Stat(destPath); err == nil {
 					ext := filepath.Ext(baseName)
 					nameWithoutExt := strings.TrimSuffix(baseName, ext)
@@ -667,7 +530,6 @@ func (s *Server) handleBatchDelete(c *gin.Context) {
 				}
 			}
 
-			// Remove from database
 			s.db.Where("path = ?", filepath.ToSlash(file.Path)).Delete(&ImageFile{})
 			successCount++
 		}
@@ -680,23 +542,26 @@ func (s *Server) handleBatchDelete(c *gin.Context) {
 	})
 }
 
-// SetupRouter sets up the Gin router with all routes
+// SetupRouter sets up the Gin router with all API routes
 func (s *Server) SetupRouter() *gin.Engine {
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.Default()
 
-	// Load HTML templates
-	r.SetHTMLTemplate(template.Must(template.ParseFiles("templates/index.html")))
-	// Serve static files
-	r.Static("/static", "./static")
-	// Routes
-	r.GET("/", s.handleIndex)
-	r.POST("/scan", s.handleScan)
-	r.POST("/generate-script", s.handleGenerateScript)
-	r.POST("/delete-files", s.handleDeleteFiles)
-	r.GET("/thumbnail", s.handleThumbnail)
-	r.GET("/folder-patterns", s.handleGetFolderPatterns)
-	r.POST("/batch-delete", s.handleBatchDelete)
+	// CORS middleware
+	r.Use(SetupCORS(s.config))
+
+	// API routes
+	api := r.Group("/api")
+	{
+		api.GET("/duplicates", s.handleGetDuplicates)
+		api.POST("/scan", s.handleScan)
+		api.GET("/status", s.handleGetStatus)
+		api.POST("/generate-script", s.handleGenerateScript)
+		api.POST("/delete-files", s.handleDeleteFiles)
+		api.GET("/thumbnail", s.handleThumbnail)
+		api.GET("/folder-patterns", s.handleGetFolderPatterns)
+		api.POST("/batch-delete", s.handleBatchDelete)
+	}
 
 	return r
 }

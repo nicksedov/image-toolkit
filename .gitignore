@@ -54,3 +54,10 @@ debug
 
 # Generated files
 *.generated.*
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+
+# Qoder
+.qoder/

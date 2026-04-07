@@ -6,20 +6,23 @@ import (
 	"log"
 	"os"
 	"strings"
+
 	"github.com/joho/godotenv"
 )
 
 // init is invoked before main()
 func init() {
-    // loads values from .env into the system
-    if err := godotenv.Load(); err != nil {
-        log.Print("No .env file found")
-    }
+	if err := godotenv.Load(); err != nil {
+		log.Print("No .env file found")
+	}
 }
 
 func main() {
+	// Load configuration
+	config := LoadConfig()
+
 	// Parse command line arguments
-	port := flag.Int("port", 8080, "HTTP server port")
+	port := flag.String("port", config.ServerPort, "HTTP server port")
 	flag.Parse()
 
 	// Get directories from remaining arguments
@@ -29,11 +32,13 @@ func main() {
 		fmt.Println("\nOptions:")
 		flag.PrintDefaults()
 		fmt.Println("\nEnvironment variables:")
-		fmt.Println("  DB_HOST     PostgreSQL host (default: localhost)")
-		fmt.Println("  DB_PORT     PostgreSQL port (default: 5432)")
-		fmt.Println("  DB_USER     PostgreSQL user (default: postgres)")
-		fmt.Println("  DB_PASSWORD PostgreSQL password (default: postgres)")
-		fmt.Println("  DB_NAME     Database name (default: image_dedup)")
+		fmt.Println("  DB_HOST      PostgreSQL host (default: localhost)")
+		fmt.Println("  DB_PORT      PostgreSQL port (default: 5432)")
+		fmt.Println("  DB_USER      PostgreSQL user (default: postgres)")
+		fmt.Println("  DB_PASSWORD  PostgreSQL password (default: postgres)")
+		fmt.Println("  DB_NAME      Database name (default: image_dedup)")
+		fmt.Println("  SERVER_PORT  HTTP server port (default: 8080)")
+		fmt.Println("  CORS_ORIGINS Comma-separated allowed origins (default: http://localhost:5173)")
 		os.Exit(1)
 	}
 
@@ -56,12 +61,12 @@ func main() {
 		log.Fatal("No valid directories provided")
 	}
 
-	fmt.Printf("Image Dedup - Duplicate Image Manager\n")
-	fmt.Printf("======================================\n\n")
+	fmt.Printf("Image Dedup - API Server\n")
+	fmt.Printf("========================\n\n")
 
 	// Initialize database
 	fmt.Println("Connecting to PostgreSQL database...")
-	db, err := initDatabase()
+	db, err := initDatabase(config)
 	if err != nil {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
@@ -81,10 +86,8 @@ func main() {
 		}
 	}()
 
-	// Cleanup missing files first
 	cleanupMissingFiles(db, progressChan)
 
-	// Scan all directories
 	for _, dir := range validDirs {
 		fmt.Printf("\nScanning: %s\n", dir)
 		if err := scanDirectory(db, dir, progressChan); err != nil {
@@ -93,19 +96,25 @@ func main() {
 	}
 	close(progressChan)
 
-	// Find duplicates and show summary
 	groups, _ := findDuplicates(db)
-	fmt.Printf("\n======================================\n")
+	fmt.Printf("\n========================\n")
 	fmt.Printf("Scan complete! Found %d duplicate groups.\n", len(groups))
 
+	// Create scan manager for async rescans
+	scanManager := NewScanManager(db, validDirs)
+
+	// Update port from CLI flag if provided
+	config.ServerPort = *port
+
 	// Start web server
-	server := NewServer(db, validDirs)
+	server := NewServer(db, validDirs, scanManager, config)
 	router := server.SetupRouter()
 
-	fmt.Printf("\nStarting web server on http://localhost:%d\n", *port)
+	fmt.Printf("\nStarting API server on http://localhost:%s\n", *port)
+	fmt.Printf("CORS allowed origins: %s\n", strings.Join(config.CORSOrigins, ", "))
 	fmt.Println("Press Ctrl+C to stop the server")
 
-	if err := router.Run(fmt.Sprintf(":%d", *port)); err != nil {
+	if err := router.Run(fmt.Sprintf(":%s", *port)); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
 }

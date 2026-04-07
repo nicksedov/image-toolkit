@@ -2,12 +2,19 @@
 
 Приложение для поиска и управления дубликатами изображений в медиатеке на локальном диске.
 
+Проект разделен на два подпроекта:
+- **backend/** -- Go REST API с бизнес-логикой (сканирование, БД, генерация скриптов)
+- **frontend/** -- React + TypeScript веб-интерфейс (Vite, Tailwind CSS, shadcn/ui)
+
 ## Возможности
 
 - Сканирование одной или нескольких директорий на наличие дубликатов изображений
 - Определение дубликатов по совпадению размера файла и контрольной суммы (MD5)
-- Веб-интерфейс с миниатюрами изображений (до 128px)
-- Генерация bash-скрипта для перемещения выбранных файлов в папку для удаления
+- Веб-интерфейс с миниатюрами изображений (до 192px)
+- Прямое удаление или перемещение файлов в корзину
+- Генерация bash/PowerShell скриптов для перемещения файлов
+- Пакетная дедупликация по шаблонам папок
+- Асинхронное сканирование с отображением прогресса
 - Кэширование метаданных в PostgreSQL для ускорения повторных сканирований
 
 ## Поддерживаемые форматы
@@ -16,135 +23,154 @@ JPG, JPEG, PNG, GIF, BMP, TIFF, TIF, WEBP
 
 ## Требования
 
-- Go 1.21 или выше
+- Go 1.23 или выше
+- Node.js 18 или выше (для фронтенда)
 - PostgreSQL 12 или выше
-
-## Установка
-
-### 1. Клонирование репозитория
-
-```bash
-git clone <repository-url>
-cd image-dedup
-```
-
-### 2. Создание базы данных PostgreSQL
-
-```sql
-CREATE DATABASE image_dedup;
-```
-
-### 3. Сборка приложения
-
-```bash
-go mod tidy
-go build -o image-dedup .
-```
-
-На Windows:
-```bash
-go build -o image-dedup.exe .
-```
-
-## Настройка
-
-Приложение использует переменные окружения для подключения к базе данных:
-
-| Переменная    | Описание                | По умолчанию  |
-|---------------|-------------------------|---------------|
-| `DB_HOST`     | Хост PostgreSQL         | `localhost`   |
-| `DB_PORT`     | Порт PostgreSQL         | `5432`        |
-| `DB_USER`     | Пользователь            | `postgres`    |
-| `DB_PASSWORD` | Пароль                  | `postgres`    |
-| `DB_NAME`     | Имя базы данных         | `image_dedup` |
-
-## Запуск
-
-### Базовый запуск
-
-```bash
-./image-dedup /path/to/photos
-```
-
-### Сканирование нескольких директорий
-
-```bash
-./image-dedup /path/to/photos /path/to/backup /path/to/downloads
-```
-
-### Указание порта
-
-```bash
-./image-dedup --port 3000 /path/to/photos
-```
-
-### Пример с переменными окружения
-
-Linux/macOS:
-```bash
-export DB_HOST=localhost
-export DB_PORT=5432
-export DB_USER=myuser
-export DB_PASSWORD=mypassword
-export DB_NAME=image_dedup
-
-./image-dedup /home/user/Pictures
-```
-
-Windows (PowerShell):
-```powershell
-$env:DB_HOST="localhost"
-$env:DB_PORT="5432"
-$env:DB_USER="myuser"
-$env:DB_PASSWORD="mypassword"
-$env:DB_NAME="image_dedup"
-
-.\image-dedup.exe C:\Users\user\Pictures
-```
-
-## Использование веб-интерфейса
-
-1. После запуска откройте в браузере: `http://localhost:8080`
-2. Просмотрите найденные группы дубликатов
-3. Отметьте чекбоксами файлы, которые хотите удалить
-4. Нажмите "Generate Removal Script"
-5. Укажите путь для сохранения скрипта и папку для перемещения файлов
-6. Просмотрите сгенерированный скрипт перед выполнением
-
-### Кнопки управления
-
-- **Rescan Directories** - повторное сканирование директорий
-- **Reset Selection** - сброс всех отмеченных чекбоксов
-- **Generate Removal Script** - генерация bash-скрипта для перемещения файлов
-
-## Генерируемый скрипт
-
-Скрипт перемещает выбранные файлы в указанную папку (trash):
-
-```bash
-#!/bin/bash
-TRASH_DIR="/path/to/trash"
-mkdir -p "$TRASH_DIR"
-mv "/path/to/duplicate1.jpg" "$TRASH_DIR/duplicate1.jpg"
-mv "/path/to/duplicate2.jpg" "$TRASH_DIR/duplicate2.jpg"
-```
-
-Перед выполнением скрипта рекомендуется его просмотреть.
 
 ## Структура проекта
 
 ```
 image-dedup/
-├── main.go          # Точка входа, обработка аргументов CLI
-├── database.go      # Подключение к PostgreSQL
-├── scanner.go       # Сканирование и поиск дубликатов
-├── thumbnail.go     # Генерация миниатюр
-├── handlers.go      # HTTP обработчики
-├── templates/
-│   └── index.html   # HTML шаблон веб-интерфейса
-├── go.mod
-└── go.sum
+├── backend/
+│   ├── main.go           # Точка входа, CLI, запуск сервера
+│   ├── config.go         # Конфигурация (переменные окружения)
+│   ├── database.go       # Подключение к PostgreSQL
+│   ├── models.go         # Модели данных (ImageFile, DuplicateGroup)
+│   ├── scanner.go        # Сканирование и поиск дубликатов
+│   ├── thumbnail.go      # Генерация миниатюр
+│   ├── handlers.go       # HTTP обработчики (JSON API)
+│   ├── dto.go            # DTO для запросов/ответов API
+│   ├── middleware.go      # CORS middleware
+│   ├── scan_manager.go   # Асинхронное сканирование
+│   ├── .env.example      # Пример конфигурации
+│   ├── go.mod
+│   └── go.sum
+│
+├── frontend/
+│   ├── src/
+│   │   ├── App.tsx       # Главный компонент
+│   │   ├── api/          # HTTP клиент и функции API
+│   │   ├── types/        # TypeScript интерфейсы
+│   │   ├── hooks/        # React хуки
+│   │   ├── components/   # UI компоненты
+│   │   └── lib/          # Утилиты
+│   ├── .env.example      # Пример конфигурации
+│   ├── package.json
+│   └── vite.config.ts
+│
+├── .gitignore
+└── README.md
 ```
+
+## Конфигурация
+
+### Backend (`backend/.env`)
+
+| Переменная     | Описание                              | По умолчанию             |
+|----------------|---------------------------------------|--------------------------|
+| `DB_HOST`      | Хост PostgreSQL                       | `localhost`              |
+| `DB_PORT`      | Порт PostgreSQL                       | `5432`                   |
+| `DB_USER`      | Пользователь PostgreSQL               | `postgres`               |
+| `DB_PASSWORD`  | Пароль PostgreSQL                     | `postgres`               |
+| `DB_NAME`      | Имя базы данных                       | `image_dedup`            |
+| `SERVER_PORT`  | Порт API сервера                      | `8080`                   |
+| `CORS_ORIGINS` | Разрешенные источники (через запятую) | `http://localhost:5173`  |
+
+### Frontend (`frontend/.env`)
+
+| Переменная     | Описание                            | По умолчанию |
+|----------------|-------------------------------------|--------------|
+| `VITE_API_URL` | URL бэкенд API                      | (пусто -- используется Vite прокси) |
+
+В режиме разработки Vite проксирует запросы `/api/*` на бэкенд (`http://localhost:8080`).
+Для продакшена укажите полный URL бэкенда в `VITE_API_URL`.
+
+## Сборка и запуск
+
+### 1. Создание базы данных PostgreSQL
+
+```sql
+CREATE DATABASE image_dedup;
+```
+
+### 2. Настройка окружения
+
+```bash
+# Backend
+cp backend/.env.example backend/.env
+# Отредактируйте backend/.env -- укажите параметры подключения к БД
+
+# Frontend
+cp frontend/.env.example frontend/.env
+# Для разработки можно оставить VITE_API_URL пустым (используется прокси)
+```
+
+### 3. Сборка бэкенда
+
+```bash
+cd backend
+go mod tidy
+go build -o image-dedup.exe .    # Windows
+go build -o image-dedup .        # Linux/macOS
+```
+
+### 4. Сборка фронтенда
+
+```bash
+cd frontend
+npm install
+npm run build    # Собирает в frontend/dist/
+```
+
+### 5. Запуск (режим разработки)
+
+**Терминал 1 -- бэкенд:**
+
+```bash
+cd backend
+go run . --port 8080 C:\path\to\photos
+```
+
+Или с несколькими директориями:
+
+```bash
+go run . --port 8080 C:\photos D:\backup E:\downloads
+```
+
+**Терминал 2 -- фронтенд:**
+
+```bash
+cd frontend
+npm run dev
+```
+
+Откройте в браузере: `http://localhost:5173`
+
+### 6. Запуск (продакшен)
+
+```bash
+# Бэкенд
+cd backend
+./image-dedup --port 8080 /path/to/photos
+
+# Фронтенд -- статические файлы из frontend/dist/
+# Раздайте через nginx, Caddy или любой другой веб-сервер
+```
+
+## API
+
+Все маршруты с префиксом `/api/`. Ответы в формате JSON.
+
+| Метод | Маршрут               | Описание                                |
+|-------|-----------------------|-----------------------------------------|
+| GET   | `/api/duplicates`     | Группы дубликатов с пагинацией          |
+| POST  | `/api/scan`           | Запуск асинхронного сканирования        |
+| GET   | `/api/status`         | Статус текущего сканирования            |
+| GET   | `/api/thumbnail`      | Миниатюра для файла                     |
+| POST  | `/api/generate-script`| Генерация скрипта удаления              |
+| POST  | `/api/delete-files`   | Прямое удаление файлов                  |
+| GET   | `/api/folder-patterns`| Шаблоны папок для пакетной дедупликации |
+| POST  | `/api/batch-delete`   | Пакетное удаление по правилам           |
 
 ## Лицензия
 
