@@ -4,8 +4,6 @@ import type {
   ScanResponse,
   ScanStatusResponse,
   ThumbnailResponse,
-  GenerateScriptRequest,
-  GenerateScriptResponse,
   DeleteFilesRequest,
   DeleteFilesResponse,
   FolderPatternsResponse,
@@ -37,10 +35,6 @@ export function fetchScanStatus(): Promise<ScanStatusResponse> {
 
 export function fetchThumbnail(path: string): Promise<ThumbnailResponse> {
   return apiGet<ThumbnailResponse>("/api/thumbnail", { path })
-}
-
-export function generateScript(req: GenerateScriptRequest): Promise<GenerateScriptResponse> {
-  return apiPost<GenerateScriptResponse>("/api/generate-script", req)
 }
 
 export function deleteFiles(req: DeleteFilesRequest): Promise<DeleteFilesResponse> {

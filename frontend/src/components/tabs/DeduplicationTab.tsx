@@ -5,7 +5,6 @@ import { DuplicateGroupList } from "@/components/duplicates/DuplicateGroupList"
 import { Pagination } from "@/components/pagination/Pagination"
 import { EmptyState } from "@/components/EmptyState"
 import { ScanProgressBanner } from "@/components/ScanProgressBanner"
-import { GenerateScriptModal } from "@/components/modals/GenerateScriptModal"
 import { DeleteFilesModal } from "@/components/modals/DeleteFilesModal"
 import { BatchDeduplicationModal } from "@/components/modals/BatchDeduplicationModal"
 import { useDuplicates } from "@/hooks/useDuplicates"
@@ -26,7 +25,6 @@ export function DeduplicationTab() {
   const { t } = useTranslation()
 
   // Modals
-  const [generateModalOpen, setGenerateModalOpen] = useState(false)
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [batchModalOpen, setBatchModalOpen] = useState(false)
 
@@ -88,13 +86,6 @@ export function DeduplicationTab() {
         onPageSizeChange={handlePageSizeChange}
         onRescan={handleRescan}
         onResetSelection={selection.reset}
-        onOpenGenerateScript={() => {
-          if (selection.selectedCount === 0) {
-            toast.error(t("dedup.toastSelectFile"))
-            return
-          }
-          setGenerateModalOpen(true)
-        }}
         onOpenDeleteFiles={() => {
           if (selection.selectedCount === 0) {
             toast.error(t("dedup.toastSelectFile"))
@@ -140,14 +131,6 @@ export function DeduplicationTab() {
       ) : (
         <EmptyState />
       )}
-
-      <GenerateScriptModal
-        open={generateModalOpen}
-        onOpenChange={setGenerateModalOpen}
-        selectedPaths={selection.selectedPaths}
-        onSuccess={handleSuccess}
-        onError={handleError}
-      />
 
       <DeleteFilesModal
         open={deleteModalOpen}

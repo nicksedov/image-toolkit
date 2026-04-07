@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { PAGE_SIZES } from "@/lib/constants"
-import { RefreshCw, RotateCcw, FileCode, Trash2, Layers } from "lucide-react"
+import { RefreshCw, RotateCcw, Trash2, Layers } from "lucide-react"
 import { useTranslation } from "@/i18n"
 
 interface ToolbarProps {
@@ -11,7 +11,6 @@ interface ToolbarProps {
   onPageSizeChange: (size: number) => void
   onRescan: () => void
   onResetSelection: () => void
-  onOpenGenerateScript: () => void
   onOpenDeleteFiles: () => void
   onOpenBatchDedup: () => void
   isScanning: boolean
@@ -23,7 +22,6 @@ export function Toolbar({
   onPageSizeChange,
   onRescan,
   onResetSelection,
-  onOpenGenerateScript,
   onOpenDeleteFiles,
   onOpenBatchDedup,
   isScanning,
@@ -39,10 +37,6 @@ export function Toolbar({
       <Button size="sm" variant="outline" onClick={onResetSelection}>
         <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
         {t("toolbar.resetSelection")}
-      </Button>
-      <Button size="sm" variant="outline" onClick={onOpenGenerateScript} disabled={selectedCount === 0}>
-        <FileCode className="mr-1.5 h-3.5 w-3.5" />
-        {t("toolbar.generateScript")}
       </Button>
       <Button size="sm" variant="destructive" onClick={onOpenDeleteFiles} disabled={selectedCount === 0}>
         <Trash2 className="mr-1.5 h-3.5 w-3.5" />

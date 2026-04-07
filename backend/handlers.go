@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"golang.org/x/text/encoding/charmap"
+
 	"gorm.io/gorm"
 )
 
@@ -169,132 +169,6 @@ func (s *Server) handleScan(c *gin.Context) {
 // handleGetStatus returns the current scan status
 func (s *Server) handleGetStatus(c *gin.Context) {
 	c.JSON(http.StatusOK, s.scanManager.GetStatus())
-}
-
-// handleGenerateScript generates a script for moving files
-func (s *Server) handleGenerateScript(c *gin.Context) {
-	var req GenerateScriptRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	if len(req.FilePaths) == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "No files selected"})
-		return
-	}
-
-	if req.OutputDir == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Output directory not specified"})
-		return
-	}
-
-	if req.TrashDir == "" {
-		req.TrashDir = filepath.Join(req.OutputDir, "trash")
-	}
-
-	if req.ScriptType == "" {
-		req.ScriptType = "bash"
-	}
-
-	var script string
-	var scriptPath string
-	var scriptBytes []byte
-
-	if req.ScriptType == "windows" {
-		windowsPaths := make([]string, len(req.FilePaths))
-		for i, p := range req.FilePaths {
-			windowsPaths[i] = strings.ReplaceAll(p, "/", "\\")
-		}
-		windowsTrashDir := strings.ReplaceAll(req.TrashDir, "/", "\\")
-
-		script = generateWindowsScript(windowsPaths, windowsTrashDir)
-		scriptPath = filepath.Join(req.OutputDir, "remove_duplicates.ps1")
-
-		encoder := charmap.Windows1251.NewEncoder()
-		encoded, err := encoder.String(script)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to encode script: %v", err)})
-			return
-		}
-		scriptBytes = []byte(encoded)
-	} else {
-		script = generateBashScript(req.FilePaths, req.TrashDir)
-		scriptPath = filepath.Join(req.OutputDir, "remove_duplicates.sh")
-		scriptBytes = []byte(script)
-	}
-
-	if err := os.WriteFile(scriptPath, scriptBytes, 0755); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to save script: %v", err)})
-		return
-	}
-
-	c.JSON(http.StatusOK, GenerateScriptResponse{
-		Message:    "Script generated successfully",
-		ScriptPath: scriptPath,
-		FileCount:  len(req.FilePaths),
-	})
-}
-
-// generateBashScript creates a bash script for Unix/Linux/macOS
-func generateBashScript(filePaths []string, trashDir string) string {
-	var sb strings.Builder
-	sb.WriteString("#!/bin/bash\n\n")
-	sb.WriteString("# Image Dedup - File Removal Script\n")
-	sb.WriteString(fmt.Sprintf("# Generated at: %s\n", time.Now().Format("2006-01-02 15:04:05")))
-	sb.WriteString(fmt.Sprintf("# Files to move: %d\n\n", len(filePaths)))
-
-	sb.WriteString("# Create trash directory\n")
-	sb.WriteString(fmt.Sprintf("TRASH_DIR=\"%s\"\n", trashDir))
-	sb.WriteString("mkdir -p \"$TRASH_DIR\"\n\n")
-
-	sb.WriteString("# Move files to trash\n")
-	for _, path := range filePaths {
-		escapedPath := strings.ReplaceAll(path, "\"", "\\\"")
-		escapedPath = strings.ReplaceAll(escapedPath, "$", "\\$")
-
-		baseName := filepath.Base(path)
-		sb.WriteString(fmt.Sprintf("mv \"%s\" \"$TRASH_DIR/%s\" 2>/dev/null && echo \"Moved: %s\" || echo \"Failed: %s\"\n",
-			escapedPath, baseName, baseName, baseName))
-	}
-
-	sb.WriteString("\necho \"Done! Moved files are in: $TRASH_DIR\"\n")
-	return sb.String()
-}
-
-// generateWindowsScript creates a PowerShell script for Windows
-func generateWindowsScript(filePaths []string, trashDir string) string {
-	var sb strings.Builder
-	sb.WriteString("# Image Dedup - File Removal Script (PowerShell)\n")
-	sb.WriteString(fmt.Sprintf("# Generated at: %s\n", time.Now().Format("2006-01-02 15:04:05")))
-	sb.WriteString(fmt.Sprintf("# Files to move: %d\n\n", len(filePaths)))
-
-	escapedTrashDir := strings.ReplaceAll(trashDir, "'", "''")
-	sb.WriteString("# Create trash directory\n")
-	sb.WriteString(fmt.Sprintf("$TrashDir = '%s'\n", escapedTrashDir))
-	sb.WriteString("if (-not (Test-Path -Path $TrashDir)) {\n")
-	sb.WriteString("    New-Item -ItemType Directory -Path $TrashDir -Force | Out-Null\n")
-	sb.WriteString("}\n\n")
-
-	sb.WriteString("# Move files to trash\n")
-	for _, path := range filePaths {
-		escapedPath := strings.ReplaceAll(path, "'", "''")
-		baseName := filepath.Base(path)
-		escapedBaseName := strings.ReplaceAll(baseName, "'", "''")
-
-		sb.WriteString("try {\n")
-		sb.WriteString(fmt.Sprintf("    Move-Item -Path '%s' -Destination (Join-Path $TrashDir '%s') -Force\n", escapedPath, escapedBaseName))
-		sb.WriteString(fmt.Sprintf("    Write-Host \"Moved: %s\" -ForegroundColor Green\n", baseName))
-		sb.WriteString("} catch {\n")
-		sb.WriteString(fmt.Sprintf("    Write-Host \"Failed: %s - $_\" -ForegroundColor Red\n", baseName))
-		sb.WriteString("}\n\n")
-	}
-
-	sb.WriteString("Write-Host \"\"\n")
-	sb.WriteString("Write-Host \"Done! Moved files are in: $TrashDir\" -ForegroundColor Cyan\n")
-	sb.WriteString("Write-Host \"Press any key to exit...\"\n")
-	sb.WriteString("$null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')\n")
-	return sb.String()
 }
 
 // handleThumbnail serves a thumbnail for a specific file
@@ -832,7 +706,7 @@ func (s *Server) SetupRouter() *gin.Engine {
 		api.GET("/duplicates", s.handleGetDuplicates)
 		api.POST("/scan", s.handleScan)
 		api.GET("/status", s.handleGetStatus)
-		api.POST("/generate-script", s.handleGenerateScript)
+
 		api.POST("/delete-files", s.handleDeleteFiles)
 		api.GET("/thumbnail", s.handleThumbnail)
 		api.GET("/folder-patterns", s.handleGetFolderPatterns)

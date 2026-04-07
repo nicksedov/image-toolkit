@@ -72,7 +72,6 @@ export const translations = {
     // Toolbar
     "toolbar.rescan": "Rescan",
     "toolbar.resetSelection": "Reset Selection",
-    "toolbar.generateScript": "Generate Script",
     "toolbar.deleteSelected": "Delete Selected",
     "toolbar.batchDedup": "Batch Dedup",
     "toolbar.filesSelected": "{count} file(s) selected",
@@ -109,23 +108,6 @@ export const translations = {
     "pagination.next": "Next",
     "pagination.last": "Last",
     "pagination.pageInfo": "Page {current} of {total}",
-
-    // Generate script modal
-    "generateScript.title": "Generate Removal Script",
-    "generateScript.description": "Generate a script to move {count} selected file(s) to a trash directory.",
-    "generateScript.scriptType": "Script type",
-    "generateScript.windows": "Windows (PowerShell .ps1)",
-    "generateScript.bash": "Linux/macOS (Bash .sh)",
-    "generateScript.outputDir": "Output directory for script",
-    "generateScript.outputPlaceholder": "C:\\path\\to\\output",
-    "generateScript.trashDir": "Trash directory (where files will be moved)",
-    "generateScript.trashPlaceholder": "C:\\path\\to\\trash (optional)",
-    "generateScript.hint": "The script will move selected files to the trash directory. Review the script before running it.",
-    "generateScript.button": "Generate Script",
-    "generateScript.generating": "Generating...",
-    "generateScript.errorOutputDir": "Please specify an output directory for the script.",
-    "generateScript.errorFailed": "Failed to generate script",
-    "generateScript.success": "Script generated successfully! Saved to: {path}",
 
     // Delete files modal
     "deleteFiles.title": "Delete Selected Files",
@@ -231,7 +213,6 @@ export const translations = {
     // Toolbar
     "toolbar.rescan": "Сканировать",
     "toolbar.resetSelection": "Сбросить выбор",
-    "toolbar.generateScript": "Создать скрипт",
     "toolbar.deleteSelected": "Удалить выбранные",
     "toolbar.batchDedup": "Пакетная дедупликация",
     "toolbar.filesSelected": "{count} файлов выбрано",
@@ -268,23 +249,6 @@ export const translations = {
     "pagination.next": "Далее",
     "pagination.last": "Последняя",
     "pagination.pageInfo": "Страница {current} из {total}",
-
-    // Generate script modal
-    "generateScript.title": "Создание скрипта удаления",
-    "generateScript.description": "Создать скрипт для перемещения {count} выбранных файлов в папку корзины.",
-    "generateScript.scriptType": "Тип скрипта",
-    "generateScript.windows": "Windows (PowerShell .ps1)",
-    "generateScript.bash": "Linux/macOS (Bash .sh)",
-    "generateScript.outputDir": "Директория для сохранения скрипта",
-    "generateScript.outputPlaceholder": "C:\\путь\\к\\папке",
-    "generateScript.trashDir": "Директория корзины (куда будут перемещены файлы)",
-    "generateScript.trashPlaceholder": "C:\\путь\\к\\корзине (необязательно)",
-    "generateScript.hint": "Скрипт переместит выбранные файлы в директорию корзины. Проверьте скрипт перед запуском.",
-    "generateScript.button": "Создать скрипт",
-    "generateScript.generating": "Создание...",
-    "generateScript.errorOutputDir": "Укажите директорию для сохранения скрипта.",
-    "generateScript.errorFailed": "Не удалось создать скрипт",
-    "generateScript.success": "Скрипт успешно создан! Сохранён в: {path}",
 
     // Delete files modal
     "deleteFiles.title": "Удаление выбранных файлов",

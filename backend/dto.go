@@ -50,23 +50,6 @@ type ScanStatusResponse struct {
 	FilesProcessed int    `json:"filesProcessed"`
 }
 
-// --- Script Generation API ---
-
-// GenerateScriptRequest represents the request for script generation
-type GenerateScriptRequest struct {
-	FilePaths  []string `json:"filePaths"`
-	OutputDir  string   `json:"outputDir"`
-	TrashDir   string   `json:"trashDir"`
-	ScriptType string   `json:"scriptType"`
-}
-
-// GenerateScriptResponse represents the response from script generation
-type GenerateScriptResponse struct {
-	Message    string `json:"message"`
-	ScriptPath string `json:"scriptPath"`
-	FileCount  int    `json:"fileCount"`
-}
-
 // --- Delete Files API ---
 
 // DeleteFilesRequest represents the request for direct file deletion

@@ -43,19 +43,6 @@ export interface ThumbnailResponse {
   thumbnail: string
 }
 
-export interface GenerateScriptRequest {
-  filePaths: string[]
-  outputDir: string
-  trashDir: string
-  scriptType: "bash" | "windows"
-}
-
-export interface GenerateScriptResponse {
-  message: string
-  scriptPath: string
-  fileCount: number
-}
-
 export interface DeleteFilesRequest {
   filePaths: string[]
   trashDir: string
