@@ -141,9 +141,24 @@ export interface GalleryImagesResponse {
 export interface AppSettingsDTO {
   theme: "light" | "dark"
   language: "en" | "ru"
+  trashDir: string
 }
 
 export interface UpdateSettingsRequest {
   theme?: "light" | "dark"
   language?: "en" | "ru"
+  trashDir?: string
+}
+
+// --- Trash Types ---
+
+export interface TrashInfoResponse {
+  fileCount: number
+  totalSize: number
+  totalSizeHuman: string
+}
+
+export interface CleanTrashResponse {
+  deleted: number
+  failed: number
 }

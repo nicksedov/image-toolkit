@@ -3,9 +3,10 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Checkbox } from "@/components/ui/checkbox"
 import { deleteFiles } from "@/api/endpoints"
+import { useSettings } from "@/providers/useSettings"
 import { useTranslation } from "@/i18n"
 
 interface DeleteFilesModalProps {
@@ -25,12 +26,13 @@ export function DeleteFilesModal({
   onError,
   onComplete,
 }: DeleteFilesModalProps) {
-  const [trashDir, setTrashDir] = useState("")
+  const [useTrash, setUseTrash] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const { trashDir } = useSettings()
   const { t } = useTranslation()
 
   const handleDelete = async () => {
-    if (!trashDir.trim()) {
+    if (!useTrash || !trashDir) {
       if (!window.confirm(t("deleteFiles.confirmPermanent"))) {
         return
       }
@@ -40,7 +42,7 @@ export function DeleteFilesModal({
     try {
       const result = await deleteFiles({
         filePaths: selectedPaths,
-        trashDir: trashDir.trim(),
+        trashDir: useTrash ? trashDir : "",
       })
       onOpenChange(false)
       let message: string
@@ -71,18 +73,21 @@ export function DeleteFilesModal({
           <div className="rounded-md bg-destructive/10 border border-destructive/20 p-3 text-sm text-destructive">
             {t("deleteFiles.warning")}
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="delete-trash-dir">{t("deleteFiles.trashDir")}</Label>
-            <Input
-              id="delete-trash-dir"
-              placeholder={t("deleteFiles.trashPlaceholder")}
-              value={trashDir}
-              onChange={(e) => setTrashDir(e.target.value)}
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="delete-use-trash"
+              checked={useTrash}
+              onCheckedChange={(checked) => setUseTrash(checked === true)}
             />
+            <Label htmlFor="delete-use-trash" className="text-sm cursor-pointer">
+              {t("deleteFiles.useTrash")}
+            </Label>
           </div>
-          <p className="text-sm text-muted-foreground">
-            {t("deleteFiles.hint")}
-          </p>
+          {useTrash && !trashDir && (
+            <p className="text-xs text-destructive">
+              {t("deleteFiles.trashNotConfigured")}
+            </p>
+          )}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>{t("common.cancel")}</Button>

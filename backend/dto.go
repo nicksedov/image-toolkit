@@ -172,10 +172,27 @@ type GalleryImagesResponse struct {
 type AppSettingsDTO struct {
 	Theme    string `json:"theme"`
 	Language string `json:"language"`
+	TrashDir string `json:"trashDir"`
 }
 
 // UpdateSettingsRequest is the JSON request for PUT /api/settings
 type UpdateSettingsRequest struct {
-	Theme    string `json:"theme"`
-	Language string `json:"language"`
+	Theme    string  `json:"theme"`
+	Language string  `json:"language"`
+	TrashDir *string `json:"trashDir"`
+}
+
+// --- Trash API ---
+
+// TrashInfoResponse is the JSON response for GET /api/trash-info
+type TrashInfoResponse struct {
+	FileCount      int    `json:"fileCount"`
+	TotalSize      int64  `json:"totalSize"`
+	TotalSizeHuman string `json:"totalSizeHuman"`
+}
+
+// CleanTrashResponse is the JSON response for POST /api/trash-clean
+type CleanTrashResponse struct {
+	Deleted int `json:"deleted"`
+	Failed  int `json:"failed"`
 }

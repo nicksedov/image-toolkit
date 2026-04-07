@@ -11,6 +11,7 @@ interface SettingsProviderProps {
 export function SettingsProvider({ children }: SettingsProviderProps) {
   const [theme, setThemeState] = useState<Theme>("light")
   const [language, setLanguageState] = useState<Language>("en")
+  const [trashDir, setTrashDirState] = useState("")
   const [isLoading, setIsLoading] = useState(true)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -19,6 +20,7 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
       .then((settings) => {
         setThemeState(settings.theme)
         setLanguageState(settings.language)
+        setTrashDirState(settings.trashDir || "")
       })
       .catch(() => {
         // Use defaults on failure
@@ -26,12 +28,19 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
       .finally(() => setIsLoading(false))
   }, [])
 
-  const persistSettings = useCallback((newTheme: Theme, newLanguage: Language) => {
+  const persistSettings = useCallback((newTheme: Theme, newLanguage: Language, newTrashDir?: string) => {
     if (debounceRef.current) {
       clearTimeout(debounceRef.current)
     }
     debounceRef.current = setTimeout(() => {
-      updateSettings({ theme: newTheme, language: newLanguage }).catch(() => {
+      const req: { theme: Theme; language: Language; trashDir?: string } = {
+        theme: newTheme,
+        language: newLanguage,
+      }
+      if (newTrashDir !== undefined) {
+        req.trashDir = newTrashDir
+      }
+      updateSettings(req).catch(() => {
         // Silently fail - UI already updated
       })
     }, 300)
@@ -70,9 +79,23 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
     [persistSettings]
   )
 
+  const setTrashDir = useCallback(
+    (newTrashDir: string) => {
+      setTrashDirState(newTrashDir)
+      setThemeState((th) => {
+        setLanguageState((lang) => {
+          persistSettings(th, lang, newTrashDir)
+          return lang
+        })
+        return th
+      })
+    },
+    [persistSettings]
+  )
+
   return (
     <SettingsContext.Provider
-      value={{ theme, setTheme, toggleTheme, language, setLanguage, isLoading }}
+      value={{ theme, setTheme, toggleTheme, language, setLanguage, trashDir, setTrashDir, isLoading }}
     >
       <ThemeProvider theme={theme}>
         <I18nProvider language={language}>

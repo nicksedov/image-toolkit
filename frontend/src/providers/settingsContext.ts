@@ -8,6 +8,8 @@ export interface SettingsContextValue {
   toggleTheme: () => void
   language: Language
   setLanguage: (language: Language) => void
+  trashDir: string
+  setTrashDir: (trashDir: string) => void
   isLoading: boolean
 }
 

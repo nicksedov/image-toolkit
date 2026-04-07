@@ -86,3 +86,13 @@ export function fetchSettings(): Promise<AppSettingsDTO> {
 export function updateSettings(req: UpdateSettingsRequest): Promise<AppSettingsDTO> {
   return apiPut<AppSettingsDTO>("/api/settings", req)
 }
+
+// --- Trash ---
+
+export function fetchTrashInfo(): Promise<TrashInfoResponse> {
+  return apiGet<TrashInfoResponse>("/api/trash-info")
+}
+
+export function cleanTrash(): Promise<CleanTrashResponse> {
+  return apiPost<CleanTrashResponse>("/api/trash-clean")
+}

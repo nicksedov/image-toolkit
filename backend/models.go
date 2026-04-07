@@ -55,5 +55,6 @@ type AppSettings struct {
 	ID        uint      `gorm:"primaryKey" json:"id"`
 	Theme     string    `gorm:"default:light;not null" json:"theme"`
 	Language  string    `gorm:"default:en;not null" json:"language"`
+	TrashDir  string    `gorm:"default:''" json:"trashDir"`
 	UpdatedAt time.Time `json:"updatedAt"`
 }

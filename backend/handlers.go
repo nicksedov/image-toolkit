@@ -300,6 +300,26 @@ func (s *Server) handleGetFolderPatterns(c *gin.Context) {
 	c.JSON(http.StatusOK, FolderPatternsResponse{Patterns: patterns})
 }
 
+// pathsConflict checks if two normalized (forward-slash) paths are the same,
+// or if one is a parent/child of the other.
+// Returns a non-empty reason string if there is a conflict, empty string otherwise.
+func pathsConflict(a, b string) string {
+	// Normalize: trim trailing slashes, lowercase for case-insensitive FS
+	na := strings.TrimRight(strings.ToLower(a), "/")
+	nb := strings.TrimRight(strings.ToLower(b), "/")
+
+	if na == nb {
+		return "same"
+	}
+	if strings.HasPrefix(na, nb+"/") {
+		return "child" // a is child of b
+	}
+	if strings.HasPrefix(nb, na+"/") {
+		return "parent" // a is parent of b
+	}
+	return ""
+}
+
 // sortStrings sorts a slice of strings in place
 func sortStrings(s []string) {
 	for i := 0; i < len(s)-1; i++ {
@@ -476,6 +496,15 @@ func (s *Server) handleAddFolder(c *gin.Context) {
 
 	normalizedPath := filepath.ToSlash(absPath)
 
+	// Check conflict with trash directory
+	var settings AppSettings
+	if result := s.db.First(&settings, 1); result.Error == nil && settings.TrashDir != "" {
+		if reason := pathsConflict(normalizedPath, settings.TrashDir); reason != "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Gallery folder conflicts with trash directory: paths must not overlap"})
+			return
+		}
+	}
+
 	folder := GalleryFolder{Path: normalizedPath}
 	if result := s.db.Create(&folder); result.Error != nil {
 		if strings.Contains(result.Error.Error(), "duplicate") || strings.Contains(result.Error.Error(), "UNIQUE") {
@@ -643,12 +672,13 @@ func (s *Server) handleServeImage(c *gin.Context) {
 func (s *Server) handleGetSettings(c *gin.Context) {
 	var settings AppSettings
 	if result := s.db.First(&settings, 1); result.Error != nil {
-		c.JSON(http.StatusOK, AppSettingsDTO{Theme: "light", Language: "en"})
+		c.JSON(http.StatusOK, AppSettingsDTO{Theme: "light", Language: "en", TrashDir: ""})
 		return
 	}
 	c.JSON(http.StatusOK, AppSettingsDTO{
 		Theme:    settings.Theme,
 		Language: settings.Language,
+		TrashDir: settings.TrashDir,
 	})
 }
 
@@ -683,12 +713,116 @@ func (s *Server) handleUpdateSettings(c *gin.Context) {
 	if req.Language != "" {
 		settings.Language = req.Language
 	}
+	if req.TrashDir != nil {
+		newTrashDir := strings.TrimSpace(*req.TrashDir)
+		if newTrashDir != "" {
+			// Normalize the trash dir path
+			absTrash, err := filepath.Abs(newTrashDir)
+			if err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid trash directory path"})
+				return
+			}
+			normalizedTrash := filepath.ToSlash(absTrash)
+
+			// Check conflict with all gallery folders
+			var galleryFolders []GalleryFolder
+			s.db.Find(&galleryFolders)
+			for _, gf := range galleryFolders {
+				if reason := pathsConflict(normalizedTrash, gf.Path); reason != "" {
+					c.JSON(http.StatusBadRequest, gin.H{"error": "Trash directory conflicts with gallery folder \"" + gf.Path + "\": paths must not overlap"})
+					return
+				}
+			}
+			settings.TrashDir = normalizedTrash
+		} else {
+			settings.TrashDir = ""
+		}
+	}
 
 	s.db.Save(&settings)
 
 	c.JSON(http.StatusOK, AppSettingsDTO{
 		Theme:    settings.Theme,
 		Language: settings.Language,
+		TrashDir: settings.TrashDir,
+	})
+}
+
+// handleGetTrashInfo returns information about files in the trash directory
+func (s *Server) handleGetTrashInfo(c *gin.Context) {
+	var settings AppSettings
+	if result := s.db.First(&settings, 1); result.Error != nil || settings.TrashDir == "" {
+		c.JSON(http.StatusOK, TrashInfoResponse{FileCount: 0, TotalSize: 0, TotalSizeHuman: "0 B"})
+		return
+	}
+
+	info, err := os.Stat(settings.TrashDir)
+	if err != nil || !info.IsDir() {
+		c.JSON(http.StatusOK, TrashInfoResponse{FileCount: 0, TotalSize: 0, TotalSizeHuman: "0 B"})
+		return
+	}
+
+	entries, err := os.ReadDir(settings.TrashDir)
+	if err != nil {
+		c.JSON(http.StatusOK, TrashInfoResponse{FileCount: 0, TotalSize: 0, TotalSizeHuman: "0 B"})
+		return
+	}
+
+	var fileCount int
+	var totalSize int64
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		fileCount++
+		if fi, err := entry.Info(); err == nil {
+			totalSize += fi.Size()
+		}
+	}
+
+	c.JSON(http.StatusOK, TrashInfoResponse{
+		FileCount:      fileCount,
+		TotalSize:      totalSize,
+		TotalSizeHuman: formatSize(totalSize),
+	})
+}
+
+// handleCleanTrash removes all files from the trash directory
+func (s *Server) handleCleanTrash(c *gin.Context) {
+	var settings AppSettings
+	if result := s.db.First(&settings, 1); result.Error != nil || settings.TrashDir == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Trash directory is not configured"})
+		return
+	}
+
+	info, err := os.Stat(settings.TrashDir)
+	if err != nil || !info.IsDir() {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Trash directory does not exist"})
+		return
+	}
+
+	entries, err := os.ReadDir(settings.TrashDir)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read trash directory: " + err.Error()})
+		return
+	}
+
+	var deleted, failed int
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		filePath := filepath.Join(settings.TrashDir, entry.Name())
+		if err := os.Remove(filePath); err != nil {
+			failed++
+		} else {
+			deleted++
+		}
+	}
+
+	c.JSON(http.StatusOK, CleanTrashResponse{
+		Deleted: deleted,
+		Failed:  failed,
 	})
 }
 
@@ -718,6 +852,8 @@ func (s *Server) SetupRouter() *gin.Engine {
 		api.GET("/image", s.handleServeImage)
 		api.GET("/settings", s.handleGetSettings)
 		api.PUT("/settings", s.handleUpdateSettings)
+		api.GET("/trash-info", s.handleGetTrashInfo)
+		api.POST("/trash-clean", s.handleCleanTrash)
 	}
 
 	return r
