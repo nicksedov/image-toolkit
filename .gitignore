@@ -4,7 +4,7 @@
 *.dll
 *.so
 *.dylib
-image-dedup
+image-toolkit
 run.sh
 
 # Test binary
