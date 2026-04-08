@@ -1,4 +1,4 @@
-# Image Dedup
+# Image Toolkit
 
 Приложение для поиска и управления дубликатами изображений в медиатеке на локальном диске.
 
@@ -30,7 +30,7 @@ JPG, JPEG, PNG, GIF, BMP, TIFF, TIF, WEBP
 ## Структура проекта
 
 ```
-image-dedup/
+image-toolkit/
 ├── backend/
 │   ├── main.go           # Точка входа, CLI, запуск сервера
 │   ├── config.go         # Конфигурация (переменные окружения)
@@ -72,8 +72,8 @@ image-dedup/
 | `DB_PORT`      | Порт PostgreSQL                       | `5432`                   |
 | `DB_USER`      | Пользователь PostgreSQL               | `postgres`               |
 | `DB_PASSWORD`  | Пароль PostgreSQL                     | `postgres`               |
-| `DB_NAME`      | Имя базы данных                       | `image_dedup`            |
-| `SERVER_HOST`  | Адрес привязки API сервера            | `0.0.0.0`               |
+| `DB_NAME`      | Имя базы данных                       | `image_toolkit`          |
+| `SERVER_HOST`  | Адрес привязки API сервера            | `0.0.0.0`                |
 | `SERVER_PORT`  | Порт API сервера                      | `5170`                   |
 | `CORS_ORIGINS` | Разрешенные источники (через запятую), или `*` для разрешения всех | `http://localhost:5173`  |
 
@@ -91,7 +91,7 @@ image-dedup/
 ### 1. Создание базы данных PostgreSQL
 
 ```sql
-CREATE DATABASE image_dedup;
+CREATE DATABASE image_toolkit;
 ```
 
 ### 2. Настройка окружения
@@ -111,8 +111,8 @@ cp frontend/.env.example frontend/.env
 ```bash
 cd backend
 go mod tidy
-go build -o image-dedup.exe .    # Windows
-go build -o image-dedup .        # Linux/macOS
+go build -o image-toolkit.exe .    # Windows
+go build -o image-toolkit .        # Linux/macOS
 ```
 
 ### 4. Сборка фронтенда
@@ -148,7 +148,7 @@ npm run dev
 ```bash
 # Бэкенд
 cd backend
-./image-dedup      # Windows: image-dedup.exe
+./image-toolkit      # Windows: image-toolkit.exe
 
 # Фронтенд -- статические файлы из frontend/dist/
 # Раздайте через nginx, Caddy или любой другой веб-сервер
@@ -229,8 +229,8 @@ http://192.168.1.100:5173
 Windows (PowerShell от администратора):
 
 ```powershell
-netsh advfirewall firewall add rule name="Image Dedup Backend" dir=in action=allow protocol=TCP localport=5170
-netsh advfirewall firewall add rule name="Image Dedup Frontend" dir=in action=allow protocol=TCP localport=5173
+netsh advfirewall firewall add rule name="Image Toolkit Backend" dir=in action=allow protocol=TCP localport=5170
+netsh advfirewall firewall add rule name="Image Toolkit Frontend" dir=in action=allow protocol=TCP localport=5173
 ```
 
 Linux:
