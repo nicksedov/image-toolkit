@@ -85,7 +85,7 @@ export function BatchDeduplicationModal({
     setSelectedFolders(prev => ({ ...prev, [patternId]: "" }))
   }
 
-  const handleApplyStep = async (currentStepIndex: number) => {
+  const handleApplyStep = async () => {
     const rules: BatchDeleteRule[] = Object.entries(selectedFolders)
       .filter(([, folder]) => folder)
       .map(([patternId, keepFolder]) => ({ patternId, keepFolder }))
@@ -128,7 +128,7 @@ export function BatchDeduplicationModal({
   }
 
   const handleFinalApply = () => {
-    handleApplyStep(currentStep)
+    handleApplyStep()
   }
 
   const handleBackToSkipped = () => {
