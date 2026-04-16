@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 
 export function LoginScreen() {
-  const { login, isBootstrapMode } = useAuth()
+  const { login, isBootstrapMode, setBootstrapVerified } = useAuth()
   const [loginInput, setLoginInput] = useState("")
   const [password, setPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
@@ -29,8 +29,8 @@ export function LoginScreen() {
       const response = await apiLogin({ login: loginInput, password })
 
       if (response.isBootstrap) {
-        // Redirect to bootstrap setup
-        window.location.href = "/bootstrap-setup"
+        // Show bootstrap setup screen
+        setBootstrapVerified(true)
         return
       }
 

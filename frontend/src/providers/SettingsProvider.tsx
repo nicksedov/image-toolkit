@@ -3,6 +3,7 @@ import { ThemeProvider, type Theme } from "@/theme"
 import { I18nProvider, type Language } from "@/i18n"
 import { fetchSettings, updateSettings } from "@/api/endpoints"
 import { SettingsContext } from "./settingsContext"
+import { useAuth } from "./AuthProvider"
 
 interface SettingsProviderProps {
   children: ReactNode
@@ -14,8 +15,13 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
   const [trashDir, setTrashDirState] = useState("")
   const [isLoading, setIsLoading] = useState(true)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const { isAuthenticated } = useAuth()
 
   useEffect(() => {
+    if (!isAuthenticated) {
+      setIsLoading(false)
+      return
+    }
     fetchSettings()
       .then((settings) => {
         setThemeState(settings.theme)
@@ -26,7 +32,7 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
         // Use defaults on failure
       })
       .finally(() => setIsLoading(false))
-  }, [])
+  }, [isAuthenticated])
 
   const persistSettings = useCallback((newTheme: Theme, newLanguage: Language, newTrashDir?: string) => {
     if (debounceRef.current) {

@@ -6,10 +6,12 @@ interface AuthContextType {
   user: UserDTO | null
   isAuthenticated: boolean
   isBootstrapMode: boolean
+  isBootstrapVerified: boolean
   isLoading: boolean
   login: (user: UserDTO) => void
   logout: () => Promise<void>
   updateUser: (user: UserDTO) => void
+  setBootstrapVerified: (verified: boolean) => void
 }
 
 const AuthContext = createContext<AuthContextType | null>(null)
@@ -21,6 +23,7 @@ interface AuthProviderProps {
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<UserDTO | null>(null)
   const [isBootstrapMode, setIsBootstrapMode] = useState(false)
+  const [isBootstrapVerified, setIsBootstrapVerified] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
 
   const checkAuthStatus = useCallback(async () => {
@@ -48,6 +51,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const login = useCallback((loggedInUser: UserDTO) => {
     setUser(loggedInUser)
     setIsBootstrapMode(false)
+    setIsBootstrapVerified(false)
   }, [])
 
   const logout = useCallback(async () => {
@@ -64,16 +68,22 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setUser(updatedUser)
   }, [])
 
+  const setBootstrapVerified = useCallback((verified: boolean) => {
+    setIsBootstrapVerified(verified)
+  }, [])
+
   return (
     <AuthContext.Provider
       value={{
         user,
         isAuthenticated: !!user,
         isBootstrapMode,
+        isBootstrapVerified,
         isLoading,
         login,
         logout,
         updateUser,
+        setBootstrapVerified,
       }}
     >
       {children}

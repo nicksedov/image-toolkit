@@ -11,6 +11,7 @@ import { useTranslation } from "@/i18n"
 import { useSettings } from "@/providers/useSettings"
 import { useAuth } from "@/providers/AuthProvider"
 import { LoginScreen } from "@/components/auth/LoginScreen"
+import { BootstrapSetupScreen } from "@/components/auth/BootstrapSetupScreen"
 import { UserProfile } from "@/components/auth/UserProfile"
 import { AdminPanel } from "@/components/auth/AdminPanel"
 
@@ -21,7 +22,7 @@ export default function App() {
   const [isCheckingGallery, setIsCheckingGallery] = useState(true)
   const { t } = useTranslation()
   const { isLoading: isLoadingSettings } = useSettings()
-  const { user, isAuthenticated, isBootstrapMode, isLoading: isLoadingAuth } = useAuth()
+  const { user, isAuthenticated, isBootstrapMode, isBootstrapVerified, isLoading: isLoadingAuth } = useAuth()
 
   // On mount, check if gallery has folders. If not, force settings tab.
   useEffect(() => {
@@ -60,12 +61,12 @@ export default function App() {
     )
   }
 
-  // Not authenticated - show login
+  // Not authenticated - show login or bootstrap setup
   if (!isAuthenticated) {
-    if (isBootstrapMode) {
+    if (isBootstrapMode && isBootstrapVerified) {
       return (
         <>
-          <LoginScreen />
+          <BootstrapSetupScreen />
           <Toaster richColors position="top-right" />
         </>
       )
