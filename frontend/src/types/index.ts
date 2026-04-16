@@ -238,6 +238,11 @@ export interface UpdateProfileRequest {
   displayName: string
 }
 
+export interface ChangePasswordResponse {
+  message: string
+  mustLogin?: boolean
+}
+
 export interface CreateUserRequest {
   login: string
   displayName: string

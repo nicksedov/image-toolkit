@@ -164,7 +164,10 @@ func (h *AuthHandlers) handleChangePassword(c *gin.Context) {
 
 	CreateAuditLog(h.db, &user.ID, ActionChangePassword, "user", &user.ID, "")
 
-	c.JSON(http.StatusOK, gin.H{"message": "Пароль успешно изменен"})
+	c.JSON(http.StatusOK, gin.H{
+		"message":   "Пароль успешно изменен",
+		"mustLogin": true,
+	})
 }
 
 // handleBootstrapSetup completes the bootstrap initialization
