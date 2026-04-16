@@ -61,3 +61,4 @@ frontend/dist/
 
 # Qoder
 .qoder/
+.serena/

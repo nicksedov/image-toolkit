@@ -30,6 +30,7 @@ func NewCSRFProtection() *CSRFProtection {
 			"/api/auth/login",
 			"/api/auth/status",
 			"/api/auth/me",
+			"/api/auth/logout",
 			"/api/auth/bootstrap/setup",
 			"/api/auth/change-password",
 			"/api/users/me",
