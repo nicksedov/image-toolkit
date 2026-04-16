@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useAuth } from "@/providers/AuthProvider"
 import { login as apiLogin } from "@/api/endpoints"
 import { toast } from "sonner"
@@ -14,6 +14,16 @@ export function LoginScreen() {
   const [password, setPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
+
+  useEffect(() => {
+    const handleNavigateToProfile = () => {
+      toast.info("Выйдите из системы для входа в другом аккаунте")
+    }
+    window.addEventListener("navigate-to-profile", handleNavigateToProfile as EventListener)
+    return () => {
+      window.removeEventListener("navigate-to-profile", handleNavigateToProfile as EventListener)
+    }
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

@@ -23,6 +23,7 @@ import type {
   LoginRequest,
   LoginResponse,
   ChangePasswordRequest,
+  ChangePasswordResponse,
   BootstrapSetupRequest,
   UpdateProfileRequest,
   CreateUserRequest,
@@ -135,8 +136,8 @@ export function fetchCurrentUser(): Promise<{ user: import("@/types").UserDTO }>
   return apiGet<{ user: import("@/types").UserDTO }>("/api/auth/me")
 }
 
-export function changePassword(req: ChangePasswordRequest): Promise<{ message: string }> {
-  return apiPost<{ message: string }>("/api/auth/change-password", req)
+export function changePassword(req: ChangePasswordRequest): Promise<ChangePasswordResponse> {
+  return apiPost<ChangePasswordResponse>("/api/auth/change-password", req)
 }
 
 export function bootstrapSetup(req: BootstrapSetupRequest): Promise<{ user: import("@/types").UserDTO; message: string }> {

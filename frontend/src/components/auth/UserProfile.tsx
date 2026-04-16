@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useAuth } from "@/providers/AuthProvider"
 import { changePassword as apiChangePassword, updateProfile as apiUpdateProfile } from "@/api/endpoints"
 import { toast } from "sonner"
@@ -11,7 +11,7 @@ import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
 
 export function UserProfile() {
-  const { user, updateUser } = useAuth()
+  const { user, updateUser, logout } = useAuth()
   const [displayName, setDisplayName] = useState(user?.displayName || "")
   const [isSavingProfile, setIsSavingProfile] = useState(false)
 
@@ -19,6 +19,16 @@ export function UserProfile() {
   const [newPassword, setNewPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [isChangingPassword, setIsChangingPassword] = useState(false)
+
+  useEffect(() => {
+    const handleNavigateToLogin = () => {
+      toast.info("Ваш сессия истекла. Войти заново.")
+    }
+    window.addEventListener("navigate-to-login", handleNavigateToLogin as EventListener)
+    return () => {
+      window.removeEventListener("navigate-to-login", handleNavigateToLogin as EventListener)
+    }
+  }, [])
 
   if (!user) return null
 
@@ -32,7 +42,7 @@ export function UserProfile() {
       updateUser(response.user)
       toast.success("Профиль обновлен")
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Не удалось обновить профиль")
+      toast.error(err instanceof Error ? err.message : String(err))
     } finally {
       setIsSavingProfile(false)
     }
@@ -58,11 +68,21 @@ export function UserProfile() {
       setNewPassword("")
       setConfirmPassword("")
       toast.success("Пароль изменен")
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Не удалось изменить пароль")
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : String(err))
+      if (err instanceof Error && err.message.includes("must login")) {
+        logout()
+        navigateToLogin()
+      }
     } finally {
       setIsChangingPassword(false)
     }
+  }
+
+  const navigateToLogin = () => {
+    logout()
+    const event = new CustomEvent("navigate-to-login")
+    window.dispatchEvent(event)
   }
 
   return (
