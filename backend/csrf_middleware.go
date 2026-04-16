@@ -31,6 +31,9 @@ func NewCSRFProtection() *CSRFProtection {
 			"/api/auth/status",
 			"/api/auth/me",
 			"/api/auth/bootstrap/setup",
+			"/api/auth/change-password",
+			"/api/users/me",
+			"/api/admin/users/:id",
 		},
 	}
 }
