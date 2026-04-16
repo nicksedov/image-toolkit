@@ -106,14 +106,19 @@ cp frontend/.env.example frontend/.env
 # Для разработки можно оставить VITE_API_URL пустым (используется прокси)
 ```
 
-### 3. Сборка бэкенда
+### 3. Сборка бэкенда 
 
+#### Для запуска на сервере без Docker
 ```bash
 cd backend
 go mod tidy
 go build -o image-toolkit.exe .    # Windows
 go build -o image-toolkit .        # Linux/macOS
 ```
+
+#### Для запуска на сервере в Docker-контейнере
+docker build -t localhost:5000/image-tool:<X.Y> .
+docker push localhost:5000/image-tool:<X.Y>
 
 ### 4. Сборка фронтенда
 
