@@ -20,9 +20,21 @@ type TabValue = "settings" | "gallery" | "deduplication" | "profile" | "admin"
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabValue>("deduplication")
   const [isCheckingGallery, setIsCheckingGallery] = useState(true)
+  const [forceLogout, setForceLogout] = useState(false)
   const { t } = useTranslation()
   const { isLoading: isLoadingSettings } = useSettings()
   const { user, isAuthenticated, isBootstrapMode, isBootstrapVerified, isLoading: isLoadingAuth } = useAuth()
+
+  // Listen for navigate-to-login event
+  useEffect(() => {
+    const handleNavigateToLogin = () => {
+      setForceLogout(true)
+    }
+    window.addEventListener("navigate-to-login", handleNavigateToLogin as EventListener)
+    return () => {
+      window.removeEventListener("navigate-to-login", handleNavigateToLogin as EventListener)
+    }
+  }, [])
 
   // On mount, check if gallery has folders. If not, force settings tab.
   useEffect(() => {
@@ -61,8 +73,8 @@ export default function App() {
     )
   }
 
-  // Not authenticated - show login or bootstrap setup
-  if (!isAuthenticated) {
+  // Not authenticated or forced logout - show login or bootstrap setup
+  if (!isAuthenticated || forceLogout) {
     if (isBootstrapMode && isBootstrapVerified) {
       return (
         <>

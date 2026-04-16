@@ -1,5 +1,10 @@
 const API_BASE_URL = import.meta.env.VITE_API_URL || ""
 
+function handleUnauthorized(): never {
+  window.dispatchEvent(new CustomEvent("navigate-to-login"))
+  throw new Error("Требуется авторизация")
+}
+
 export async function apiGet<T>(path: string, params?: Record<string, string>): Promise<T> {
   const url = new URL(`${API_BASE_URL}${path}`, window.location.origin)
   if (params) {
@@ -14,6 +19,9 @@ export async function apiGet<T>(path: string, params?: Record<string, string>): 
   const data = await response.json()
 
   if (!response.ok) {
+    if (response.status === 401) {
+      handleUnauthorized()
+    }
     throw new Error(data.error || `Request failed with status ${response.status}`)
   }
 
@@ -31,6 +39,9 @@ export async function apiPost<T>(path: string, body?: unknown): Promise<T> {
   const data = await response.json()
 
   if (!response.ok) {
+    if (response.status === 401) {
+      handleUnauthorized()
+    }
     throw new Error(data.error || `Request failed with status ${response.status}`)
   }
 
@@ -46,6 +57,9 @@ export async function apiDelete<T>(path: string): Promise<T> {
   const data = await response.json()
 
   if (!response.ok) {
+    if (response.status === 401) {
+      handleUnauthorized()
+    }
     throw new Error(data.error || `Request failed with status ${response.status}`)
   }
 
@@ -63,6 +77,9 @@ export async function apiPut<T>(path: string, body?: unknown): Promise<T> {
   const data = await response.json()
 
   if (!response.ok) {
+    if (response.status === 401) {
+      handleUnauthorized()
+    }
     throw new Error(data.error || `Request failed with status ${response.status}`)
   }
 
@@ -80,6 +97,9 @@ export async function apiPatch<T>(path: string, body?: unknown): Promise<T> {
   const data = await response.json()
 
   if (!response.ok) {
+    if (response.status === 401) {
+      handleUnauthorized()
+    }
     throw new Error(data.error || `Request failed with status ${response.status}`)
   }
 

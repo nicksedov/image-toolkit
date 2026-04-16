@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 import { useAuth } from "@/providers/AuthProvider"
 import { changePassword as apiChangePassword, updateProfile as apiUpdateProfile } from "@/api/endpoints"
+import type { ChangePasswordResponse } from "@/types"
 import { toast } from "sonner"
 import { Loader2, User, Lock } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -63,15 +64,23 @@ export function UserProfile() {
 
     setIsChangingPassword(true)
     try {
-      await apiChangePassword({ oldPassword, newPassword })
+      const response: ChangePasswordResponse = await apiChangePassword({ oldPassword, newPassword })
       setOldPassword("")
       setNewPassword("")
       setConfirmPassword("")
-      toast.success("Пароль изменен")
+
+      if (response.mustLogin) {
+        toast.success("Пароль изменен. Войдите заново.")
+        await logout()
+        navigateToLogin()
+      } else {
+        toast.success("Пароль изменен")
+      }
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : String(err))
-      if (err instanceof Error && err.message.includes("must login")) {
-        logout()
+      const message = err instanceof Error ? err.message : String(err)
+      toast.error(message)
+      if (message.includes("Требуется авторизация")) {
+        await logout()
         navigateToLogin()
       }
     } finally {
