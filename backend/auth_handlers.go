@@ -433,22 +433,3 @@ func (h *AuthHandlers) handleAuditLogs(c *gin.Context) {
 		"page":  page,
 	})
 }
-
-// handleGetCSRFToken returns a new CSRF token
-func (h *AuthHandlers) handleGetCSRFToken(c *gin.Context) {
-	token, err := SetCSRFToken(c)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Не удалось создать CSRF токен"})
-		return
-	}
-
-	// Encode as JSON for the client to read
-	type CSRFResponse struct {
-		Token string `json:"token"`
-	}
-
-	// Use json.Marshal to ensure proper encoding
-	resp := CSRFResponse{Token: token}
-	c.Header("Content-Type", "application/json")
-	c.JSON(http.StatusOK, resp)
-}

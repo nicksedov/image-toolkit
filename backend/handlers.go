@@ -913,7 +913,6 @@ func (s *Server) SetupRouter(authMiddleware *AuthMiddleware, csrfProtection *CSR
 			auth.GET("/status", authHandlers.handleAuthStatus)
 			auth.POST("/login", authHandlers.handleLogin)
 			auth.POST("/bootstrap/setup", authHandlers.handleBootstrapSetup)
-			auth.GET("/csrf-token", authHandlers.handleGetCSRFToken)
 		}
 
 		// Protected routes (require auth)

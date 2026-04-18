@@ -10,9 +10,8 @@ type LoginRequest struct {
 
 // AuthStatusResponse represents the auth status response
 type AuthStatusResponse struct {
-	IsAuthenticated bool   `json:"isAuthenticated"`
-	IsBootstrapMode bool   `json:"isBootstrapMode"`
-	CSRFToken       string `json:"csrfToken,omitempty"`
+	IsAuthenticated bool `json:"isAuthenticated"`
+	IsBootstrapMode bool `json:"isBootstrapMode"`
 }
 
 // UserDTO represents user data in API responses (excludes sensitive fields)
