@@ -1,4 +1,4 @@
-module image-dedup
+module image-toolkit
 
 go 1.25.0
 

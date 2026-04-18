@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"image-dedup/internal/domain"
+	"image-toolkit/internal/domain"
 
 	"gorm.io/gorm"
 )
@@ -26,10 +26,10 @@ func NewUserService(db *gorm.DB, sessionRepo *SessionRepository) *UserService {
 
 // CreateUserInput contains the data needed to create a user
 type CreateUserInput struct {
-	Login       string        `json:"login" binding:"required"`
-	DisplayName string        `json:"displayName" binding:"required"`
+	Login       string          `json:"login" binding:"required"`
+	DisplayName string          `json:"displayName" binding:"required"`
 	Role        domain.UserRole `json:"role" binding:"required"`
-	Password    string        `json:"password" binding:"required"`
+	Password    string          `json:"password" binding:"required"`
 }
 
 // CreateUser creates a new user (admin action)
@@ -101,9 +101,9 @@ func (s *UserService) ListUsers() ([]domain.User, error) {
 
 // UpdateUserInput contains updatable user fields
 type UpdateUserInput struct {
-	DisplayName *string         `json:"displayName"`
+	DisplayName *string          `json:"displayName"`
 	Role        *domain.UserRole `json:"role"`
-	IsActive    *bool           `json:"isActive"`
+	IsActive    *bool            `json:"isActive"`
 }
 
 // UpdateUser updates a user (admin action)

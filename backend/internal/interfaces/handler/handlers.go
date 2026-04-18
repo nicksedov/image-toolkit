@@ -10,9 +10,9 @@ import (
 	"sync"
 	"time"
 
-	"image-dedup/internal/application/imaging"
-	"image-dedup/internal/domain"
-	"image-dedup/internal/interfaces/dto"
+	"image-toolkit/internal/application/imaging"
+	"image-toolkit/internal/domain"
+	"image-toolkit/internal/interfaces/dto"
 
 	"github.com/gin-gonic/gin"
 )

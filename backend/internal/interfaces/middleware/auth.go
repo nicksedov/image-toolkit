@@ -3,8 +3,8 @@ package middleware
 import (
 	"net/http"
 
-	"image-dedup/internal/domain"
-	"image-dedup/internal/application/auth"
+	"image-toolkit/internal/application/auth"
+	"image-toolkit/internal/domain"
 
 	"github.com/gin-gonic/gin"
 )

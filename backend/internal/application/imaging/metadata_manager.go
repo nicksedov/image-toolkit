@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
-	"image-dedup/internal/domain"
-	"image-dedup/internal/infrastructure/geocoder"
+	"image-toolkit/internal/domain"
+	"image-toolkit/internal/infrastructure/geocoder"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"

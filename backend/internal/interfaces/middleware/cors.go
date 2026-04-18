@@ -3,7 +3,7 @@ package middleware
 import (
 	"time"
 
-	"image-dedup/internal/infrastructure/config"
+	"image-toolkit/internal/infrastructure/config"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"

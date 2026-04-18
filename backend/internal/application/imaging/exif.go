@@ -16,7 +16,7 @@ import (
 	_ "golang.org/x/image/tiff"
 	_ "golang.org/x/image/webp"
 
-	"image-dedup/internal/domain"
+	"image-toolkit/internal/domain"
 )
 
 // extractMetadata reads EXIF metadata and image dimensions from a file.

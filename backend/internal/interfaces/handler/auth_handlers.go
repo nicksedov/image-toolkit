@@ -5,10 +5,10 @@ import (
 	"net/http"
 	"strings"
 
-	"image-dedup/internal/application/auth"
-	"image-dedup/internal/domain"
-	"image-dedup/internal/interfaces/dto"
-	"image-dedup/internal/interfaces/middleware"
+	"image-toolkit/internal/application/auth"
+	"image-toolkit/internal/domain"
+	"image-toolkit/internal/interfaces/dto"
+	"image-toolkit/internal/interfaces/middleware"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"

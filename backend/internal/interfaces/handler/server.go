@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"image-dedup/internal/application/imaging"
-	"image-dedup/internal/infrastructure/config"
-	"image-dedup/internal/interfaces/dto"
+	"image-toolkit/internal/application/imaging"
+	"image-toolkit/internal/infrastructure/config"
+	"image-toolkit/internal/interfaces/dto"
 
 	"gorm.io/gorm"
 )

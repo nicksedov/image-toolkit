@@ -8,13 +8,13 @@ import (
 
 	"github.com/joho/godotenv"
 
-	"image-dedup/internal/application/auth"
-	"image-dedup/internal/application/imaging"
-	"image-dedup/internal/infrastructure/config"
-	"image-dedup/internal/infrastructure/database"
-	"image-dedup/internal/infrastructure/geocoder"
-	"image-dedup/internal/interfaces/handler"
-	"image-dedup/internal/interfaces/middleware"
+	"image-toolkit/internal/application/auth"
+	"image-toolkit/internal/application/imaging"
+	"image-toolkit/internal/infrastructure/config"
+	"image-toolkit/internal/infrastructure/database"
+	"image-toolkit/internal/infrastructure/geocoder"
+	"image-toolkit/internal/interfaces/handler"
+	"image-toolkit/internal/interfaces/middleware"
 )
 
 // init is invoked before main()

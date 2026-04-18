@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sync"
 
-	"image-dedup/internal/domain"
+	"image-toolkit/internal/domain"
 
 	"gorm.io/gorm"
 )

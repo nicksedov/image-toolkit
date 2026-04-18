@@ -3,8 +3,8 @@ package database
 import (
 	"fmt"
 
-	"image-dedup/internal/domain"
-	"image-dedup/internal/infrastructure/config"
+	"image-toolkit/internal/domain"
+	"image-toolkit/internal/infrastructure/config"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"

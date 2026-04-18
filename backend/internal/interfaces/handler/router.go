@@ -1,7 +1,7 @@
 package handler
 
 import (
-	"image-dedup/internal/interfaces/middleware"
+	"image-toolkit/internal/interfaces/middleware"
 
 	"github.com/gin-gonic/gin"
 )

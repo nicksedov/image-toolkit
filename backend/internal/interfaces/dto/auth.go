@@ -1,7 +1,7 @@
 package dto
 
 import (
-	"image-dedup/internal/domain"
+	"image-toolkit/internal/domain"
 )
 
 // --- Auth API DTOs ---
@@ -20,14 +20,14 @@ type AuthStatusResponse struct {
 
 // UserDTO represents user data in API responses (excludes sensitive fields)
 type UserDTO struct {
-	ID                 uint     `json:"id"`
-	Login              string   `json:"login"`
-	DisplayName        string   `json:"displayName"`
+	ID                 uint            `json:"id"`
+	Login              string          `json:"login"`
+	DisplayName        string          `json:"displayName"`
 	Role               domain.UserRole `json:"role"`
-	IsActive           bool     `json:"isActive"`
-	MustChangePassword bool     `json:"mustChangePassword"`
-	CreatedAt          string   `json:"createdAt"`
-	LastLoginAt        *string  `json:"lastLoginAt"`
+	IsActive           bool            `json:"isActive"`
+	MustChangePassword bool            `json:"mustChangePassword"`
+	CreatedAt          string          `json:"createdAt"`
+	LastLoginAt        *string         `json:"lastLoginAt"`
 }
 
 // ToUserDTO converts a User to UserDTO
@@ -64,17 +64,17 @@ type BootstrapSetupRequest struct {
 
 // CreateUserRequest represents the request to create a user
 type CreateUserRequest struct {
-	Login       string        `json:"login" binding:"required"`
-	DisplayName string        `json:"displayName" binding:"required"`
+	Login       string          `json:"login" binding:"required"`
+	DisplayName string          `json:"displayName" binding:"required"`
 	Role        domain.UserRole `json:"role" binding:"required"`
-	Password    string        `json:"password" binding:"required"`
+	Password    string          `json:"password" binding:"required"`
 }
 
 // UpdateUserRequest represents the request to update a user
 type UpdateUserRequest struct {
-	DisplayName *string        `json:"displayName"`
+	DisplayName *string          `json:"displayName"`
 	Role        *domain.UserRole `json:"role"`
-	IsActive    *bool          `json:"isActive"`
+	IsActive    *bool            `json:"isActive"`
 }
 
 // UpdateProfileRequest represents the request to update own profile
