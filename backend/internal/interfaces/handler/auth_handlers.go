@@ -74,7 +74,7 @@ func (h *AuthHandlers) handleLogin(c *gin.Context) {
 	result, err := h.authService.Login(req.Login, req.Password, ipAddress, userAgent)
 	if err != nil {
 		if err == domain.ErrRateLimited {
-			c.JSON(http.StatusTooManyRequests, i18n.ErrorResponse(i18n.ErrRateLimited))
+			c.JSON(http.StatusTooManyRequests, i18n.ErrorResponse(i18n.MsgAuthRateLimited))
 			return
 		}
 		c.JSON(http.StatusUnauthorized, i18n.ErrorResponse(i18n.MsgAuthInvalidCredentials))
@@ -277,7 +277,11 @@ func (h *AuthHandlers) handleCreateUser(c *gin.Context) {
 
 	user, err := h.userService.CreateUser(admin.ID, input)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, i18n.ErrorResponse(i18n.ErrRateLimited))
+		if strings.Contains(err.Error(), "exists") {
+			c.JSON(http.StatusBadRequest, i18n.ErrorResponse(i18n.MsgUserServiceUserExists))
+			return
+		}
+		c.JSON(http.StatusInternalServerError, i18n.ErrorResponse(i18n.MsgAuthUserCreated))
 		return
 	}
 
@@ -315,7 +319,13 @@ func (h *AuthHandlers) handleUpdateUser(c *gin.Context) {
 	user, err := h.userService.UpdateUser(admin.ID, userID, input)
 	if err != nil {
 		if strings.Contains(err.Error(), "last admin") {
-			c.JSON(http.StatusBadRequest, i18n.ErrorResponse(i18n.ErrRateLimited))
+			if strings.Contains(err.Error(), "demote") {
+				c.JSON(http.StatusBadRequest, i18n.ErrorResponse(i18n.MsgUserServiceLastAdminDemote))
+			} else if strings.Contains(err.Error(), "deactivate") {
+				c.JSON(http.StatusBadRequest, i18n.ErrorResponse(i18n.MsgUserServiceLastAdminDeactivate))
+			} else {
+				c.JSON(http.StatusBadRequest, i18n.ErrorResponse(i18n.MsgUserServiceLastAdminDelete))
+			}
 			return
 		}
 		c.JSON(http.StatusInternalServerError, i18n.ErrorResponse(i18n.MsgAuthUserUpdateFailed))
@@ -350,7 +360,7 @@ func (h *AuthHandlers) handleDeleteUser(c *gin.Context) {
 
 	if err := h.userService.DeleteUser(admin.ID, userID); err != nil {
 		if strings.Contains(err.Error(), "last admin") {
-			c.JSON(http.StatusBadRequest, i18n.ErrorResponse(i18n.ErrRateLimited))
+			c.JSON(http.StatusBadRequest, i18n.ErrorResponse(i18n.MsgUserServiceLastAdminDelete))
 			return
 		}
 		c.JSON(http.StatusInternalServerError, i18n.ErrorResponse(i18n.MsgAuthUserDeleteFailed))

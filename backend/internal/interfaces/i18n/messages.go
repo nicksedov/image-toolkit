@@ -13,6 +13,7 @@ const (
 	// Authentication messages
 	MsgAuthInternalError         MessageKey = "auth.internal_error"
 	MsgAuthInvalidCredentials    MessageKey = "auth.invalid_credentials"
+	MsgAuthRateLimited           MessageKey = "auth.rate_limited"
 	MsgAuthBootstrapMode         MessageKey = "auth.bootstrap_mode"
 	MsgAuthLogoutSuccess         MessageKey = "auth.logout_success"
 	MsgAuthUnauthorized          MessageKey = "auth.unauthorized"
@@ -72,12 +73,12 @@ const (
 	MsgImageMetadataFailed       MessageKey = "image.metadata_failed"
 
 	// User service messages
-	MsgUserServiceInvalidRole       MessageKey = "user_service.invalid_role"
-	MsgUserServicePasswordLength    MessageKey = "user_service.password_length"
-	MsgUserServiceUserExists        MessageKey = "user_service.user_exists"
-	MsgUserServiceLastAdminDemote   MessageKey = "user_service.last_admin_demote"
+	MsgUserServiceInvalidRole        MessageKey = "user_service.invalid_role"
+	MsgUserServicePasswordLength     MessageKey = "user_service.password_length"
+	MsgUserServiceUserExists         MessageKey = "user_service.user_exists"
+	MsgUserServiceLastAdminDemote    MessageKey = "user_service.last_admin_demote"
 	MsgUserServiceLastAdminDeactivate MessageKey = "user_service.last_admin_deactivate"
-	MsgUserServiceLastAdminDelete   MessageKey = "user_service.last_admin_delete"
+	MsgUserServiceLastAdminDelete    MessageKey = "user_service.last_admin_delete"
 
 	// Middleware messages
 	MsgMiddlewareUnauthorized MessageKey = "middleware.unauthorized"
@@ -123,7 +124,7 @@ func ErrorResponse(msg MessageKey) map[string]interface{} {
 	return map[string]interface{}{"error": msg}
 }
 
-// ValidationError creates a validation error response
-func ValidationError(msg MessageKey) map[string]interface{} {
+// CreateValidationError creates a validation error response
+func CreateValidationError(msg MessageKey) map[string]interface{} {
 	return map[string]interface{}{"error": msg, "type": "validation"}
 }

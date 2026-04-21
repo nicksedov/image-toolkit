@@ -134,7 +134,7 @@ func (s *Server) handleScan(c *gin.Context) {
 		c.JSON(http.StatusConflict, i18n.ErrorResponse(i18n.MsgScanFailed))
 		return
 	}
-	c.JSON(http.StatusAccepted, dto.ScanResponse{Message: i18n.MsgScanStarted})
+	c.JSON(http.StatusAccepted, dto.ScanResponse{Message: string(i18n.MsgScanStarted)})
 }
 
 // handleGetStatus returns the current scan status
@@ -163,7 +163,7 @@ func (s *Server) handleThumbnail(c *gin.Context) {
 func (s *Server) handleDeleteFiles(c *gin.Context) {
 	var req dto.DeleteFilesRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, i18n.ErrorResponse(i18n.ValidationError))
+		c.JSON(http.StatusBadRequest, i18n.CreateValidationError(i18n.ValidationError))
 		return
 	}
 
@@ -275,12 +275,12 @@ func (s *Server) handleGetFolderPatterns(c *gin.Context) {
 func (s *Server) handleBatchDelete(c *gin.Context) {
 	var req dto.BatchDeleteRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, i18n.ErrorResponse(i18n.ValidationError))
+		c.JSON(http.StatusBadRequest, i18n.CreateValidationError(i18n.ValidationError))
 		return
 	}
 
 	if len(req.Rules) == 0 {
-		c.JSON(http.StatusBadRequest, i18n.ErrorResponse(i18n.ValidationError))
+		c.JSON(http.StatusBadRequest, i18n.CreateValidationError(i18n.ValidationError))
 		return
 	}
 
@@ -446,7 +446,7 @@ func (s *Server) handleAddFolder(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, dto.AddFolderResponse{
-		Message:     i18n.MsgFolderAdded,
+		Message:     string(i18n.MsgFolderAdded),
 		Folder: dto.GalleryFolderDTO{
 			ID:        folder.ID,
 			Path:      folder.Path,
@@ -476,7 +476,7 @@ func (s *Server) handleRemoveFolder(c *gin.Context) {
 	s.db.Delete(&folder)
 
 	c.JSON(http.StatusOK, dto.RemoveFolderResponse{
-		Message:      i18n.MsgFolderRemoved,
+		Message:      string(i18n.MsgFolderRemoved),
 		FilesRemoved: filesRemoved,
 	})
 }
@@ -610,7 +610,7 @@ func (s *Server) handleGetSettings(c *gin.Context) {
 func (s *Server) handleUpdateSettings(c *gin.Context) {
 	var req dto.UpdateSettingsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, i18n.ErrorResponse(i18n.ValidationError))
+		c.JSON(http.StatusBadRequest, i18n.CreateValidationError(i18n.ValidationError))
 		return
 	}
 
