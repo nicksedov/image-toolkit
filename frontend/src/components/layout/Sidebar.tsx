@@ -66,7 +66,7 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
               className={cn("w-full justify-start gap-3", isActive && "bg-primary text-primary-foreground hover:bg-primary/90")}
               onClick={() => handleTabChange(tab.value)}
             >
-              <tab.icon className="h-4 w-4" />
+              <tab.icon className="h-4 w-4 flex-shrink-0" />
               <span className="font-medium">{tab.label}</span>
             </Button>
           )
@@ -86,7 +86,7 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
                 className={cn("w-full justify-start gap-3", isActive && "bg-primary text-primary-foreground hover:bg-primary/90")}
                 onClick={() => handleTabChange(tab.value)}
               >
-                <tab.icon className="h-4 w-4" />
+                <tab.icon className="h-4 w-4 flex-shrink-0" />
                 <span className="font-medium">{tab.label}</span>
               </Button>
             )
