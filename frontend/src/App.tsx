@@ -18,7 +18,7 @@ import { AdminPanel } from "@/components/auth/AdminPanel"
 type TabValue = "settings" | "gallery-folders" | "gallery-calendar" | "deduplication" | "profile" | "admin"
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<TabValue>("deduplication")
+  const [activeTab, setActiveTab] = useState<TabValue>("gallery-folders")
   const [isCheckingGallery, setIsCheckingGallery] = useState(true)
   const [forceLogout, setForceLogout] = useState(false)
   const { t } = useTranslation()

@@ -10,6 +10,22 @@ interface GalleryCalendarViewProps {
 }
 
 const PAGE_SIZE = 50
+const HEADER_HEIGHT = 56 // px - height of the header to offset timeline
+
+const MONTHS = [
+  { value: 0, label: "Jan" },
+  { value: 1, label: "Feb" },
+  { value: 2, label: "Mar" },
+  { value: 3, label: "Apr" },
+  { value: 4, label: "May" },
+  { value: 5, label: "Jun" },
+  { value: 6, label: "Jul" },
+  { value: 7, label: "Aug" },
+  { value: 8, label: "Sep" },
+  { value: 9, label: "Oct" },
+  { value: 10, label: "Nov" },
+  { value: 11, label: "Dec" },
+]
 
 export function GalleryCalendarView({ onImageClick }: GalleryCalendarViewProps) {
   const { t } = useTranslation()
@@ -23,11 +39,12 @@ export function GalleryCalendarView({ onImageClick }: GalleryCalendarViewProps) 
   const [dateRange, setDateRange] = useState<CalendarDateRange>({ minDate: "", maxDate: "", totalWithDate: 0 })
   const [monthInfo, setMonthInfo] = useState<CalendarMonthInfo | null>(null)
 
-  // Date filter state
-  const [dateFilter, setDateFilter] = useState<{ start: string | null; end: string | null }>({
+  // Date filter state - now supports range selection
+  const [dateRangeFilter, setDateRangeFilter] = useState<{ start: string | null; end: string | null }>({
     start: null,
     end: null,
   })
+  const [rangeSelecting, setRangeSelecting] = useState(false)
 
   // Calendar widget state
   const [calendarViewDate, setCalendarViewDate] = useState(() => {
@@ -37,6 +54,9 @@ export function GalleryCalendarView({ onImageClick }: GalleryCalendarViewProps) 
   const pageRef = useRef(1)
   const sentinelRef = useRef<HTMLDivElement>(null)
   const mainContentRef = useRef<HTMLDivElement>(null)
+  
+  // Image preloading
+  const preloadImageCache = useRef<Map<string, HTMLImageElement>>(new Map())
 
   const calendarMonthKey = useMemo(() => {
     const y = calendarViewDate.getFullYear()
@@ -53,8 +73,8 @@ export function GalleryCalendarView({ onImageClick }: GalleryCalendarViewProps) 
       const result = await fetchGalleryCalendar(
         page,
         PAGE_SIZE,
-        dateFilter.start ?? undefined,
-        dateFilter.end ?? undefined,
+        dateRangeFilter.start ?? undefined,
+        dateRangeFilter.end ?? undefined,
         calendarMonthKey
       )
 
@@ -70,7 +90,7 @@ export function GalleryCalendarView({ onImageClick }: GalleryCalendarViewProps) 
       if (page === 1) {
         setDateRange(result.dateRange)
         // Set calendar to the month of the oldest image (minDate) if not filtered
-        if (!dateFilter.start && result.dateRange.minDate) {
+        if (!dateRangeFilter.start && result.dateRange.minDate) {
           const minDate = new Date(result.dateRange.minDate + "T00:00:00")
           setCalendarViewDate(new Date(minDate.getFullYear(), minDate.getMonth(), 1))
         }
@@ -88,7 +108,81 @@ export function GalleryCalendarView({ onImageClick }: GalleryCalendarViewProps) 
     } finally {
       setIsLoading(false)
     }
-  }, [isLoading, dateFilter.start, dateFilter.end, calendarMonthKey])
+  }, [isLoading, dateRangeFilter.start, dateRangeFilter.end, calendarMonthKey])
+
+  // Preload images for smoother scrolling
+  const preloadImages = useCallback((imageUrls: string[]) => {
+    const MAX_CACHE_SIZE = 100
+    
+    imageUrls.forEach((url) => {
+      if (!url || preloadImageCache.current.has(url)) return
+      
+      // Limit cache size
+      if (preloadImageCache.current.size >= MAX_CACHE_SIZE) {
+        const firstKey = preloadImageCache.current.keys().next().value
+        if (firstKey) {
+          preloadImageCache.current.delete(firstKey)
+        }
+      }
+      
+      const img = new Image()
+      img.src = url
+      preloadImageCache.current.set(url, img)
+    })
+  }, [])
+
+  // Preload images when groups change
+  useEffect(() => {
+    const imageUrls = groups.flatMap((group) => 
+      group.images.map((img) => img.thumbnail).filter(Boolean) as string[]
+    )
+    
+    // Preload with slight delay to not block initial render
+    const timer = setTimeout(() => {
+      preloadImages(imageUrls)
+    }, 100)
+    
+    return () => clearTimeout(timer)
+  }, [groups, preloadImages])
+
+  // Preload next page images when approaching end of current content
+  useEffect(() => {
+    if (!hasMore || isLoading) return
+    
+    const checkAndPreloadNextPage = () => {
+      if (!mainContentRef.current) return
+      
+      const scrollHeight = mainContentRef.current.scrollHeight
+      const scrollTop = mainContentRef.current.scrollTop || window.scrollY
+      const clientHeight = window.innerHeight
+      
+      // If user has scrolled past 50% of content, preload next page
+      if (scrollTop + clientHeight > scrollHeight * 0.5) {
+        const nextPage = pageRef.current
+        
+        // Preload next page images in background
+        fetchGalleryCalendar(
+          nextPage,
+          PAGE_SIZE,
+          dateRangeFilter.start ?? undefined,
+          dateRangeFilter.end ?? undefined,
+          calendarMonthKey
+        )
+          .then((result) => {
+            const imageUrls = result.groups.flatMap((group) =>
+              group.images.map((img) => img.thumbnail).filter(Boolean) as string[]
+            )
+            preloadImages(imageUrls)
+          })
+          .catch(() => {
+            // Silently fail - next page will load normally when needed
+          })
+      }
+    }
+    
+    window.addEventListener("scroll", checkAndPreloadNextPage, { passive: true })
+    return () => window.removeEventListener("scroll", checkAndPreloadNextPage)
+  }, [hasMore, isLoading, dateRangeFilter.start, dateRangeFilter.end, calendarMonthKey, preloadImages])
 
   // Initial load or reset when filter changes
   useEffect(() => {
@@ -97,18 +191,18 @@ export function GalleryCalendarView({ onImageClick }: GalleryCalendarViewProps) 
     setInitialized(false)
     loadPage(1, true)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dateFilter.start, dateFilter.end])
+  }, [dateRangeFilter.start, dateRangeFilter.end])
 
   // Load month info when calendar month changes
   useEffect(() => {
-    fetchGalleryCalendar(1, 1, dateFilter.start ?? undefined, dateFilter.end ?? undefined, calendarMonthKey)
+    fetchGalleryCalendar(1, 1, dateRangeFilter.start ?? undefined, dateRangeFilter.end ?? undefined, calendarMonthKey)
       .then((result) => {
         if (result.months.length > 0) {
           setMonthInfo(result.months[0])
         }
       })
       .catch(() => {})
-  }, [calendarMonthKey, dateFilter.start, dateFilter.end])
+  }, [calendarMonthKey, dateRangeFilter.start, dateRangeFilter.end])
 
   // Infinite scroll
   useEffect(() => {
@@ -159,15 +253,36 @@ export function GalleryCalendarView({ onImageClick }: GalleryCalendarViewProps) 
   }
 
   const selectDate = (date: string) => {
-    if (dateFilter.start === date && dateFilter.end === date) {
-      setDateFilter({ start: null, end: null })
+    if (!rangeSelecting) {
+      // Start range selection
+      setDateRangeFilter({ start: date, end: null })
+      setRangeSelecting(true)
     } else {
-      setDateFilter({ start: date, end: date })
+      // Complete range selection
+      if (dateRangeFilter.start) {
+        const startDate = dateRangeFilter.start
+        // Ensure start <= end
+        if (date >= startDate) {
+          setDateRangeFilter({ start: startDate, end: date })
+        } else {
+          setDateRangeFilter({ start: date, end: startDate })
+        }
+      } else {
+        setDateRangeFilter({ start: date, end: date })
+      }
+      setRangeSelecting(false)
     }
   }
 
-  const clearDateFilter = () => {
-    setDateFilter({ start: null, end: null })
+  const isInSelectedRange = (date: string) => {
+    if (!dateRangeFilter.start) return false
+    if (!dateRangeFilter.end) return date === dateRangeFilter.start
+    return date >= dateRangeFilter.start && date <= dateRangeFilter.end
+  }
+
+  const clearDateRangeFilter = () => {
+    setDateRangeFilter({ start: null, end: null })
+    setRangeSelecting(false)
   }
 
   // Visible date range for timeline
@@ -196,47 +311,114 @@ export function GalleryCalendarView({ onImageClick }: GalleryCalendarViewProps) 
 
       {/* Horizontal Calendar Widget */}
       <div className="rounded-lg border bg-card p-3">
-        <div className="flex items-center justify-between mb-2">
-          <button onClick={prevMonth} className="p-1 hover:bg-muted rounded">
+        {/* Month/Year selector */}
+        <div className="flex items-center justify-between mb-2 gap-2">
+          <button onClick={prevMonth} className="p-1 hover:bg-muted rounded flex-shrink-0">
             <ChevronLeft className="h-4 w-4" />
           </button>
-          <span className="font-medium text-sm">
-            {calendarViewDate.toLocaleDateString(undefined, { month: "long", year: "numeric" })}
-          </span>
-          <button onClick={nextMonth} className="p-1 hover:bg-muted rounded">
+          
+          <div className="flex items-center gap-2">
+            {/* Month dropdown */}
+            <select
+              value={calendarViewDate.getMonth()}
+              onChange={(e) => {
+                const newMonth = parseInt(e.target.value)
+                setCalendarViewDate(new Date(calendarViewDate.getFullYear(), newMonth, 1))
+              }}
+              className="text-sm font-medium bg-transparent border-none outline-none cursor-pointer"
+            >
+              {MONTHS.map((m) => (
+                <option key={m.value} value={m.value}>
+                  {new Date(2000, m.value, 1).toLocaleDateString(undefined, { month: "long" })}
+                </option>
+              ))}
+            </select>
+
+            {/* Year dropdown */}
+            <select
+              value={calendarViewDate.getFullYear()}
+              onChange={(e) => {
+                const newYear = parseInt(e.target.value)
+                setCalendarViewDate(new Date(newYear, calendarViewDate.getMonth(), 1))
+              }}
+              className="text-sm font-medium bg-transparent border-none outline-none cursor-pointer"
+            >
+              {(() => {
+                // Generate year range from dateRange or fallback to current year ±5
+                const currentYear = calendarViewDate.getFullYear()
+                let startYear = currentYear - 5
+                let endYear = currentYear + 5
+                
+                // Use actual data range if available
+                if (dateRange.minDate && dateRange.maxDate) {
+                  const minYear = new Date(dateRange.minDate + "T00:00:00").getFullYear()
+                  const maxYear = new Date(dateRange.maxDate + "T00:00:00").getFullYear()
+                  startYear = minYear
+                  endYear = maxYear
+                }
+                
+                const years = []
+                for (let y = startYear; y <= endYear; y++) {
+                  years.push(y)
+                }
+                
+                return years.map((year) => (
+                  <option key={year} value={year}>
+                    {year}
+                  </option>
+                ))
+              })()}
+            </select>
+          </div>
+
+          <button onClick={nextMonth} className="p-1 hover:bg-muted rounded flex-shrink-0">
             <ChevronRight className="h-4 w-4" />
           </button>
         </div>
 
         {/* Horizontal scrollable day strip */}
         <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-thin" style={{ scrollbarWidth: "thin" }}>
-          {calendarDays.map((day) => (
-            <button
-              key={day.date}
-              disabled={!day.date}
-              className={`
-                flex-shrink-0 w-9 h-9 flex flex-col items-center justify-center text-xs rounded-md
-                transition-all
-                ${day.hasImages ? "bg-primary/10 hover:bg-primary/20 font-medium text-primary cursor-pointer" : "text-muted-foreground/40"}
-                ${dateFilter.start === day.date && dateFilter.end === day.date ? "bg-primary text-primary-foreground hover:bg-primary/90" : ""}
-              `}
-              onClick={() => selectDate(day.date)}
-            >
-              <span className="text-[11px] leading-none">{day.day}</span>
-            </button>
-          ))}
+          {calendarDays.map((day) => {
+            const isSelected = isInSelectedRange(day.date)
+            const isRangeStart = day.date === dateRangeFilter.start
+            const isRangeEnd = day.date === dateRangeFilter.end && dateRangeFilter.end !== null
+            
+            return (
+              <button
+                key={day.date}
+                disabled={!day.date}
+                className={`
+                  flex-shrink-0 w-9 h-9 flex flex-col items-center justify-center text-xs rounded-md
+                  transition-all relative
+                  ${day.hasImages 
+                    ? isSelected
+                      ? "bg-primary text-primary-foreground hover:bg-primary/90 font-medium cursor-pointer"
+                      : "bg-emerald-100 dark:bg-emerald-900/30 hover:bg-emerald-200 dark:hover:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 font-medium cursor-pointer"
+                    : "bg-red-50 dark:bg-red-900/20 text-muted-foreground/40 hover:bg-red-100 dark:hover:bg-red-900/30"
+                  }
+                  ${isRangeStart || isRangeEnd ? "ring-2 ring-primary ring-offset-1" : ""}
+                `}
+                onClick={() => day.date && selectDate(day.date)}
+                title={day.hasImages ? "Has images" : "No images"}
+              >
+                <span className="text-[11px] leading-none">{day.day}</span>
+              </button>
+            )
+          })}
         </div>
 
         {/* Date filter controls */}
-        {(dateFilter.start || dateFilter.end) && (
+        {(dateRangeFilter.start || dateRangeFilter.end) && (
           <div className="mt-2 pt-2 border-t flex items-center justify-between">
             <span className="text-xs text-muted-foreground">
-              {dateFilter.start === dateFilter.end
-                ? dateFilter.start
-                : `${dateFilter.start} \u2014 ${dateFilter.end}`}
+              {rangeSelecting
+                ? `Selecting: ${dateRangeFilter.start}${dateRangeFilter.end ? ` — ${dateRangeFilter.end}` : " (click end date)"}`
+                : dateRangeFilter.start === dateRangeFilter.end
+                  ? dateRangeFilter.start
+                  : `${dateRangeFilter.start} \u2014 ${dateRangeFilter.end}`}
             </span>
             <button
-              onClick={clearDateFilter}
+              onClick={clearDateRangeFilter}
               className="text-xs text-primary hover:underline"
             >
               {t("gallery.calendar.clearFilter")}
@@ -265,16 +447,16 @@ export function GalleryCalendarView({ onImageClick }: GalleryCalendarViewProps) 
             <div className="rounded-lg border border-dashed p-12 text-center">
               <CalendarIcon className="mx-auto h-10 w-10 text-muted-foreground/50" />
               <p className="mt-2 text-sm font-medium text-muted-foreground">
-                {dateFilter.start ? t("gallery.calendar.noImagesForDate") : t("gallery.calendar.noDateInfo")}
+                {dateRangeFilter.start ? t("gallery.calendar.noImagesForDate") : t("gallery.calendar.noDateInfo")}
               </p>
               <p className="text-xs text-muted-foreground/70">
-                {dateFilter.start ? t("gallery.calendar.clearFilterHint") : t("gallery.calendar.noDateInfoHint")}
+                {dateRangeFilter.start ? t("gallery.calendar.clearFilterHint") : t("gallery.calendar.noDateInfoHint")}
               </p>
             </div>
           ) : (
             <>
               {groups.map((group) => (
-                <div key={group.date} className="mb-6">
+                <div key={group.date} id={`date-group-${group.date}`} className="mb-6">
                   <div className="flex items-center gap-2 mb-2 px-0.5">
                     <CalendarIcon className="h-4 w-4 text-muted-foreground shrink-0" />
                     <span className="text-sm font-medium">{group.label}</span>
@@ -329,20 +511,101 @@ export function GalleryCalendarView({ onImageClick }: GalleryCalendarViewProps) 
           )}
         </div>
 
-        {/* Timeline sidebar — fixed to right edge, full viewport height */}
+        {/* Timeline sidebar — fixed to right edge, offset from header */}
         {dateRange.minDate && dateRange.maxDate && groups.length > 0 && (
           <div
-            className="fixed right-0 top-0 bottom-0 w-16 z-10 hidden lg:flex flex-col justify-center"
-            style={{ pointerEvents: "none" }}
+            className="fixed right-0 w-16 z-10 hidden lg:flex flex-col justify-center"
+            style={{ 
+              pointerEvents: "none",
+              top: `${HEADER_HEIGHT}px`,
+              bottom: 0
+            }}
           >
             <div
-              className="rounded-l-lg border-r border-y bg-card p-2 mx-0"
-              style={{ pointerEvents: "auto", height: "calc(100vh - 2rem)", maxHeight: "calc(100vh - 2rem)" }}
+              className="rounded-l-lg border-r border-y border-l-0 bg-card p-2 mx-0"
+              style={{ 
+                pointerEvents: "auto", 
+                height: "calc(100vh - 2rem)", 
+                maxHeight: "calc(100vh - 2rem)" 
+              }}
             >
               <div className="text-xs font-medium mb-2 text-center">{t("gallery.calendar.timeline")}</div>
-              <div className="relative flex-1" style={{ height: "calc(100% - 2rem)" }}>
+              <div 
+                className="relative flex-1" 
+                style={{ height: "calc(100% - 2rem)" }}
+                onClick={(e) => {
+                  // Navigate to date when clicking on timeline
+                  const rect = e.currentTarget.getBoundingClientRect()
+                  const clickY = e.clientY - rect.top
+                  const clickPercent = clickY / rect.height
+                  
+                  const totalDays = daysBetween(dateRange.minDate, dateRange.maxDate)
+                  const targetOffset = Math.floor(clickPercent * totalDays)
+                  const targetDate = new Date(dateRange.minDate + "T00:00:00")
+                  targetDate.setDate(targetDate.getDate() + targetOffset)
+                  
+                  const dateStr = `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, "0")}-${String(targetDate.getDate()).padStart(2, "0")}`
+                  
+                  // Scroll to the date group
+                  const element = document.getElementById(`date-group-${dateStr}`)
+                  if (element) {
+                    element.scrollIntoView({ behavior: "smooth", block: "start" })
+                  }
+                }}
+              >
                 {/* Timeline track */}
                 <div className="absolute left-1/2 -translate-x-1/2 w-0.5 h-full bg-muted" />
+
+                {/* Year/Month scale markers */}
+                {(() => {
+                  const markers = []
+                  const start = new Date(dateRange.minDate + "T00:00:00")
+                  const end = new Date(dateRange.maxDate + "T00:00:00")
+                  const totalDays = daysBetween(dateRange.minDate, dateRange.maxDate)
+                  
+                  // Generate year markers
+                  let current = new Date(start.getFullYear(), 0, 1)
+                  if (current < start) current = new Date(start.getFullYear() + 1, 0, 1)
+                  
+                  while (current <= end) {
+                    const offset = daysBetween(dateRange.minDate, current.toISOString().split("T")[0])
+                    const topPercent = totalDays > 0 ? (offset / totalDays) * 100 : 0
+                    
+                    markers.push(
+                      <div
+                        key={`year-${current.getFullYear()}`}
+                        className="absolute left-0 right-0 border-t border-primary/30"
+                        style={{ top: `${topPercent}%` }}
+                      >
+                        <span className="absolute left-0 text-[9px] font-semibold text-primary whitespace-nowrap -translate-x-1/2" style={{ left: "50%" }}>
+                          {current.getFullYear()}
+                        </span>
+                      </div>
+                    )
+                    
+                    // Add month markers for each year
+                    for (let m = 0; m < 12; m++) {
+                      const monthDate = new Date(current.getFullYear(), m, 1)
+                      if (monthDate >= start && monthDate <= end && !(monthDate.getMonth() === 0)) {
+                        const monthOffset = daysBetween(dateRange.minDate, monthDate.toISOString().split("T")[0])
+                        const monthTopPercent = totalDays > 0 ? (monthOffset / totalDays) * 100 : 0
+                        
+                        markers.push(
+                          <div
+                            key={`month-${current.getFullYear()}-${m}`}
+                            className="absolute left-0 right-0 border-t border-muted"
+                            style={{ top: `${monthTopPercent}%` }}
+                          />
+                        )
+                      }
+                    }
+                    
+                    current.setFullYear(current.getFullYear() + 1)
+                    current = new Date(current.getFullYear(), 0, 1)
+                  }
+                  
+                  return markers
+                })()}
 
                 {/* Visible range indicator */}
                 {visibleDateRange.start && visibleDateRange.end && (
@@ -374,9 +637,16 @@ export function GalleryCalendarView({ onImageClick }: GalleryCalendarViewProps) 
                   return (
                     <div
                       key={group.date}
-                      className="absolute left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-primary"
+                      className="absolute left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-primary cursor-pointer hover:scale-150 transition-transform"
                       style={{ top: `${topPercent}%` }}
                       title={group.date}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        const element = document.getElementById(`date-group-${group.date}`)
+                        if (element) {
+                          element.scrollIntoView({ behavior: "smooth", block: "start" })
+                        }
+                      }}
                     />
                   )
                 })}
