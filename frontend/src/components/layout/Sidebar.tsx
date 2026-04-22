@@ -1,6 +1,6 @@
-import { useCallback } from "react"
+import { useCallback, useState } from "react"
 import { useTranslation } from "@/i18n"
-import { Settings, ImageIcon, FileScan, Shield, Users } from "lucide-react"
+import { Settings, ImageIcon, FileScan, Shield, Users, ChevronDown, ChevronRight, Folder, Calendar } from "lucide-react"
 import { useAuth } from "@/providers/AuthProvider"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -20,17 +20,31 @@ type TabItem = {
 export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
   const { t } = useTranslation()
   const { user } = useAuth()
+  const [galleryExpanded, setGalleryExpanded] = useState(true)
 
   const tabs: TabItem[] = [
-    { value: "deduplication", icon: FileScan, label: t("tabs.deduplication") },
-    { value: "gallery", icon: ImageIcon, label: t("tabs.gallery") },
     { value: "settings", icon: Settings, label: t("tabs.settings") },
+    { value: "deduplication", icon: FileScan, label: t("tabs.deduplication") },
     { value: "profile", icon: Shield, label: t("adminPanel.updateProfile") },
   ]
 
   const adminTabs: TabItem[] = [
     { value: "admin", icon: Users, label: t("adminPanel.title") },
   ]
+
+  const gallerySubModes = [
+    { value: "gallery-folders", icon: Folder, label: t("gallery.subModes.folders") },
+    { value: "gallery-calendar", icon: Calendar, label: t("gallery.subModes.calendar") },
+  ]
+
+  const isGalleryActive = activeTab.startsWith("gallery")
+
+  const handleGalleryModeChange = useCallback(
+    (mode: string) => {
+      onTabChange(mode)
+    },
+    [onTabChange]
+  )
 
   const handleTabChange = useCallback(
     (tab: string) => {
@@ -56,6 +70,49 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
       </div>
 
       <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
+        {/* Gallery group with sub-items */}
+        <div className="space-y-1">
+          <Button
+            variant={isGalleryActive ? "default" : "ghost"}
+            className={cn("w-full justify-start gap-3", isGalleryActive && "bg-primary text-primary-foreground hover:bg-primary/90")}
+            onClick={() => {
+              setGalleryExpanded(!galleryExpanded)
+              if (!isGalleryActive) {
+                handleGalleryModeChange("gallery-folders")
+              }
+            }}
+          >
+            <ImageIcon className="h-4 w-4 flex-shrink-0" />
+            <span className="flex-1 font-medium text-left">{t("tabs.gallery")}</span>
+            {galleryExpanded ? (
+              <ChevronDown className="h-3 w-3 flex-shrink-0" />
+            ) : (
+              <ChevronRight className="h-3 w-3 flex-shrink-0" />
+            )}
+          </Button>
+
+          {galleryExpanded && (
+            <div className="ml-6 space-y-0.5 border-l pl-2">
+              {gallerySubModes.map((subMode) => {
+                const isActive = isTabActive(subMode.value)
+                return (
+                  <Button
+                    key={subMode.value}
+                    variant={isActive ? "default" : "ghost"}
+                    size="sm"
+                    className={cn("w-full justify-start gap-2 h-8", isActive && "bg-primary text-primary-foreground hover:bg-primary/90")}
+                    onClick={() => handleGalleryModeChange(subMode.value)}
+                  >
+                    <subMode.icon className="h-3.5 w-3.5 flex-shrink-0" />
+                    <span className="text-sm font-medium">{subMode.label}</span>
+                  </Button>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Other tabs */}
         {tabs.map((tab) => {
           const isActive = isTabActive(tab.value)
 

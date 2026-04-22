@@ -14,6 +14,7 @@ import type {
   AddFolderResponse,
   RemoveFolderResponse,
   GalleryImagesResponse,
+  GalleryCalendarResponse,
   AppSettingsDTO,
   UserSettingsDTO,
   UpdateSettingsRequest,
@@ -91,6 +92,25 @@ export function fetchGalleryImages(
     pageSize: String(pageSize),
     view,
   })
+}
+
+// --- Gallery Calendar ---
+
+export function fetchGalleryCalendar(
+  page: number,
+  pageSize: number,
+  startDate?: string,
+  endDate?: string,
+  monthYear?: string
+): Promise<GalleryCalendarResponse> {
+  const params: Record<string, string> = {
+    page: String(page),
+    pageSize: String(pageSize),
+  }
+  if (startDate) params.startDate = startDate
+  if (endDate) params.endDate = endDate
+  if (monthYear) params.monthYear = monthYear
+  return apiGet<GalleryCalendarResponse>("/api/gallery/calendar", params)
 }
 
 // --- App Settings ---

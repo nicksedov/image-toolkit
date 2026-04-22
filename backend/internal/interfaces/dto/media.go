@@ -230,3 +230,38 @@ type ImageMetadataResponse struct {
 	Found    bool              `json:"found"`
 	Metadata *ImageMetadataDTO `json:"metadata,omitempty"`
 }
+
+// --- Gallery Calendar API ---
+
+// CalendarDateGroup represents a group of images for a single date
+type CalendarDateGroup struct {
+	Date      string            `json:"date"`       // "YYYY-MM-DD"
+	Label     string            `json:"label"`      // Human-readable label
+	ImageCount int              `json:"imageCount"`
+	Images    []GalleryImageDTO `json:"images"`
+}
+
+// CalendarDateRange represents the min/max date range for all images with EXIF dates
+type CalendarDateRange struct {
+	MinDate string `json:"minDate"` // "YYYY-MM-DD" or empty
+	MaxDate string `json:"maxDate"` // "YYYY-MM-DD" or empty
+	TotalWithDate int `json:"totalWithDate"`
+}
+
+// CalendarMonthInfo represents which days in a month have images
+type CalendarMonthInfo struct {
+	Year  int  `json:"year"`
+	Month int  `json:"month"` // 1-12
+	Days  []int `json:"days"`  // Days that have images (1-31)
+}
+
+// GalleryCalendarResponse is the JSON response for GET /api/gallery/calendar
+type GalleryCalendarResponse struct {
+	Groups      []CalendarDateGroup `json:"groups"`
+	TotalImages int                 `json:"totalImages"`
+	TotalGroups int                 `json:"totalGroups"`
+	HasMore     bool                `json:"hasMore"`
+	DateRange   CalendarDateRange   `json:"dateRange"`
+	// Month info for the calendar widget (current page's months)
+	Months      []CalendarMonthInfo `json:"months"`
+}

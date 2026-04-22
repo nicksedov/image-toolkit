@@ -198,6 +198,36 @@ export interface ImageMetadataResponse {
   metadata?: ImageMetadataDTO
 }
 
+// --- Gallery Calendar Types ---
+
+export interface CalendarDateGroup {
+  date: string       // "YYYY-MM-DD"
+  label: string      // Human-readable label
+  imageCount: number
+  images: GalleryImageDTO[]
+}
+
+export interface CalendarDateRange {
+  minDate: string    // "YYYY-MM-DD" or empty
+  maxDate: string    // "YYYY-MM-DD" or empty
+  totalWithDate: number
+}
+
+export interface CalendarMonthInfo {
+  year: number
+  month: number      // 1-12
+  days: number[]     // Days that have images (1-31)
+}
+
+export interface GalleryCalendarResponse {
+  groups: CalendarDateGroup[]
+  totalImages: number
+  totalGroups: number
+  hasMore: boolean
+  dateRange: CalendarDateRange
+  months: CalendarMonthInfo[]
+}
+
 // --- Auth & User Types ---
 
 export type UserRole = "admin" | "user"

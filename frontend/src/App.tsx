@@ -15,7 +15,7 @@ import { BootstrapSetupScreen } from "@/components/auth/BootstrapSetupScreen"
 import { UserProfile } from "@/components/auth/UserProfile"
 import { AdminPanel } from "@/components/auth/AdminPanel"
 
-type TabValue = "settings" | "gallery" | "deduplication" | "profile" | "admin"
+type TabValue = "settings" | "gallery-folders" | "gallery-calendar" | "deduplication" | "profile" | "admin"
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabValue>("deduplication")
@@ -112,8 +112,12 @@ export default function App() {
                 <SettingsTab onFolderAdded={handleFolderAdded} />
               </TabsContent>
 
-              <TabsContent value="gallery">
-                <GalleryTab />
+              <TabsContent value="gallery-folders">
+                <GalleryTab galleryMode="folders" />
+              </TabsContent>
+
+              <TabsContent value="gallery-calendar">
+                <GalleryTab galleryMode="calendar" />
               </TabsContent>
 
               <TabsContent value="deduplication">

@@ -903,3 +903,172 @@ func (s *Server) handleGetImageMetadata(c *gin.Context) {
 func (s *Server) handleGetMetadataStatus(c *gin.Context) {
 	c.JSON(http.StatusOK, s.metadataManager.GetStatus())
 }
+
+// handleGetGalleryCalendar returns paginated gallery images grouped by date taken
+func (s *Server) handleGetGalleryCalendar(c *gin.Context) {
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("pageSize", "50"))
+	startDate := c.Query("startDate") // "YYYY-MM-DD" or empty
+	endDate := c.Query("endDate")     // "YYYY-MM-DD" or empty
+	monthYear := c.Query("monthYear") // "YYYY-MM" for calendar widget
+
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 200 {
+		pageSize = 50
+	}
+
+	// Query: join image_files with image_metadata where date_taken is not null
+	// Order by date_taken DESC (newest first)
+	type imageWithDate struct {
+		domain.ImageFile
+		DateTaken time.Time
+	}
+
+	query := s.db.Table("image_files").
+		Select("image_files.*, image_metadata.date_taken").
+		Joins("INNER JOIN image_metadata ON image_metadata.image_file_id = image_files.id").
+		Where("image_metadata.date_taken IS NOT NULL")
+
+	// Apply date range filter
+	if startDate != "" {
+		if t, err := time.Parse("2006-01-02", startDate); err == nil {
+			query = query.Where("image_metadata.date_taken >= ?", t)
+		}
+	}
+	if endDate != "" {
+		if t, err := time.Parse("2006-01-02", endDate); err == nil {
+			// End of the end date
+			endOfDay := t.Add(24*time.Hour - time.Second)
+			query = query.Where("image_metadata.date_taken <= ?", endOfDay)
+		}
+	}
+
+	// Count total
+	var totalImages int64
+	query.Count(&totalImages)
+
+	// Paginate
+	offset := (page - 1) * pageSize
+	var results []imageWithDate
+	query.Order("image_metadata.date_taken DESC").Offset(offset).Limit(pageSize).Find(&results)
+
+	// Group by date
+	type dateGroup struct {
+		date   time.Time
+		images []domain.ImageFile
+	}
+	groupsMap := make(map[string]*dateGroup)
+	var dateOrder []string
+
+	for _, r := range results {
+		dateStr := r.DateTaken.Format("2006-01-02")
+		if _, ok := groupsMap[dateStr]; !ok {
+			groupsMap[dateStr] = &dateGroup{date: r.DateTaken}
+			dateOrder = append(dateOrder, dateStr)
+		}
+		groupsMap[dateStr].images = append(groupsMap[dateStr].images, r.ImageFile)
+	}
+
+	// Build response groups
+	groupDTOs := make([]dto.CalendarDateGroup, 0, len(dateOrder))
+	for _, dateStr := range dateOrder {
+		g := groupsMap[dateStr]
+		imageDTOs := make([]dto.GalleryImageDTO, len(g.images))
+		for i, f := range g.images {
+			imageDTOs[i] = dto.GalleryImageDTO{
+				ID:        f.ID,
+				Path:      f.Path,
+				FileName:  filepath.Base(f.Path),
+				DirPath:   filepath.Dir(f.Path),
+				Size:      f.Size,
+				SizeHuman: formatSize(f.Size),
+				ModTime:   f.ModTime.Format("2006-01-02 15:04:05"),
+			}
+		}
+
+		// Generate thumbnails in parallel
+		if len(g.images) > 0 {
+			const maxWorkers = 16
+			var wg sync.WaitGroup
+			semaphore := make(chan struct{}, maxWorkers)
+
+			for i, f := range g.images {
+				wg.Add(1)
+				go func(idx int, filePath string) {
+					defer wg.Done()
+					semaphore <- struct{}{}
+					defer func() { <-semaphore }()
+
+					thumb, err := imaging.GenerateThumbnail(filePath, s.thumbnailCache)
+					if err == nil {
+						imageDTOs[idx].Thumbnail = thumb
+					}
+				}(i, f.Path)
+			}
+			wg.Wait()
+		}
+
+		// Human-readable label
+		label := g.date.Format("Monday, January 2, 2006")
+
+		groupDTOs = append(groupDTOs, dto.CalendarDateGroup{
+			Date:       dateStr,
+			Label:      label,
+			ImageCount: len(g.images),
+			Images:     imageDTOs,
+		})
+	}
+
+	// Get date range
+	var dateRange dto.CalendarDateRange
+	var minDate, maxDate *time.Time
+	s.db.Raw("SELECT MIN(date_taken), MAX(date_taken) FROM image_metadata WHERE date_taken IS NOT NULL").Row().Scan(&minDate, &maxDate)
+	if minDate != nil {
+		dateRange.MinDate = minDate.Format("2006-01-02")
+	}
+	if maxDate != nil {
+		dateRange.MaxDate = maxDate.Format("2006-01-02")
+	}
+	dateRange.TotalWithDate = int(totalImages)
+
+	// Get month info for calendar widget
+	var months []dto.CalendarMonthInfo
+	if monthYear != "" {
+		if t, err := time.Parse("2006-01", monthYear); err == nil {
+			year := t.Year()
+			month := int(t.Month())
+			nextMonth := t.AddDate(0, 1, 0)
+
+			// Get distinct days that have images in this month
+			var days []int
+			s.db.Raw(`
+				SELECT DISTINCT CAST(strftime('%d', date_taken) AS INTEGER) as day
+				FROM image_metadata
+				WHERE date_taken >= ? AND date_taken < ? AND date_taken IS NOT NULL
+				ORDER BY day
+			`, t, nextMonth).Pluck("day", &days)
+
+			months = append(months, dto.CalendarMonthInfo{
+				Year:  year,
+				Month: month,
+				Days:  days,
+			})
+		}
+	}
+
+	totalPages := (int(totalImages) + pageSize - 1) / pageSize
+	if totalPages < 1 {
+		totalPages = 1
+	}
+
+	c.JSON(http.StatusOK, dto.GalleryCalendarResponse{
+		Groups:      groupDTOs,
+		TotalImages: int(totalImages),
+		TotalGroups: len(groupDTOs),
+		HasMore:     page < totalPages,
+		DateRange:   dateRange,
+		Months:      months,
+	})
+}

@@ -87,6 +87,14 @@ export const translations = {
     "gallery.allLoaded": "All {count} images loaded",
     "gallery.noPreview": "No preview",
     "gallery.folderImageCount": "({count})",
+    "gallery.subModes.folders": "Folders",
+    "gallery.subModes.calendar": "Calendar",
+    "gallery.calendar.noDateInfo": "No date information available",
+    "gallery.calendar.noDateInfoHint": "Images without EXIF date metadata are not shown.",
+    "gallery.calendar.clearFilter": "Clear filter",
+    "gallery.calendar.timeline": "Timeline",
+    "gallery.calendar.noImagesForDate": "No images for the selected date",
+    "gallery.calendar.clearFilterHint": "Clear the filter to see all images.",
 
     // Gallery image list table
     "galleryList.fileName": "File Name",
@@ -449,6 +457,14 @@ export const translations = {
     "gallery.allLoaded": "Все {count} изображений загружены",
     "gallery.noPreview": "Нет превью",
     "gallery.folderImageCount": "({count})",
+    "gallery.subModes.folders": "Папки",
+    "gallery.subModes.calendar": "Календарь",
+    "gallery.calendar.noDateInfo": "Информация о дате отсутствует",
+    "gallery.calendar.noDateInfoHint": "Изображения без метаданных даты EXIF не отображаются.",
+    "gallery.calendar.clearFilter": "Очистить фильтр",
+    "gallery.calendar.timeline": "Хронология",
+    "gallery.calendar.noImagesForDate": "Нет изображений за выбранную дату",
+    "gallery.calendar.clearFilterHint": "Очистите фильтр, чтобы увидеть все изображения.",
 
     // Gallery image list table
     "galleryList.fileName": "Имя файла",
