@@ -13,7 +13,6 @@ import { triggerScan, fetchTrashInfo, cleanTrash, updateSettings } from "@/api/e
 import { useSettings } from "@/providers/useSettings"
 import { RefreshCw, Trash2, Sun, Moon } from "lucide-react"
 import { useTranslation } from "@/i18n"
-import { useTheme } from "@/theme"
 
 interface SettingsTabProps {
   onFolderAdded: () => void
@@ -24,7 +23,6 @@ export function SettingsTab({ onFolderAdded }: SettingsTabProps) {
   const { status, startPolling, setOnScanComplete } = useScanStatus()
   const { trashDir, setTrashDir, theme, setTheme, language, setLanguage } = useSettings()
   const { t } = useTranslation()
-  const { getThemeName } = useTheme()
 
   const [trashInput, setTrashInput] = useState(trashDir)
   const [trashFileCount, setTrashFileCount] = useState(0)

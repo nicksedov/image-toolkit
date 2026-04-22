@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { ThemeProvider, type Theme } from "@/theme"
 import { I18nProvider, type Language } from "@/i18n"
-import { fetchSettings, updateSettings, fetchUserSettings, updateUserSettings } from "@/api/endpoints"
+import { fetchSettings, fetchUserSettings, updateUserSettings } from "@/api/endpoints"
 import { SettingsContext } from "./settingsContext"
 import { useAuth } from "./AuthProvider"
 
