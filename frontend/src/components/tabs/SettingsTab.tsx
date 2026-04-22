@@ -3,7 +3,7 @@ import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { AddFolderForm } from "@/components/settings/AddFolderForm"
 import { FolderList } from "@/components/settings/FolderList"
 import { ScanProgressBanner } from "@/components/ScanProgressBanner"
@@ -11,7 +11,8 @@ import { useGalleryFolders } from "@/hooks/useGalleryFolders"
 import { useScanStatus } from "@/hooks/useScanStatus"
 import { triggerScan, fetchTrashInfo, cleanTrash, updateSettings } from "@/api/endpoints"
 import { useSettings } from "@/providers/useSettings"
-import { RefreshCw, Trash2, Sun, Moon } from "lucide-react"
+import { useAuth } from "@/providers/AuthProvider"
+import { RefreshCw, Trash2, Sun, Moon, Globe } from "lucide-react"
 import { useTranslation } from "@/i18n"
 
 interface SettingsTabProps {
@@ -22,13 +23,27 @@ export function SettingsTab({ onFolderAdded }: SettingsTabProps) {
   const { folders, isLoading, add, remove, refetch } = useGalleryFolders()
   const { status, startPolling, setOnScanComplete } = useScanStatus()
   const { trashDir, setTrashDir, theme, setTheme, language, setLanguage } = useSettings()
+  const { user } = useAuth()
   const { t } = useTranslation()
+  const isAdmin = user?.role === "admin"
 
+  const [selectedTheme, setSelectedTheme] = useState<"light" | "dark">(theme)
+  const [selectedLanguage, setSelectedLanguage] = useState<"en" | "ru">(language)
+  const [isSaving, setIsSaving] = useState(false)
   const [trashInput, setTrashInput] = useState(trashDir)
   const [trashFileCount, setTrashFileCount] = useState(0)
   const [trashTotalSize, setTrashTotalSize] = useState("")
   const [isCleaning, setIsCleaning] = useState(false)
   const [isSavingTrash, setIsSavingTrash] = useState(false)
+
+  // Sync local state with settings when they change
+  useEffect(() => {
+    setSelectedTheme(theme)
+  }, [theme])
+
+  useEffect(() => {
+    setSelectedLanguage(language)
+  }, [language])
 
   useEffect(() => {
     setTrashInput(trashDir)
@@ -65,13 +80,19 @@ export function SettingsTab({ onFolderAdded }: SettingsTabProps) {
     }
   }, [trashInput, setTrashDir, loadTrashInfo, t])
 
-  const handleSaveTheme = useCallback((value: string) => {
-    setTheme(value as "light" | "dark")
-  }, [setTheme])
-
-  const handleSaveLanguage = useCallback((value: string) => {
-    setLanguage(value as "en" | "ru")
-  }, [setLanguage])
+  const handleSavePreferences = useCallback(async () => {
+    setIsSaving(true)
+    try {
+      await updateSettings({ theme: selectedTheme, language: selectedLanguage })
+      setTheme(selectedTheme)
+      setLanguage(selectedLanguage)
+      toast.success(t("settings.preferencesSaved"))
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("settings.saveFailed"))
+    } finally {
+      setIsSaving(false)
+    }
+  }, [selectedTheme, selectedLanguage, setTheme, setLanguage, t])
 
   const handleCleanTrash = useCallback(async () => {
     if (trashFileCount === 0) return
@@ -159,71 +180,120 @@ export function SettingsTab({ onFolderAdded }: SettingsTabProps) {
           </p>
         </div>
 
-        <div className="space-y-6">
-          {/* Theme Settings */}
-          <div className="space-y-3">
-            <Label>{t("settings.theme")}</Label>
-            <RadioGroup value={theme} onValueChange={handleSaveTheme} className="flex gap-4">
-              <div className="flex items-center space-x-2 rounded-md border p-3 cursor-pointer hover:bg-accent transition-colors">
-                <RadioGroupItem value="light" id="theme-light" />
-                <div className="flex items-center gap-2">
-                  <Sun className="h-5 w-5 text-yellow-500" />
-                  <span className="text-sm font-medium">{t("settings.lightTheme")}</span>
-                </div>
-              </div>
-              <div className="flex items-center space-x-2 rounded-md border p-3 cursor-pointer hover:bg-accent transition-colors">
-                <RadioGroupItem value="dark" id="theme-dark" />
-                <div className="flex items-center gap-2">
-                  <Moon className="h-5 w-5 text-blue-400" />
-                  <span className="text-sm font-medium">{t("settings.darkTheme")}</span>
-                </div>
-              </div>
-            </RadioGroup>
+        <div className="space-y-4">
+          {/* Theme Setting */}
+          <div className="space-y-2">
+            <Label htmlFor="theme-select">{t("settings.theme")}</Label>
+            <Select value={selectedTheme} onValueChange={(v) => setSelectedTheme(v as "light" | "dark")}>
+              <SelectTrigger id="theme-select">
+                <SelectValue>
+                  {selectedTheme === "light" ? (
+                    <span className="flex items-center gap-2">
+                      <Sun className="h-4 w-4 text-yellow-500" />
+                      {t("settings.lightTheme")}
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-2">
+                      <Moon className="h-4 w-4 text-blue-400" />
+                      {t("settings.darkTheme")}
+                    </span>
+                  )}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="light">
+                  <span className="flex items-center gap-2">
+                    <Sun className="h-4 w-4 text-yellow-500" />
+                    {t("settings.lightTheme")}
+                  </span>
+                </SelectItem>
+                <SelectItem value="dark">
+                  <span className="flex items-center gap-2">
+                    <Moon className="h-4 w-4 text-blue-400" />
+                    {t("settings.darkTheme")}
+                  </span>
+                </SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
-          {/* Language Settings */}
-          <div className="space-y-3">
-            <Label>{t("settings.language")}</Label>
-            <RadioGroup value={language} onValueChange={handleSaveLanguage} className="flex gap-4">
-              <div className="flex items-center space-x-2 rounded-md border p-3 cursor-pointer hover:bg-accent transition-colors">
-                <RadioGroupItem value="en" id="lang-en" />
-                <span className="text-sm font-medium">English</span>
-              </div>
-              <div className="flex items-center space-x-2 rounded-md border p-3 cursor-pointer hover:bg-accent transition-colors">
-                <RadioGroupItem value="ru" id="lang-ru" />
-                <span className="text-sm font-medium">Русский</span>
-              </div>
-            </RadioGroup>
+          {/* Language Setting */}
+          <div className="space-y-2">
+            <Label htmlFor="language-select">{t("settings.language")}</Label>
+            <Select value={selectedLanguage} onValueChange={(v) => setSelectedLanguage(v as "en" | "ru")}>
+              <SelectTrigger id="language-select">
+                <SelectValue>
+                  <span className="flex items-center gap-2">
+                    <Globe className="h-4 w-4" />
+                    {selectedLanguage === "en" ? "English" : "Русский"}
+                  </span>
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="en">
+                  <span className="flex items-center gap-2">
+                    <Globe className="h-4 w-4" />
+                    English
+                  </span>
+                </SelectItem>
+                <SelectItem value="ru">
+                  <span className="flex items-center gap-2">
+                    <Globe className="h-4 w-4" />
+                    Русский
+                  </span>
+                </SelectItem>
+              </SelectContent>
+            </Select>
           </div>
+
+          {/* Save Button */}
+          <Button
+            onClick={handleSavePreferences}
+            disabled={isSaving || (selectedTheme === theme && selectedLanguage === language)}
+            className="w-full"
+          >
+            {isSaving ? t("common.saving") : t("settings.savePreferences")}
+          </Button>
         </div>
       </div>
 
-      <AddFolderForm onAdd={handleAdd} disabled={status.scanning} />
+      {/* Admin-only: Gallery Folder Management */}
+      {isAdmin ? (
+        <>
+          <AddFolderForm onAdd={handleAdd} disabled={status.scanning} />
 
-      <ScanProgressBanner status={status} />
+          <ScanProgressBanner status={status} />
 
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-medium text-muted-foreground">
-          {folders.length === 1
-            ? t("settings.folderCountOne", { count: folders.length })
-            : t("settings.folderCount", { count: folders.length })}
-        </h3>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleRescanAll}
-          disabled={status.scanning || folders.length === 0}
-        >
-          <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${status.scanning ? "animate-spin" : ""}`} />
-          {t("settings.rescanAll")}
-        </Button>
-      </div>
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-medium text-muted-foreground">
+              {folders.length === 1
+                ? t("settings.folderCountOne", { count: folders.length })
+                : t("settings.folderCount", { count: folders.length })}
+            </h3>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRescanAll}
+              disabled={status.scanning || folders.length === 0}
+            >
+              <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${status.scanning ? "animate-spin" : ""}`} />
+              {t("settings.rescanAll")}
+            </Button>
+          </div>
 
-      <FolderList
-        folders={folders}
-        onRemove={handleRemove}
-        isLoading={isLoading}
-      />
+          <FolderList
+            folders={folders}
+            onRemove={handleRemove}
+            isLoading={isLoading}
+          />
+        </>
+      ) : (
+        <div className="rounded-lg border bg-muted/50 p-6 text-center">
+          <p className="text-sm text-muted-foreground">
+            {t("settings.adminOnlyNotice")}
+          </p>
+        </div>
+      )}
 
       <div className="border-t pt-6">
         <div className="mb-4">

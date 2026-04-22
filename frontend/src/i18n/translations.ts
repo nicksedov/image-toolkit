@@ -15,6 +15,7 @@ export const translations = {
     "common.loading": "Loading...",
     "common.cancel": "Cancel",
     "common.close": "Close",
+    "common.saving": "Saving...",
 
     // Settings tab
     "settings.title": "Gallery",
@@ -25,6 +26,10 @@ export const translations = {
     "settings.lightTheme": "Light",
     "settings.darkTheme": "Dark",
     "settings.language": "Language",
+    "settings.savePreferences": "Save Preferences",
+    "settings.preferencesSaved": "Preferences saved successfully",
+    "settings.saveFailed": "Failed to save preferences",
+    "settings.adminOnlyNotice": "Gallery folder management is only available to administrators.",
     "settings.rescanAll": "Rescan All",
     "settings.folderCount": "{count} folder(s) in gallery",
     "settings.folderCountOne": "{count} folder in gallery",
@@ -252,7 +257,7 @@ export const translations = {
     "adminPanel.user": "User",
     "adminPanel.active": "Active",
     "adminPanel.disabled": "Disabled",
-    "adminPanel.updateProfile": "Update Profile",
+    "adminPanel.updateProfile": "Profile",
     "adminPanel.updatePassword": "Update Password",
     "adminPanel.createAccount": "Create your first account",
     "adminPanel.setupAdmin": "Enter admin display name",
@@ -371,7 +376,8 @@ export const translations = {
     // Loading
     "common.loading": "Загрузка...",
     "common.cancel": "Отмена",
-    "common.close": "Закрыть",    
+    "common.close": "Закрыть",
+    "common.saving": "Сохранение...",
 
     // Settings tab
     "settings.title": "Галерея",
@@ -382,6 +388,10 @@ export const translations = {
     "settings.lightTheme": "Светлая",
     "settings.darkTheme": "Темная",
     "settings.language": "Язык",
+    "settings.savePreferences": "Сохранить настройки",
+    "settings.preferencesSaved": "Настройки успешно сохранены",
+    "settings.saveFailed": "Не удалось сохранить настройки",
+    "settings.adminOnlyNotice": "Управление папками галереи доступно только администраторам.",
     "settings.rescanAll": "Сканировать все",
     "settings.folderCount": "{count} папок в галерее",
     "settings.folderCountOne": "{count} папка в галерее",
@@ -609,7 +619,7 @@ export const translations = {
     "adminPanel.user": "Пользователь",
     "adminPanel.active": "Активен",
     "adminPanel.disabled": "Отключен",
-    "adminPanel.updateProfile": "Обновить профиль",
+    "adminPanel.updateProfile": "Профиль",
     "adminPanel.updatePassword": "Обновить пароль",
     "adminPanel.createAccount": "Создайте первую учетную запись",
     "adminPanel.setupAdmin": "Введите отображаемое имя администратора",
