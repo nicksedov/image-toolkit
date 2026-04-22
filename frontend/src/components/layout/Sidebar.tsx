@@ -42,7 +42,7 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
   const isTabActive = (tabValue: string) => activeTab === tabValue
 
   return (
-    <aside className="flex h-screen w-64 flex-col border-r bg-background">
+    <aside className="sticky top-0 flex h-screen w-64 flex-shrink-0 flex-col border-r bg-background">
       <div className="flex h-16 items-center px-4 border-b">
         <div className="flex items-center gap-3 overflow-hidden">
           <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">

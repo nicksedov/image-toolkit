@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react"
 import { Toaster } from "sonner"
 import { Tabs, TabsContent } from "@/components/ui/tabs"
 import { Sidebar } from "@/components/layout/Sidebar"
+import { Header } from "@/components/layout/Header"
 import { SettingsTab } from "@/components/tabs/SettingsTab"
 import { GalleryTab } from "@/components/tabs/GalleryTab"
 import { DeduplicationTab } from "@/components/tabs/DeduplicationTab"
@@ -102,6 +103,8 @@ export default function App() {
       <Sidebar activeTab={activeTab} onTabChange={handleTabChange} />
 
       <div className="flex flex-1 flex-col overflow-hidden">
+        <Header />
+
         <main className="flex-1 overflow-auto px-8 py-6">
           <div className="mx-auto max-w-7xl">
             <Tabs value={activeTab} onValueChange={(v) => handleTabChange(v)}>
