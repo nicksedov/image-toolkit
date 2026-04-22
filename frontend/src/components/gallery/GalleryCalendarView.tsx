@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { fetchGalleryCalendar } from "@/api/endpoints"
+import { fetchGalleryCalendar, fetchCalendarMonthInfo } from "@/api/endpoints"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from "lucide-react"
 import { useTranslation } from "@/i18n"
@@ -38,6 +38,7 @@ export function GalleryCalendarView({ onImageClick }: GalleryCalendarViewProps) 
   const [initialized, setInitialized] = useState(false)
   const [dateRange, setDateRange] = useState<CalendarDateRange>({ minDate: "", maxDate: "", totalWithDate: 0 })
   const [monthInfo, setMonthInfo] = useState<CalendarMonthInfo | null>(null)
+  const [dayCounts, setDayCounts] = useState<Map<number, number>>(new Map()) // day -> count
 
   // Date filter state - now supports range selection
   const [dateRangeFilter, setDateRangeFilter] = useState<{ start: string | null; end: string | null }>({
@@ -193,16 +194,24 @@ export function GalleryCalendarView({ onImageClick }: GalleryCalendarViewProps) 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dateRangeFilter.start, dateRangeFilter.end])
 
-  // Load month info when calendar month changes
+  // Load month info when calendar month changes (using lightweight endpoint)
   useEffect(() => {
-    fetchGalleryCalendar(1, 1, dateRangeFilter.start ?? undefined, dateRangeFilter.end ?? undefined, calendarMonthKey)
+    fetchCalendarMonthInfo(calendarMonthKey)
       .then((result) => {
-        if (result.months.length > 0) {
-          setMonthInfo(result.months[0])
-        }
+        setMonthInfo({ year: result.year, month: result.month, days: result.days })
+        // Build day count map
+        const countMap = new Map<number, number>()
+        result.dayCounts.forEach((dc) => {
+          countMap.set(dc.day, dc.count)
+        })
+        setDayCounts(countMap)
       })
-      .catch(() => {})
-  }, [calendarMonthKey, dateRangeFilter.start, dateRangeFilter.end])
+      .catch(() => {
+        // Reset on error
+        setMonthInfo(null)
+        setDayCounts(new Map())
+      })
+  }, [calendarMonthKey])
 
   // Infinite scroll
   useEffect(() => {
@@ -231,18 +240,20 @@ export function GalleryCalendarView({ onImageClick }: GalleryCalendarViewProps) 
 
     const daysWithImages = new Set(monthInfo?.days ?? [])
 
-    const days: { date: string; day: number; hasImages: boolean }[] = []
+    const days: { date: string; day: number; hasImages: boolean; imageCount: number }[] = []
     for (let d = 1; d <= daysInMonth; d++) {
       const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`
+      const count = dayCounts.get(d) ?? 0
       days.push({
         date: dateStr,
         day: d,
         hasImages: daysWithImages.has(d),
+        imageCount: count,
       })
     }
 
     return days
-  }, [calendarViewDate, monthInfo])
+  }, [calendarViewDate, monthInfo, dayCounts])
 
   const prevMonth = () => {
     setCalendarViewDate(new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth() - 1, 1))
@@ -325,10 +336,10 @@ export function GalleryCalendarView({ onImageClick }: GalleryCalendarViewProps) 
                 const newMonth = parseInt(e.target.value)
                 setCalendarViewDate(new Date(calendarViewDate.getFullYear(), newMonth, 1))
               }}
-              className="text-sm font-medium bg-transparent border-none outline-none cursor-pointer"
+              className="text-sm font-medium bg-background dark:bg-zinc-800 text-foreground dark:text-zinc-100 border border-border rounded px-2 py-1 outline-none cursor-pointer"
             >
               {MONTHS.map((m) => (
-                <option key={m.value} value={m.value}>
+                <option key={m.value} value={m.value} className="bg-background dark:bg-zinc-800 text-foreground dark:text-zinc-100">
                   {new Date(2000, m.value, 1).toLocaleDateString(undefined, { month: "long" })}
                 </option>
               ))}
@@ -341,7 +352,7 @@ export function GalleryCalendarView({ onImageClick }: GalleryCalendarViewProps) 
                 const newYear = parseInt(e.target.value)
                 setCalendarViewDate(new Date(newYear, calendarViewDate.getMonth(), 1))
               }}
-              className="text-sm font-medium bg-transparent border-none outline-none cursor-pointer"
+              className="text-sm font-medium bg-background dark:bg-zinc-800 text-foreground dark:text-zinc-100 border border-border rounded px-2 py-1 outline-none cursor-pointer"
             >
               {(() => {
                 // Generate year range from dateRange or fallback to current year ±5
@@ -363,7 +374,7 @@ export function GalleryCalendarView({ onImageClick }: GalleryCalendarViewProps) 
                 }
                 
                 return years.map((year) => (
-                  <option key={year} value={year}>
+                  <option key={year} value={year} className="bg-background dark:bg-zinc-800 text-foreground dark:text-zinc-100">
                     {year}
                   </option>
                 ))
@@ -377,7 +388,7 @@ export function GalleryCalendarView({ onImageClick }: GalleryCalendarViewProps) 
         </div>
 
         {/* Horizontal scrollable day strip */}
-        <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-thin" style={{ scrollbarWidth: "thin" }}>
+        <div className="flex gap-1 overflow-x-auto pb-1 pt-2 scrollbar-thin" style={{ scrollbarWidth: "thin" }}>
           {calendarDays.map((day) => {
             const isSelected = isInSelectedRange(day.date)
             const isRangeStart = day.date === dateRangeFilter.start
@@ -390,16 +401,17 @@ export function GalleryCalendarView({ onImageClick }: GalleryCalendarViewProps) 
                 className={`
                   flex-shrink-0 w-9 h-9 flex flex-col items-center justify-center text-xs rounded-md
                   transition-all relative
-                  ${day.hasImages 
-                    ? isSelected
-                      ? "bg-primary text-primary-foreground hover:bg-primary/90 font-medium cursor-pointer"
-                      : "bg-emerald-100 dark:bg-emerald-900/30 hover:bg-emerald-200 dark:hover:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 font-medium cursor-pointer"
-                    : "bg-red-50 dark:bg-red-900/20 text-muted-foreground/40 hover:bg-red-100 dark:hover:bg-red-900/30"
+                  ${isSelected
+                    ? "bg-primary text-primary-foreground hover:bg-primary/90 font-medium cursor-pointer"
+                    : day.hasImages 
+                      ? "bg-emerald-100 dark:bg-emerald-900/30 hover:bg-emerald-200 dark:hover:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 font-medium cursor-pointer"
+                      : "bg-red-50 dark:bg-red-900/20 text-muted-foreground/40 hover:bg-red-100 dark:hover:bg-red-900/30"
                   }
-                  ${isRangeStart || isRangeEnd ? "ring-2 ring-primary ring-offset-1" : ""}
+                  ${isRangeStart || isRangeEnd ? "ring-2 ring-primary ring-offset-2" : ""}
+                  ${isSelected && !isRangeStart && !isRangeEnd ? "opacity-80" : ""}
                 `}
                 onClick={() => day.date && selectDate(day.date)}
-                title={day.hasImages ? "Has images" : "No images"}
+                title={day.hasImages ? `${day.imageCount} ${day.imageCount === 1 ? "image" : "images"}` : "No images"}
               >
                 <span className="text-[11px] leading-none">{day.day}</span>
               </button>

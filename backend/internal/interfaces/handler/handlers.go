@@ -1072,3 +1072,60 @@ func (s *Server) handleGetGalleryCalendar(c *gin.Context) {
 		Months:      months,
 	})
 }
+
+// handleGetCalendarMonthInfo returns days with image counts for a specific month (lightweight, no thumbnails)
+func (s *Server) handleGetCalendarMonthInfo(c *gin.Context) {
+	monthYear := c.Query("monthYear") // "YYYY-MM"
+	if monthYear == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "monthYear parameter is required"})
+		return
+	}
+
+	t, err := time.Parse("2006-01", monthYear)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid monthYear format. Use YYYY-MM"})
+		return
+	}
+
+	year := t.Year()
+	month := int(t.Month())
+	nextMonth := t.AddDate(0, 1, 0)
+
+	// Get day-level counts: how many images per day in this month
+	type dayCount struct {
+		Day   int `json:"day"`
+		Count int `json:"count"`
+	}
+
+	var dayCounts []dayCount
+	s.db.Raw(`
+		SELECT 
+			CAST(strftime('%d', date_taken) AS INTEGER) as day,
+			COUNT(*) as count
+		FROM image_metadata
+		WHERE date_taken >= ? AND date_taken < ? AND date_taken IS NOT NULL
+		GROUP BY day
+		ORDER BY day
+	`, t, nextMonth).Scan(&dayCounts)
+
+	// Build days array (only days that have images)
+	days := make([]int, 0, len(dayCounts))
+	for _, dc := range dayCounts {
+		days = append(days, dc.Day)
+	}
+
+	// Get total images in this month
+	var totalInMonth int
+	s.db.Raw(`
+		SELECT COUNT(*) FROM image_metadata
+		WHERE date_taken >= ? AND date_taken < ? AND date_taken IS NOT NULL
+	`, t, nextMonth).Scan(&totalInMonth)
+
+	c.JSON(http.StatusOK, gin.H{
+		"year":      year,
+		"month":     month,
+		"days":      days,
+		"dayCounts": dayCounts,
+		"total":     totalInMonth,
+	})
+}

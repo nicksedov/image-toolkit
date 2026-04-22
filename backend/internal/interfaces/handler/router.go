@@ -59,6 +59,7 @@ func (s *Server) SetupRouter(authMiddleware *middleware.AuthMiddleware, csrfProt
 			protected.DELETE("/folders/:id", s.handleRemoveFolder)
 			protected.GET("/gallery", s.handleGetGalleryImages)
 			protected.GET("/gallery/calendar", s.handleGetGalleryCalendar)
+			protected.GET("/gallery/calendar/month", s.handleGetCalendarMonthInfo)
 			protected.GET("/image", s.handleServeImage)
 			protected.GET("/settings", s.handleGetSettings)
 			protected.PUT("/settings", s.handleUpdateSettings)

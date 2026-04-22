@@ -113,6 +113,25 @@ export function fetchGalleryCalendar(
   return apiGet<GalleryCalendarResponse>("/api/gallery/calendar", params)
 }
 
+// --- Gallery Calendar Month Info (lightweight) ---
+
+export interface CalendarMonthDayCount {
+  day: number
+  count: number
+}
+
+export interface CalendarMonthData {
+  year: number
+  month: number
+  days: number[]
+  dayCounts: CalendarMonthDayCount[]
+  total: number
+}
+
+export function fetchCalendarMonthInfo(monthYear: string): Promise<CalendarMonthData> {
+  return apiGet<CalendarMonthData>("/api/gallery/calendar/month", { monthYear })
+}
+
 // --- App Settings ---
 
 export function fetchSettings(): Promise<AppSettingsDTO> {
