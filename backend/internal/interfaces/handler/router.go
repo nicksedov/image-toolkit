@@ -69,6 +69,7 @@ func (s *Server) SetupRouter(authMiddleware *middleware.AuthMiddleware, csrfProt
 			protected.POST("/trash-clean", s.handleCleanTrash)
 			protected.GET("/image-metadata", s.handleGetImageMetadata)
 			protected.GET("/metadata-status", s.handleGetMetadataStatus)
+			protected.GET("/ocr-status", s.handleGetOCRStatus)
 
 			// Admin routes
 			admin := protected.Group("/admin")

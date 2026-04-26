@@ -33,6 +33,7 @@ import type {
   ResetPasswordRequest,
   UsersListResponse,
   AuditLogsResponse,
+  OCRStatusResponse,
 } from "@/types"
 
 export function fetchDuplicates(page: number, pageSize: number): Promise<DuplicatesResponse> {
@@ -222,4 +223,10 @@ export function resetUserPassword(id: number, req: ResetPasswordRequest): Promis
 
 export function fetchAuditLogs(page: number): Promise<AuditLogsResponse> {
   return apiGet<AuditLogsResponse>("/api/admin/audit", { page: String(page) })
+}
+
+// --- OCR Status ---
+
+export function fetchOCRStatus(): Promise<OCRStatusResponse> {
+  return apiGet<OCRStatusResponse>("/api/ocr-status")
 }

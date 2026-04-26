@@ -6,6 +6,7 @@ import (
 
 	"image-toolkit/internal/application/imaging"
 	"image-toolkit/internal/infrastructure/config"
+	"image-toolkit/internal/infrastructure/ocr"
 	"image-toolkit/internal/interfaces/dto"
 
 	"gorm.io/gorm"
@@ -18,16 +19,36 @@ type Server struct {
 	scanManager     *imaging.ScanManager
 	metadataManager *imaging.MetadataManager
 	config          *config.AppConfig
+	ocrClient       ocr.Client
 }
 
 // NewServer creates a new server instance
 func NewServer(db *gorm.DB, scanManager *imaging.ScanManager, metadataManager *imaging.MetadataManager, cfg *config.AppConfig) *Server {
+	var ocrClient ocr.Client
+	if cfg.OCREnabled {
+		ocrClient = ocr.NewClient(cfg.OCRHost, cfg.OCRPort)
+	}
 	return &Server{
 		db:              db,
 		thumbnailCache:  imaging.NewThumbnailCache(),
 		scanManager:     scanManager,
 		metadataManager: metadataManager,
 		config:          cfg,
+		ocrClient:       ocrClient,
+	}
+}
+
+// StartOCRHealthCheck starts the OCR health check in background
+func (s *Server) StartOCRHealthCheck() {
+	if s.ocrClient != nil && s.config.OCREnabled {
+		s.ocrClient.StartHealthCheck(s.config.OCRCheckInterval)
+	}
+}
+
+// StopOCRHealthCheck stops the OCR health check
+func (s *Server) StopOCRHealthCheck() {
+	if s.ocrClient != nil {
+		s.ocrClient.StopHealthCheck()
 	}
 }
 

@@ -285,6 +285,11 @@ export const translations = {
     "adminPanel.wrongFields": "Fill in all fields",
     "adminPanel.logout": "Logout",
 
+    // OCR messages
+    "adminPanel.ocrStatusEnabled": "OCR status: {health}",
+    "adminPanel.ocrStatusDisabled": "OCR disabled",
+    "adminPanel.ocrLastCheck": "Last check: {time}",
+
     // API Response Messages (backend i18n keys)
     "api.success": "Success",
     "api.error": "Error",
@@ -737,5 +742,10 @@ export const translations = {
     "api.trash.not_configured": "Директория корзины не настроена",
     "api.trash.not_exists": "Директория корзины не существует",
     "api.trash.read_failed": "Не удалось прочитать директорию корзины",
+
+    // OCR messages (Russian)
+    "adminPanel.ocrStatusEnabled": "OCR статус: {health}",
+    "adminPanel.ocrStatusDisabled": "OCR не включен",
+    "adminPanel.ocrLastCheck": "Последняя проверка: {time}",
   },
 } as const

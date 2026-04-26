@@ -52,6 +52,17 @@ func main() {
 		fmt.Println("Geocoder unavailable, geolocation will be disabled.")
 	}
 
+	// Initialize OCR classifier client and health check
+	var ocrCheckInterval int
+	if cfg.OCREnabled {
+		fmt.Println("Initializing OCR classifier client...")
+		ocrCheckInterval = cfg.OCRCheckInterval
+		fmt.Printf("OCR classifier enabled: host=%s, port=%s, check interval=%ds\n", cfg.OCRHost, cfg.OCRPort, ocrCheckInterval)
+	} else {
+		fmt.Println("OCR classifier integration disabled")
+		ocrCheckInterval = 0
+	}
+
 	// Create scan manager (reads gallery folders from DB dynamically)
 	scanManager := imaging.NewScanManager(db, cfg.ScanWorkers)
 
@@ -93,6 +104,10 @@ func main() {
 	// Start web server
 	server := handler.NewServer(db, scanManager, metadataManager, cfg)
 	router := server.SetupRouter(authMiddleware, csrfProtection, authHandlers)
+
+	// Start OCR health check if enabled
+	server.StartOCRHealthCheck()
+	defer server.StopOCRHealthCheck()
 
 	fmt.Printf("\nStarting API server on http://%s:%s\n", cfg.ServerHost, cfg.ServerPort)
 	fmt.Printf("Scan workers: %d\n", cfg.ScanWorkers)

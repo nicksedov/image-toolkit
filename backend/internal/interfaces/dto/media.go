@@ -265,3 +265,19 @@ type GalleryCalendarResponse struct {
 	// Month info for the calendar widget (current page's months)
 	Months      []CalendarMonthInfo `json:"months"`
 }
+
+// --- OCR Status API ---
+
+// OCRStatus represents the current status of OCR classifier service
+type OCRStatus struct {
+	Enabled     bool   `json:"enabled"`
+	Health      string `json:"health"`
+	LastCheck   string `json:"lastCheck,omitempty"`
+	Error       string `json:"error,omitempty"`
+	ServiceURL  string `json:"serviceUrl,omitempty"`
+}
+
+// OCRStatusResponse is the JSON response for GET /api/ocr/status
+type OCRStatusResponse struct {
+	Status OCRStatus `json:"status"`
+}

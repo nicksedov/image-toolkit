@@ -1129,3 +1129,27 @@ func (s *Server) handleGetCalendarMonthInfo(c *gin.Context) {
 		"total":     totalInMonth,
 	})
 }
+
+// handleGetOCRStatus returns the current OCR classifier status
+func (s *Server) handleGetOCRStatus(c *gin.Context) {
+	if s.ocrClient == nil || !s.config.OCREnabled {
+		c.JSON(http.StatusOK, dto.OCRStatusResponse{
+			Status: dto.OCRStatus{
+				Enabled: false,
+				Health:  "disabled",
+			},
+		})
+		return
+	}
+
+	status := s.ocrClient.GetStatus()
+	c.JSON(http.StatusOK, dto.OCRStatusResponse{
+		Status: dto.OCRStatus{
+			Enabled:    true,
+			Health:     string(status.HealthStatus),
+			LastCheck:  status.LastCheck.Format("2006-01-02 15:04:05"),
+			Error:      status.Error,
+			ServiceURL: fmt.Sprintf("http://%s:%s", s.config.OCRHost, s.config.OCRPort),
+		},
+	})
+}

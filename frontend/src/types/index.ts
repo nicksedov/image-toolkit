@@ -316,3 +316,17 @@ export interface AuditLogsResponse {
   total: number
   page: number
 }
+
+// --- OCR Status Types ---
+
+export interface OCRStatus {
+  enabled: boolean
+  health: string
+  lastCheck?: string
+  error?: string
+  serviceUrl?: string
+}
+
+export interface OCRStatusResponse {
+  status: OCRStatus
+}
