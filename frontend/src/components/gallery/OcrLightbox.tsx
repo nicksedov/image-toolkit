@@ -80,8 +80,8 @@ export function OcrLightbox({ imagePath, onClose }: OcrLightboxProps) {
   const baseScaleX = imageDimensions && displayDimensions ? displayDimensions.width / imageDimensions.width : 1
   const baseScaleY = imageDimensions && displayDimensions ? displayDimensions.height / imageDimensions.height : 1
   const scaleFactor = ocrData?.scaleFactor || 1
-  const scaleX = baseScaleX * scaleFactor
-  const scaleY = baseScaleY * scaleFactor
+  const scaleX = baseScaleX / scaleFactor
+  const scaleY = baseScaleY / scaleFactor
 
   const imageUrl = imagePath ? `${API_BASE_URL}/api/image?path=${encodeURIComponent(imagePath)}` : ""
 
