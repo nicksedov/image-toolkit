@@ -42,7 +42,7 @@ func InitDatabase(cfg *config.AppConfig) (*gorm.DB, error) {
 	var count int64
 	db.Model(&domain.AppSettings{}).Count(&count)
 	if count == 0 {
-		db.Create(&domain.AppSettings{ID: 1, Theme: "light", Language: "en"})
+		db.Create(&domain.AppSettings{ID: 1, Theme: "light-purple", Language: "en"})
 	}
 
 	return db, nil

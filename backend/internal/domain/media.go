@@ -77,7 +77,7 @@ type GalleryFolder struct {
 // AppSettings stores global application settings (singleton, ID=1)
 type AppSettings struct {
 	ID        uint      `gorm:"primaryKey" json:"id"`
-	Theme     string    `gorm:"default:light;not null" json:"theme"`
+	Theme     string    `gorm:"default:light-purple;not null" json:"theme"`
 	Language  string    `gorm:"default:en;not null" json:"language"`
 	TrashDir  string    `gorm:"default:''" json:"trashDir"`
 	UpdatedAt time.Time `json:"updatedAt"`

@@ -9,7 +9,7 @@ export function Header() {
   const { user, logout } = useAuth()
 
   return (
-    <header className="sticky top-0 z-10 border-b bg-background px-6 py-3">
+    <header className="sticky top-0 z-10 border-b bg-header px-6 py-3">
       <div className="flex items-center justify-end gap-3">
         {user && (
           <>

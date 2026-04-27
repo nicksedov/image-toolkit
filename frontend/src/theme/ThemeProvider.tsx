@@ -8,11 +8,19 @@ interface ThemeProviderProps {
 
 export function ThemeProvider({ theme, children }: ThemeProviderProps) {
   useEffect(() => {
-    if (theme === "dark") {
-      document.documentElement.classList.add("dark")
-    } else {
-      document.documentElement.classList.remove("dark")
-    }
+    const html = document.documentElement
+    
+    // Remove all theme-related classes
+    html.classList.remove(
+      "light-purple", "dark-purple",
+      "light-green", "dark-green",
+      "light-blue", "dark-blue",
+      "light-orange", "dark-orange",
+      "dark-contrast"
+    )
+    
+    // Add the new theme class
+    html.classList.add(theme)
   }, [theme])
 
   return (

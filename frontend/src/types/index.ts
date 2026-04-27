@@ -145,13 +145,31 @@ export interface AppSettingsDTO {
 }
 
 export interface UserSettingsDTO {
-  theme: "light" | "dark"
+  theme: 
+    | "light-purple" 
+    | "dark-purple"
+    | "light-green"
+    | "dark-green"
+    | "light-blue"
+    | "dark-blue"
+    | "light-orange"
+    | "dark-orange"
+    | "dark-contrast"
   language: "en" | "ru"
   trashDir: string
 }
 
 export interface UpdateSettingsRequest {
-  theme?: "light" | "dark"
+  theme?: 
+    | "light-purple" 
+    | "dark-purple"
+    | "light-green"
+    | "dark-green"
+    | "light-blue"
+    | "dark-blue"
+    | "light-orange"
+    | "dark-orange"
+    | "dark-contrast"
   language?: "en" | "ru"
   trashDir?: string
 }

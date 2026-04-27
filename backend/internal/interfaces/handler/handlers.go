@@ -597,7 +597,7 @@ func (s *Server) handleServeImage(c *gin.Context) {
 func (s *Server) handleGetSettings(c *gin.Context) {
 	var settings domain.AppSettings
 	if result := s.db.First(&settings, 1); result.Error != nil {
-		c.JSON(http.StatusOK, dto.AppSettingsDTO{Theme: "light", Language: "en", TrashDir: ""})
+		c.JSON(http.StatusOK, dto.AppSettingsDTO{Theme: "light-purple", Language: "en", TrashDir: ""})
 		return
 	}
 	c.JSON(http.StatusOK, dto.AppSettingsDTO{
@@ -615,7 +615,17 @@ func (s *Server) handleUpdateSettings(c *gin.Context) {
 		return
 	}
 
-	validThemes := map[string]bool{"light": true, "dark": true}
+	validThemes := map[string]bool{
+		"light-purple":    true,
+		"dark-purple":     true,
+		"light-green":     true,
+		"dark-green":      true,
+		"light-blue":      true,
+		"dark-blue":       true,
+		"light-orange":    true,
+		"dark-orange":     true,
+		"dark-contrast":   true,
+	}
 	validLanguages := map[string]bool{"en": true, "ru": true}
 
 	if req.Theme != "" && !validThemes[req.Theme] {
@@ -629,7 +639,7 @@ func (s *Server) handleUpdateSettings(c *gin.Context) {
 
 	var settings domain.AppSettings
 	if result := s.db.First(&settings, 1); result.Error != nil {
-		settings = domain.AppSettings{ID: 1, Theme: "light", Language: "en"}
+		settings = domain.AppSettings{ID: 1, Theme: "light-purple", Language: "en"}
 	}
 
 	if req.Theme != "" {
@@ -710,7 +720,17 @@ func (s *Server) handleUpdateUserSettings(c *gin.Context) {
 		return
 	}
 
-	validThemes := map[string]bool{"light": true, "dark": true}
+	validThemes := map[string]bool{
+		"light-purple":    true,
+		"dark-purple":     true,
+		"light-green":     true,
+		"dark-green":      true,
+		"light-blue":      true,
+		"dark-blue":       true,
+		"light-orange":    true,
+		"dark-orange":     true,
+		"dark-contrast":   true,
+	}
 	validLanguages := map[string]bool{"en": true, "ru": true}
 
 	if req.Theme != "" && !validThemes[req.Theme] {

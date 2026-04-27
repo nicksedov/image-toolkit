@@ -6,6 +6,7 @@ import { Header } from "@/components/layout/Header"
 import { SettingsTab } from "@/components/tabs/SettingsTab"
 import { GalleryTab } from "@/components/tabs/GalleryTab"
 import { DeduplicationTab } from "@/components/tabs/DeduplicationTab"
+import { AdminSettingsTab } from "@/components/tabs/AdminSettingsTab"
 import { fetchFolders } from "@/api/endpoints"
 import { useTranslation } from "@/i18n"
 import { useSettings } from "@/providers/useSettings"
@@ -15,7 +16,7 @@ import { BootstrapSetupScreen } from "@/components/auth/BootstrapSetupScreen"
 import { UserProfile } from "@/components/auth/UserProfile"
 import { AdminPanel } from "@/components/auth/AdminPanel"
 
-type TabValue = "settings" | "gallery-folders" | "gallery-calendar" | "deduplication" | "profile" | "admin"
+type TabValue = "settings" | "gallery-folders" | "gallery-calendar" | "deduplication" | "profile" | "admin-settings" | "admin-users"
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabValue>("gallery-folders")
@@ -124,8 +125,16 @@ export default function App() {
                 <DeduplicationTab />
               </TabsContent>
 
-              <TabsContent value="admin">
+              <TabsContent value="admin-users">
                 {user?.role === "admin" ? <AdminPanel /> : (
+                  <div className="flex items-center justify-center py-20">
+                    <p className="text-muted-foreground">{t("adminPanel.accessDenied")}</p>
+                  </div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="admin-settings">
+                {user?.role === "admin" ? <AdminSettingsTab /> : (
                   <div className="flex items-center justify-center py-20">
                     <p className="text-muted-foreground">{t("adminPanel.accessDenied")}</p>
                   </div>
