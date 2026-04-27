@@ -51,6 +51,8 @@ export const translations = {
     "settings.toastRemoveFailed": "Failed to remove folder",
     "settings.toastRescanFailed": "Failed to start rescan",
     "settings.toastFilesRemoved": "{message} ({count} files removed)",
+    "settings.galleryFolders": "Gallery Folders",
+    "settings.galleryFoldersDescription": "Manage the folders included in your image gallery. Adding a folder will automatically start scanning it for images.",
 
     // Trash settings
     "trash.title": "Trash",
@@ -455,6 +457,8 @@ export const translations = {
     "settings.toastRemoveFailed": "Не удалось удалить папку",
     "settings.toastRescanFailed": "Не удалось начать сканирование",
     "settings.toastFilesRemoved": "{message} ({count} файлов удалено)",
+    "settings.galleryFolders": "Папки галереи",
+    "settings.galleryFoldersDescription": "Управляйте папками, включенными в вашу галерею изображений. Добавление папки автоматически запустит сканирование изображений.",
 
     // Trash settings
     "trash.title": "Корзина",

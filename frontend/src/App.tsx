@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react"
+import { useEffect, useState } from "react"
 import { Toaster } from "sonner"
 import { Tabs, TabsContent } from "@/components/ui/tabs"
 import { Sidebar } from "@/components/layout/Sidebar"
@@ -58,10 +58,6 @@ export default function App() {
     }
   }, [isAuthenticated])
 
-  const handleFolderAdded = useCallback(() => {
-    // Gallery is no longer empty -- user can now switch tabs freely
-  }, [])
-
   // Loading state
   if (isLoadingAuth || (isAuthenticated && (isCheckingGallery || isLoadingSettings))) {
     return (
@@ -110,7 +106,7 @@ export default function App() {
           <div className="mx-auto max-w-7xl">
             <Tabs value={activeTab} onValueChange={(v) => handleTabChange(v)}>
               <TabsContent value="settings">
-                <SettingsTab onFolderAdded={handleFolderAdded} />
+                <SettingsTab />
               </TabsContent>
 
               <TabsContent value="gallery-folders">
