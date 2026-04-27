@@ -5,8 +5,8 @@
 :root {
   /* Light Purple Theme */
   --color-light-purple-bg: hsl(270 100% 98%);
-  --color-light-purple-sidebar: hsl(270 100% 94%);
-  --color-light-purple-header: hsl(270 100% 96%);
+  --color-light-purple-sidebar: hsl(270 100% 86%);
+  --color-light-purple-header: hsl(270 100% 90%);
   --color-light-purple-primary: hsl(270 80% 60%);
   --color-light-purple-primary-foreground: hsl(0 0% 100%);
   --color-light-purple-secondary: hsl(270 60% 90%);
@@ -49,8 +49,8 @@
   
   /* Light Green Theme */
   --color-light-green-bg: hsl(150 100% 97%);
-  --color-light-green-sidebar: hsl(150 90% 93%);
-  --color-light-green-header: hsl(150 95% 95%);
+  --color-light-green-sidebar: hsl(150 90% 86%);
+  --color-light-green-header: hsl(150 95% 90%);
   --color-light-green-primary: hsl(150 75% 40%);
   --color-light-green-primary-foreground: hsl(0 0% 100%);
   --color-light-green-secondary: hsl(150 60% 88%);
@@ -93,8 +93,8 @@
   
   /* Light Blue Theme */
   --color-light-blue-bg: hsl(210 100% 97%);
-  --color-light-blue-sidebar: hsl(210 90% 93%);
-  --color-light-blue-header: hsl(210 95% 95%);
+  --color-light-blue-sidebar: hsl(210 90% 86%);
+  --color-light-blue-header: hsl(210 95% 90%);
   --color-light-blue-primary: hsl(210 85% 50%);
   --color-light-blue-primary-foreground: hsl(0 0% 100%);
   --color-light-blue-secondary: hsl(210 65% 88%);
@@ -137,8 +137,8 @@
   
   /* Light Orange Theme */
   --color-light-orange-bg: hsl(30 100% 97%);
-  --color-light-orange-sidebar: hsl(30 90% 93%);
-  --color-light-orange-header: hsl(30 95% 95%);
+  --color-light-orange-sidebar: hsl(30 90% 86%);
+  --color-light-orange-header: hsl(30 95% 90%);
   --color-light-orange-primary: hsl(30 85% 55%);
   --color-light-orange-primary-foreground: hsl(0 0% 100%);
   --color-light-orange-secondary: hsl(30 65% 88%);
