@@ -13,6 +13,7 @@ import (
 	"image-toolkit/internal/infrastructure/config"
 	"image-toolkit/internal/infrastructure/database"
 	"image-toolkit/internal/infrastructure/geocoder"
+	"image-toolkit/internal/infrastructure/ocr"
 	"image-toolkit/internal/interfaces/handler"
 	"image-toolkit/internal/interfaces/middleware"
 )
@@ -70,10 +71,23 @@ func main() {
 	metadataManager := imaging.NewMetadataManager(db, geoc, cfg.MetadataWorkers, cfg.MetadataIntervalMin)
 	defer metadataManager.Stop()
 
-	// Wire scan complete callback to trigger metadata extraction
+	// Create OCR manager (background classification)
+	var ocrManager *imaging.OcrManager
+	if cfg.OCREnabled {
+		ocrClient := ocr.NewClient(cfg.OCRHost, cfg.OCRPort)
+		ocrManager = imaging.NewOcrManager(db, ocrClient, cfg.ScanWorkers)
+		fmt.Printf("OCR manager initialized: workers=%d\n", cfg.ScanWorkers)
+	}
+
+	// Wire scan complete callback to trigger metadata extraction and OCR classification
 	scanManager.OnScanComplete = func() {
 		if err := metadataManager.StartExtraction(); err != nil {
 			log.Printf("Metadata extraction not started: %v", err)
+		}
+		if cfg.OCREnabled && ocrManager != nil {
+			if err := ocrManager.StartClassification(); err != nil {
+				log.Printf("OCR classification not started: %v", err)
+			}
 		}
 	}
 
@@ -102,7 +116,7 @@ func main() {
 	fmt.Println("Authentication system initialized!")
 
 	// Start web server
-	server := handler.NewServer(db, scanManager, metadataManager, cfg)
+	server := handler.NewServer(db, scanManager, metadataManager, ocrManager, cfg)
 	router := server.SetupRouter(authMiddleware, csrfProtection, authHandlers)
 
 	// Start OCR health check if enabled

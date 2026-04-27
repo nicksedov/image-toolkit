@@ -82,3 +82,29 @@ type AppSettings struct {
 	TrashDir  string    `gorm:"default:''" json:"trashDir"`
 	UpdatedAt time.Time `json:"updatedAt"`
 }
+
+// OcrClassification stores OCR classification results for an image
+type OcrClassification struct {
+	ID                 uint      `gorm:"primaryKey" json:"id"`
+	ImageFileID        uint      `gorm:"uniqueIndex;not null" json:"imageFileId"`
+	IsTextDocument     bool      `gorm:"not null;default:false;index:idx_is_text_doc" json:"isTextDocument"`
+	MeanConfidence     float32   `json:"meanConfidence"`
+	WeightedConfidence float32   `json:"weightedConfidence"`
+	TokenCount         int       `json:"tokenCount"`
+	Angle              int       `json:"angle"`
+	ScaleFactor        float32   `json:"scaleFactor"`
+	CreatedAt          time.Time `json:"createdAt"`
+	UpdatedAt          time.Time `json:"updatedAt"`
+}
+
+// OcrBoundingBox stores bounding box data for OCR text regions
+type OcrBoundingBox struct {
+	ID               uint    `gorm:"primaryKey" json:"id"`
+	ClassificationID uint    `gorm:"index;not null" json:"classificationId"`
+	X                int     `json:"x"`
+	Y                int     `json:"y"`
+	Width            int     `json:"width"`
+	Height           int     `json:"height"`
+	Word             string  `json:"word"`
+	Confidence       float32 `json:"confidence"`
+}

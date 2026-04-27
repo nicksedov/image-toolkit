@@ -389,6 +389,35 @@ export const translations = {
     "api.trash.not_configured": "Trash directory is not configured",
     "api.trash.not_exists": "Trash directory does not exist",
     "api.trash.read_failed": "Failed to read trash directory",
+
+    // OCR tab
+    "tabs.ocr": "OCR",
+    "ocr.title": "OCR Documents",
+    "ocr.description": "Images classified as text documents",
+    "ocr.documentCount": "{count} document(s)",
+    "ocr.documentCountOne": "{count} document",
+    "ocr.empty": "No text documents found",
+    "ocr.emptyHint": "Run OCR scanning to classify images.",
+    "ocr.scanButton": "Start OCR Scan",
+    "ocr.scanning": "OCR scanning in progress...",
+    "ocr.scanComplete": "OCR scan complete",
+    "ocr.angle": "Angle",
+    "ocr.confidence": "Confidence",
+    "ocr.tokens": "Tokens",
+    "ocr.filesProcessed": "{count}/{total} files processed",
+
+    // OCR lightbox
+    "lightbox.ocrTitle": "OCR Document Preview",
+    "lightbox.ocrAngle": "Detected angle: {angle}°",
+    "lightbox.ocrConfidence": "Confidence: {confidence}",
+    "lightbox.ocrTokens": "Tokens: {count}",
+
+    // API OCR messages
+    "api.ocr.started": "OCR scan started",
+    "api.ocr.failed": "Failed to start OCR scan",
+    "api.ocr.already_running": "OCR scan already in progress",
+    "api.ocr.image_path_required": "Image path required",
+    "api.ocr.data_not_found": "OCR data not found for this image",
   },
 
   ru: {
@@ -780,5 +809,34 @@ export const translations = {
     "api.trash.not_configured": "Директория корзины не настроена",
     "api.trash.not_exists": "Директория корзины не существует",
     "api.trash.read_failed": "Не удалось прочитать директорию корзины",
+
+    // OCR tab
+    "tabs.ocr": "OCR",
+    "ocr.title": "OCR Документы",
+    "ocr.description": "Изображения, классифицированные как текстовые документы",
+    "ocr.documentCount": "{count} документов",
+    "ocr.documentCountOne": "{count} документ",
+    "ocr.empty": "Текстовые документы не найдены",
+    "ocr.emptyHint": "Запустите сканирование OCR для классификации изображений.",
+    "ocr.scanButton": "Запустить OCR сканирование",
+    "ocr.scanning": "OCR сканирование выполняется...",
+    "ocr.scanComplete": "OCR сканирование завершено",
+    "ocr.angle": "Угол",
+    "ocr.confidence": "Уверенность",
+    "ocr.tokens": "Токены",
+    "ocr.filesProcessed": "Обработано {count}/{total} файлов",
+
+    // OCR lightbox
+    "lightbox.ocrTitle": "Предпросмотр OCR документа",
+    "lightbox.ocrAngle": "Обнаруженный угол: {angle}°",
+    "lightbox.ocrConfidence": "Уверенность: {confidence}",
+    "lightbox.ocrTokens": "Токены: {count}",
+
+    // API OCR messages
+    "api.ocr.started": "OCR сканирование начато",
+    "api.ocr.failed": "Не удалось запустить OCR сканирование",
+    "api.ocr.already_running": "OCR сканирование уже выполняется",
+    "api.ocr.image_path_required": "Требуется путь к изображению",
+    "api.ocr.data_not_found": "OCR данные для этого изображения не найдены",
   },
 } as const

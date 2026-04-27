@@ -447,7 +447,7 @@ func (s *Server) handleAddFolder(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, dto.AddFolderResponse{
-		Message:     string(i18n.MsgFolderAdded),
+		Message: string(i18n.MsgFolderAdded),
 		Folder: dto.GalleryFolderDTO{
 			ID:        folder.ID,
 			Path:      folder.Path,
@@ -616,15 +616,15 @@ func (s *Server) handleUpdateSettings(c *gin.Context) {
 	}
 
 	validThemes := map[string]bool{
-		"light-purple":    true,
-		"dark-purple":     true,
-		"light-green":     true,
-		"dark-green":      true,
-		"light-blue":      true,
-		"dark-blue":       true,
-		"light-orange":    true,
-		"dark-orange":     true,
-		"dark-contrast":   true,
+		"light-purple":  true,
+		"dark-purple":   true,
+		"light-green":   true,
+		"dark-green":    true,
+		"light-blue":    true,
+		"dark-blue":     true,
+		"light-orange":  true,
+		"dark-orange":   true,
+		"dark-contrast": true,
 	}
 	validLanguages := map[string]bool{"en": true, "ru": true}
 
@@ -721,15 +721,15 @@ func (s *Server) handleUpdateUserSettings(c *gin.Context) {
 	}
 
 	validThemes := map[string]bool{
-		"light-purple":    true,
-		"dark-purple":     true,
-		"light-green":     true,
-		"dark-green":      true,
-		"light-blue":      true,
-		"dark-blue":       true,
-		"light-orange":    true,
-		"dark-orange":     true,
-		"dark-contrast":   true,
+		"light-purple":  true,
+		"dark-purple":   true,
+		"light-green":   true,
+		"dark-green":    true,
+		"light-blue":    true,
+		"dark-blue":     true,
+		"light-orange":  true,
+		"dark-orange":   true,
+		"dark-contrast": true,
 	}
 	validLanguages := map[string]bool{"en": true, "ru": true}
 
@@ -1171,5 +1171,194 @@ func (s *Server) handleGetOCRStatus(c *gin.Context) {
 			Error:      status.Error,
 			ServiceURL: fmt.Sprintf("http://%s:%s", s.config.OCRHost, s.config.OCRPort),
 		},
+	})
+}
+
+// handleStartOcrClassification starts the OCR classification process
+func (s *Server) handleStartOcrClassification(c *gin.Context) {
+	if s.ocrManager == nil {
+		c.JSON(http.StatusServiceUnavailable, i18n.ErrorResponse(i18n.MsgOcrFailed))
+		return
+	}
+
+	if err := s.ocrManager.StartClassification(); err != nil {
+		c.JSON(http.StatusConflict, i18n.ErrorResponse(i18n.MsgOcrAlreadyRunning))
+		return
+	}
+
+	c.JSON(http.StatusAccepted, dto.ScanResponse{
+		Message: string(i18n.MsgOcrStarted),
+	})
+}
+
+// handleGetOcrClassificationStatus returns the OCR classification progress
+func (s *Server) handleGetOcrClassificationStatus(c *gin.Context) {
+	if s.ocrManager == nil {
+		c.JSON(http.StatusOK, dto.OcrClassificationStatusResponse{
+			Processing: false,
+			Progress:   "OCR classification disabled",
+		})
+		return
+	}
+
+	status := s.ocrManager.GetStatus()
+	c.JSON(http.StatusOK, status)
+}
+
+// handleGetOcrDocuments returns paginated list of images classified as text documents
+func (s *Server) handleGetOcrDocuments(c *gin.Context) {
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("pageSize", "50"))
+
+	validPageSizes := []int{50, 100, 250, 500}
+	isValidPageSize := false
+	for _, ps := range validPageSizes {
+		if pageSize == ps {
+			isValidPageSize = true
+			break
+		}
+	}
+	if !isValidPageSize {
+		pageSize = 50
+	}
+	if page < 1 {
+		page = 1
+	}
+
+	// Query documents classified as text documents
+	offset := (page - 1) * pageSize
+
+	var total int64
+	s.db.Table("ocr_classifications").
+		Joins("JOIN image_files ON image_files.id = ocr_classifications.image_file_id").
+		Where("ocr_classifications.is_text_document = true").
+		Count(&total)
+
+	var results []struct {
+		ID                 uint
+		ImageFileID        uint
+		Path               string
+		Size               int64
+		Hash               string
+		ModTime            time.Time
+		MeanConfidence     float32
+		WeightedConfidence float32
+		TokenCount         int
+		Angle              int
+		ScaleFactor        float32
+	}
+
+	if err := s.db.Table("ocr_classifications").
+		Select("image_files.id, image_files.path, image_files.size, image_files.hash, image_files.mod_time, ocr_classifications.image_file_id, ocr_classifications.mean_confidence, ocr_classifications.weighted_confidence, ocr_classifications.token_count, ocr_classifications.angle, ocr_classifications.scale_factor").
+		Joins("JOIN image_files ON image_files.id = ocr_classifications.image_file_id").
+		Where("ocr_classifications.is_text_document = true").
+		Order("image_files.id").
+		Offset(offset).
+		Limit(pageSize).
+		Find(&results).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, i18n.ErrorResponse(i18n.MsgScanFailed))
+		return
+	}
+
+	totalPages := int((total + int64(pageSize) - 1) / int64(pageSize))
+	if totalPages < 1 {
+		totalPages = 1
+	}
+	if page > totalPages {
+		page = totalPages
+	}
+
+	// Build DTOs with thumbnails
+	docs := make([]dto.OcrDocumentDTO, len(results))
+	for i, r := range results {
+		docs[i] = dto.OcrDocumentDTO{
+			ID:                 r.ID,
+			ImageFileID:        r.ImageFileID,
+			Path:               r.Path,
+			FileName:           filepath.Base(r.Path),
+			DirPath:            filepath.Dir(r.Path),
+			Size:               r.Size,
+			SizeHuman:          formatSize(r.Size),
+			ModTime:            r.ModTime.Format("2006-01-02 15:04:05"),
+			MeanConfidence:     r.MeanConfidence,
+			WeightedConfidence: r.WeightedConfidence,
+			TokenCount:         r.TokenCount,
+			Angle:              r.Angle,
+			ScaleFactor:        r.ScaleFactor,
+		}
+	}
+
+	// Generate thumbnails in parallel
+	const maxWorkers = 16
+	var wg sync.WaitGroup
+	semaphore := make(chan struct{}, maxWorkers)
+
+	for i, doc := range docs {
+		if doc.Path == "" {
+			continue
+		}
+		wg.Add(1)
+		go func(idx int, path string) {
+			defer wg.Done()
+			semaphore <- struct{}{}
+			defer func() { <-semaphore }()
+
+			thumb, err := imaging.GenerateThumbnail(path, s.thumbnailCache)
+			if err == nil {
+				docs[idx].Thumbnail = thumb
+			}
+		}(i, doc.Path)
+	}
+	wg.Wait()
+
+	c.JSON(http.StatusOK, dto.OcrDocumentsResponse{
+		Documents:   docs,
+		Total:       int(total),
+		CurrentPage: page,
+		PageSize:    pageSize,
+		TotalPages:  totalPages,
+		HasNextPage: page < totalPages,
+	})
+}
+
+// handleGetOcrData returns OCR classification data and bounding boxes for a specific image
+func (s *Server) handleGetOcrData(c *gin.Context) {
+	imagePath := c.Query("path")
+	if imagePath == "" {
+		c.JSON(http.StatusBadRequest, i18n.ErrorResponse(i18n.MsgOcrImagePathRequired))
+		return
+	}
+
+	// Find classification
+	var classification domain.OcrClassification
+	if err := s.db.Table("ocr_classifications").
+		Joins("JOIN image_files ON image_files.id = ocr_classifications.image_file_id").
+		Where("image_files.path = ?", imagePath).
+		First(&classification).Error; err != nil {
+		c.JSON(http.StatusNotFound, i18n.ErrorResponse(i18n.MsgOcrDataNotFound))
+		return
+	}
+
+	// Find bounding boxes
+	var boxes []domain.OcrBoundingBox
+	s.db.Where("classification_id = ?", classification.ID).Find(&boxes)
+
+	// Convert to DTOs
+	boxDTOs := make([]dto.BoundingBoxDTO, len(boxes))
+	for i, b := range boxes {
+		boxDTOs[i] = dto.BoundingBoxDTO{
+			X:          b.X,
+			Y:          b.Y,
+			Width:      b.Width,
+			Height:     b.Height,
+			Word:       b.Word,
+			Confidence: b.Confidence,
+		}
+	}
+
+	c.JSON(http.StatusOK, dto.OcrDataResponse{
+		ImagePath: imagePath,
+		Angle:     classification.Angle,
+		Boxes:     boxDTOs,
 	})
 }

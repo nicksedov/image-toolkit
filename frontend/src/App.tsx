@@ -6,6 +6,7 @@ import { Header } from "@/components/layout/Header"
 import { SettingsTab } from "@/components/tabs/SettingsTab"
 import { GalleryTab } from "@/components/tabs/GalleryTab"
 import { DeduplicationTab } from "@/components/tabs/DeduplicationTab"
+import { OcrTab } from "@/components/tabs/OcrTab"
 import { AdminSettingsTab } from "@/components/tabs/AdminSettingsTab"
 import { fetchFolders } from "@/api/endpoints"
 import { useTranslation } from "@/i18n"
@@ -16,7 +17,7 @@ import { BootstrapSetupScreen } from "@/components/auth/BootstrapSetupScreen"
 import { UserProfile } from "@/components/auth/UserProfile"
 import { AdminPanel } from "@/components/auth/AdminPanel"
 
-type TabValue = "settings" | "gallery-folders" | "gallery-calendar" | "deduplication" | "profile" | "admin-settings" | "admin-users"
+type TabValue = "settings" | "gallery-folders" | "gallery-calendar" | "deduplication" | "ocr" | "profile" | "admin-settings" | "admin-users"
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabValue>("gallery-folders")
@@ -119,6 +120,10 @@ export default function App() {
 
               <TabsContent value="deduplication">
                 <DeduplicationTab />
+              </TabsContent>
+
+              <TabsContent value="ocr">
+                <OcrTab />
               </TabsContent>
 
               <TabsContent value="admin-users">

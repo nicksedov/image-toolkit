@@ -34,6 +34,9 @@ import type {
   UsersListResponse,
   AuditLogsResponse,
   OCRStatusResponse,
+  OcrDocumentsResponse,
+  OcrDataResponse,
+  OcrClassificationStatusResponse,
 } from "@/types"
 
 export function fetchDuplicates(page: number, pageSize: number): Promise<DuplicatesResponse> {
@@ -229,4 +232,28 @@ export function fetchAuditLogs(page: number): Promise<AuditLogsResponse> {
 
 export function fetchOCRStatus(): Promise<OCRStatusResponse> {
   return apiGet<OCRStatusResponse>("/api/ocr-status")
+}
+
+// --- OCR Classification ---
+
+export function startOcrClassification(): Promise<{ message: string }> {
+  return apiPost<{ message: string }>("/api/ocr/classify")
+}
+
+export function fetchOcrClassificationStatus(): Promise<OcrClassificationStatusResponse> {
+  return apiGet<OcrClassificationStatusResponse>("/api/ocr/classify-status")
+}
+
+export function fetchOcrDocuments(
+  page: number,
+  pageSize: number
+): Promise<OcrDocumentsResponse> {
+  return apiGet<OcrDocumentsResponse>("/api/ocr/documents", {
+    page: String(page),
+    pageSize: String(pageSize),
+  })
+}
+
+export function fetchOcrData(path: string): Promise<OcrDataResponse> {
+  return apiGet<OcrDataResponse>("/api/ocr/data", { path })
 }

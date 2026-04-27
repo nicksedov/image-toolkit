@@ -348,3 +348,53 @@ export interface OCRStatus {
 export interface OCRStatusResponse {
   status: OCRStatus
 }
+
+// --- OCR Classification Types ---
+
+export interface OcrBoundingBoxDTO {
+  x: number
+  y: number
+  width: number
+  height: number
+  word: string
+  confidence: number
+}
+
+export interface OcrDocumentDTO {
+  id: number
+  imageFileId: number
+  path: string
+  fileName: string
+  dirPath: string
+  size: number
+  sizeHuman: string
+  modTime: string
+  thumbnail?: string
+  meanConfidence: number
+  weightedConfidence: number
+  tokenCount: number
+  angle: number
+  scaleFactor: number
+}
+
+export interface OcrDocumentsResponse {
+  documents: OcrDocumentDTO[]
+  total: number
+  currentPage: number
+  pageSize: number
+  totalPages: number
+  hasNextPage: boolean
+}
+
+export interface OcrDataResponse {
+  imagePath: string
+  angle: number
+  boxes: OcrBoundingBoxDTO[]
+}
+
+export interface OcrClassificationStatusResponse {
+  processing: boolean
+  progress: string
+  filesProcessed: number
+  totalFiles: number
+}

@@ -18,12 +18,13 @@ type Server struct {
 	thumbnailCache  *imaging.ThumbnailCache
 	scanManager     *imaging.ScanManager
 	metadataManager *imaging.MetadataManager
+	ocrManager      *imaging.OcrManager
 	config          *config.AppConfig
 	ocrClient       ocr.Client
 }
 
 // NewServer creates a new server instance
-func NewServer(db *gorm.DB, scanManager *imaging.ScanManager, metadataManager *imaging.MetadataManager, cfg *config.AppConfig) *Server {
+func NewServer(db *gorm.DB, scanManager *imaging.ScanManager, metadataManager *imaging.MetadataManager, ocrManager *imaging.OcrManager, cfg *config.AppConfig) *Server {
 	var ocrClient ocr.Client
 	if cfg.OCREnabled {
 		ocrClient = ocr.NewClient(cfg.OCRHost, cfg.OCRPort)
@@ -33,6 +34,7 @@ func NewServer(db *gorm.DB, scanManager *imaging.ScanManager, metadataManager *i
 		thumbnailCache:  imaging.NewThumbnailCache(),
 		scanManager:     scanManager,
 		metadataManager: metadataManager,
+		ocrManager:      ocrManager,
 		config:          cfg,
 		ocrClient:       ocrClient,
 	}

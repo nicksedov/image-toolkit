@@ -1,11 +1,13 @@
 package ocr
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"time"
 )
 
@@ -20,10 +22,49 @@ type Status struct {
 type HealthStatus string
 
 const (
-	HealthStatusUnknown  HealthStatus = "unknown"
-	HealthStatusHealthy  HealthStatus = "healthy"
+	HealthStatusUnknown   HealthStatus = "unknown"
+	HealthStatusHealthy   HealthStatus = "healthy"
 	HealthStatusUnhealthy HealthStatus = "unhealthy"
 )
+
+// ClassifyParams holds query parameters for the classify endpoint
+type ClassifyParams struct {
+	ConfidenceThreshold float32
+	Level               string
+	MinTokenCount       int
+	Lang                string
+}
+
+// DefaultClassifyParams returns default parameters matching openapi.yaml spec
+func DefaultClassifyParams() *ClassifyParams {
+	return &ClassifyParams{
+		ConfidenceThreshold: 0.55,
+		Level:               "RIL_TEXTLINE",
+		MinTokenCount:       32,
+		Lang:                "eng+rus",
+	}
+}
+
+// ClassifyResponse matches the OCR classifier API response
+type ClassifyResponse struct {
+	MeanConfidence     float32       `json:"mean_confidence"`
+	WeightedConfidence float32       `json:"weighted_confidence"`
+	TokenCount         int           `json:"token_count"`
+	Boxes              []BoundingBox `json:"boxes"`
+	Angle              int           `json:"angle"`
+	ScaleFactor        float32       `json:"scale_factor"`
+	IsTextDocument     bool          `json:"is_text_document"`
+}
+
+// BoundingBox represents a detected text region
+type BoundingBox struct {
+	X          int     `json:"x"`
+	Y          int     `json:"y"`
+	Width      int     `json:"width"`
+	Height     int     `json:"height"`
+	Word       string  `json:"word"`
+	Confidence float32 `json:"confidence"`
+}
 
 // Client is an interface for OCR classifier service
 type Client interface {
@@ -35,14 +76,16 @@ type Client interface {
 	StartHealthCheck(intervalSeconds int)
 	// StopHealthCheck stops the periodic health check
 	StopHealthCheck()
+	// Classify sends an image to the OCR classifier and returns results
+	Classify(ctx context.Context, image io.Reader, contentType string, params *ClassifyParams) (*ClassifyResponse, error)
 }
 
 type clientImpl struct {
-	baseURL      string
-	httpClient   *http.Client
-	status       Status
-	stopCheck    chan struct{}
-	isRunning    bool
+	baseURL    string
+	httpClient *http.Client
+	status     Status
+	stopCheck  chan struct{}
+	isRunning  bool
 }
 
 // NewClient creates a new OCR client
@@ -144,4 +187,70 @@ func (c *clientImpl) healthCheckLoop(intervalSeconds int) {
 			}
 		}
 	}
+}
+
+// Classify sends an image to the OCR classifier and returns results
+func (c *clientImpl) Classify(ctx context.Context, image io.Reader, contentType string, params *ClassifyParams) (*ClassifyResponse, error) {
+	// Build URL with query parameters
+	queryParams := url.Values{}
+	if params != nil {
+		queryParams.Set("confidence_threshold", fmt.Sprintf("%.2f", params.ConfidenceThreshold))
+		if params.Level != "" {
+			queryParams.Set("level", params.Level)
+		}
+		if params.MinTokenCount > 0 {
+			queryParams.Set("min_token_count", fmt.Sprintf("%d", params.MinTokenCount))
+		}
+		if params.Lang != "" {
+			queryParams.Set("lang", params.Lang)
+		}
+	} else {
+		// Use defaults
+		defaults := DefaultClassifyParams()
+		queryParams.Set("confidence_threshold", fmt.Sprintf("%.2f", defaults.ConfidenceThreshold))
+		queryParams.Set("level", defaults.Level)
+		queryParams.Set("min_token_count", fmt.Sprintf("%d", defaults.MinTokenCount))
+		queryParams.Set("lang", defaults.Lang)
+	}
+
+	classifyURL := fmt.Sprintf("%s/v1/classify?%s", c.baseURL, queryParams.Encode())
+
+	// Read image data into buffer
+	imgData, err := io.ReadAll(image)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read image: %w", err)
+	}
+
+	// Create POST request
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, classifyURL, bytes.NewReader(imgData))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Set content type
+	if contentType == "" {
+		contentType = "image/jpeg"
+	}
+	req.Header.Set("Content-Type", contentType)
+
+	// Use longer timeout for OCR processing (30s)
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("OCR API error (status %d): %s", resp.StatusCode, string(body))
+	}
+
+	// Parse response
+	var result ClassifyResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to parse OCR response: %w", err)
+	}
+
+	return &result, nil
 }

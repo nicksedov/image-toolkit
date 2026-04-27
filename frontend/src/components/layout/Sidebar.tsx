@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react"
 import { useTranslation } from "@/i18n"
-import { Settings, ImageIcon, FileScan, Shield, Users, ChevronDown, ChevronRight, Folder, Calendar } from "lucide-react"
+import { Settings, ImageIcon, FileScan, Shield, Users, ChevronDown, ChevronRight, Folder, Calendar, FileText } from "lucide-react"
 import { useAuth } from "@/providers/AuthProvider"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -26,6 +26,7 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
   const tabs: TabItem[] = [
     { value: "settings", icon: Settings, label: t("tabs.preferences") },
     { value: "deduplication", icon: FileScan, label: t("tabs.deduplication") },
+    { value: "ocr", icon: FileText, label: t("tabs.ocr") },
     { value: "profile", icon: Shield, label: t("adminPanel.updateProfile") },
   ]
 

@@ -126,7 +126,7 @@ type AddFolderRequest struct {
 // AddFolderResponse is the JSON response for POST /api/folders
 // Message is a i18n key string (e.g., "folder.added")
 type AddFolderResponse struct {
-	Message     string `json:"message"`
+	Message     string           `json:"message"`
 	Folder      GalleryFolderDTO `json:"folder"`
 	ScanStarted bool             `json:"scanStarted"`
 }
@@ -235,23 +235,23 @@ type ImageMetadataResponse struct {
 
 // CalendarDateGroup represents a group of images for a single date
 type CalendarDateGroup struct {
-	Date      string            `json:"date"`       // "YYYY-MM-DD"
-	Label     string            `json:"label"`      // Human-readable label
-	ImageCount int              `json:"imageCount"`
-	Images    []GalleryImageDTO `json:"images"`
+	Date       string            `json:"date"`  // "YYYY-MM-DD"
+	Label      string            `json:"label"` // Human-readable label
+	ImageCount int               `json:"imageCount"`
+	Images     []GalleryImageDTO `json:"images"`
 }
 
 // CalendarDateRange represents the min/max date range for all images with EXIF dates
 type CalendarDateRange struct {
-	MinDate string `json:"minDate"` // "YYYY-MM-DD" or empty
-	MaxDate string `json:"maxDate"` // "YYYY-MM-DD" or empty
-	TotalWithDate int `json:"totalWithDate"`
+	MinDate       string `json:"minDate"` // "YYYY-MM-DD" or empty
+	MaxDate       string `json:"maxDate"` // "YYYY-MM-DD" or empty
+	TotalWithDate int    `json:"totalWithDate"`
 }
 
 // CalendarMonthInfo represents which days in a month have images
 type CalendarMonthInfo struct {
-	Year  int  `json:"year"`
-	Month int  `json:"month"` // 1-12
+	Year  int   `json:"year"`
+	Month int   `json:"month"` // 1-12
 	Days  []int `json:"days"`  // Days that have images (1-31)
 }
 
@@ -263,21 +263,76 @@ type GalleryCalendarResponse struct {
 	HasMore     bool                `json:"hasMore"`
 	DateRange   CalendarDateRange   `json:"dateRange"`
 	// Month info for the calendar widget (current page's months)
-	Months      []CalendarMonthInfo `json:"months"`
+	Months []CalendarMonthInfo `json:"months"`
 }
 
 // --- OCR Status API ---
 
 // OCRStatus represents the current status of OCR classifier service
 type OCRStatus struct {
-	Enabled     bool   `json:"enabled"`
-	Health      string `json:"health"`
-	LastCheck   string `json:"lastCheck,omitempty"`
-	Error       string `json:"error,omitempty"`
-	ServiceURL  string `json:"serviceUrl,omitempty"`
+	Enabled    bool   `json:"enabled"`
+	Health     string `json:"health"`
+	LastCheck  string `json:"lastCheck,omitempty"`
+	Error      string `json:"error,omitempty"`
+	ServiceURL string `json:"serviceUrl,omitempty"`
 }
 
 // OCRStatusResponse is the JSON response for GET /api/ocr/status
 type OCRStatusResponse struct {
 	Status OCRStatus `json:"status"`
+}
+
+// --- OCR Classification API ---
+
+// OcrClassificationStatusResponse for GET /api/ocr/classify-status
+type OcrClassificationStatusResponse struct {
+	Processing     bool   `json:"processing"`
+	Progress       string `json:"progress"`
+	FilesProcessed int    `json:"filesProcessed"`
+	TotalFiles     int    `json:"totalFiles"`
+}
+
+// OcrDocumentDTO represents an image classified as a text document
+type OcrDocumentDTO struct {
+	ID                 uint    `json:"id"`
+	ImageFileID        uint    `json:"imageFileId"`
+	Path               string  `json:"path"`
+	FileName           string  `json:"fileName"`
+	DirPath            string  `json:"dirPath"`
+	Size               int64   `json:"size"`
+	SizeHuman          string  `json:"sizeHuman"`
+	ModTime            string  `json:"modTime"`
+	Thumbnail          string  `json:"thumbnail,omitempty"`
+	MeanConfidence     float32 `json:"meanConfidence"`
+	WeightedConfidence float32 `json:"weightedConfidence"`
+	TokenCount         int     `json:"tokenCount"`
+	Angle              int     `json:"angle"`
+	ScaleFactor        float32 `json:"scaleFactor"`
+}
+
+// OcrDocumentsResponse for GET /api/ocr/documents
+type OcrDocumentsResponse struct {
+	Documents   []OcrDocumentDTO `json:"documents"`
+	Total       int              `json:"total"`
+	CurrentPage int              `json:"currentPage"`
+	PageSize    int              `json:"pageSize"`
+	TotalPages  int              `json:"totalPages"`
+	HasNextPage bool             `json:"hasNextPage"`
+}
+
+// BoundingBoxDTO for OCR bounding box data
+type BoundingBoxDTO struct {
+	X          int     `json:"x"`
+	Y          int     `json:"y"`
+	Width      int     `json:"width"`
+	Height     int     `json:"height"`
+	Word       string  `json:"word"`
+	Confidence float32 `json:"confidence"`
+}
+
+// OcrDataResponse for GET /api/ocr/data
+type OcrDataResponse struct {
+	ImagePath string           `json:"imagePath"`
+	Angle     int              `json:"angle"`
+	Boxes     []BoundingBoxDTO `json:"boxes"`
 }
