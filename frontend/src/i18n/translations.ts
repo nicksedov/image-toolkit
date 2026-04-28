@@ -9,7 +9,9 @@ export const translations = {
     // Tabs
     "tabs.preferences": "Preferences",
     "tabs.gallery": "Gallery",
+    "tabs.tools": "Tools",
     "tabs.deduplication": "Deduplication",
+    "tabs.ocr": "OCR",
 
     // Loading
     "common.loading": "Loading...",
@@ -391,7 +393,6 @@ export const translations = {
     "api.trash.read_failed": "Failed to read trash directory",
 
     // OCR tab
-    "tabs.ocr": "OCR",
     "ocr.title": "OCR Documents",
     "ocr.description": "Images classified as text documents",
     "ocr.documentCount": "{count} document(s)",
@@ -405,6 +406,8 @@ export const translations = {
     "ocr.confidence": "Confidence",
     "ocr.tokens": "Tokens",
     "ocr.filesProcessed": "{count}/{total} files processed",
+    "ocr.loadingMore": "Loading more documents...",
+    "ocr.allLoaded": "All {count} documents loaded",
 
     // OCR lightbox
     "lightbox.ocrTitle": "OCR Document Preview",
@@ -439,7 +442,9 @@ export const translations = {
     // Tabs
     "tabs.preferences": "Настройки пользователя",
     "tabs.gallery": "Галерея",
+    "tabs.tools": "Инструменты",
     "tabs.deduplication": "Дедупликация",
+    "tabs.ocr": "OCR",
 
     // Loading
     "common.loading": "Загрузка...",
@@ -811,7 +816,6 @@ export const translations = {
     "api.trash.read_failed": "Не удалось прочитать директорию корзины",
 
     // OCR tab
-    "tabs.ocr": "OCR",
     "ocr.title": "OCR Документы",
     "ocr.description": "Изображения, классифицированные как текстовые документы",
     "ocr.documentCount": "{count} документов",
@@ -825,6 +829,8 @@ export const translations = {
     "ocr.confidence": "Уверенность",
     "ocr.tokens": "Токены",
     "ocr.filesProcessed": "Обработано {count}/{total} файлов",
+    "ocr.loadingMore": "Загрузка дополнительных документов...",
+    "ocr.allLoaded": "Все {count} документов загружены",
 
     // OCR lightbox
     "lightbox.ocrTitle": "Предпросмотр OCR документа",

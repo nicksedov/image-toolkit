@@ -1,87 +1,104 @@
-import { useState, useEffect, useCallback } from "react"
+import { useEffect, useRef, useState, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { FileText, Play, Loader2 } from "lucide-react"
 import { useTranslation } from "@/i18n"
-import { fetchOcrDocuments, startOcrClassification, fetchOcrClassificationStatus } from "@/api/endpoints"
+import { startOcrClassification, fetchOcrClassificationStatus } from "@/api/endpoints"
 import type { OcrDocumentDTO, OcrClassificationStatusResponse } from "@/types"
-import { Pagination } from "@/components/pagination/Pagination"
 import { OcrLightbox } from "@/components/gallery/OcrLightbox"
 import { toast } from "sonner"
-
-const PAGE_SIZE = 50
+import { useOcrDocuments } from "@/hooks/useOcrDocuments"
 
 export function OcrTab() {
   const { t } = useTranslation()
-  const [documents, setDocuments] = useState<OcrDocumentDTO[]>([])
-  const [total, setTotal] = useState(0)
-  const [currentPage, setCurrentPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(1)
-  const [loading, setLoading] = useState(false)
+  const { documents, totalDocuments, hasMore, isLoading, loadMore, reset } = useOcrDocuments()
   const [scanning, setScanning] = useState(false)
   const [scanStatus, setScanStatus] = useState<OcrClassificationStatusResponse | null>(null)
   const [selectedImage, setSelectedImage] = useState<string | null>(null)
 
-  const loadDocuments = useCallback(async (page: number) => {
-    setLoading(true)
-    try {
-      const resp = await fetchOcrDocuments(page, PAGE_SIZE)
-      setDocuments(resp.documents)
-      setTotal(resp.total)
-      setCurrentPage(resp.currentPage)
-      setTotalPages(resp.totalPages)
-    } catch (err) {
-      console.error("Failed to load OCR documents:", err)
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  const checkScanStatus = useCallback(async () => {
-    try {
-      const status = await fetchOcrClassificationStatus()
-      setScanStatus(status)
-      setScanning(status.processing)
-      if (!status.processing) {
-        // Scan just finished, reload documents
-        loadDocuments(currentPage)
-      }
-    } catch (err) {
-      console.error("Failed to check scan status:", err)
-    }
-  }, [currentPage, loadDocuments])
+  // Sentinel ref for infinite scroll
+  const sentinelRef = useRef<HTMLDivElement>(null)
+  const observerRef = useRef<IntersectionObserver | null>(null)
 
   // Poll scan status when scanning
   useEffect(() => {
     if (!scanning) return
 
-    checkScanStatus()
-    const interval = setInterval(checkScanStatus, 2000)
-    return () => clearInterval(interval)
-  }, [scanning, checkScanStatus])
+    let cancelled = false
 
-  // Load documents on mount and page change
+    const checkStatus = async () => {
+      try {
+        const status = await fetchOcrClassificationStatus()
+        if (cancelled) return
+        setScanStatus(status)
+        setScanning(status.processing)
+        if (!status.processing) {
+          // Scan just finished, reload documents
+          reset()
+          loadMore()
+        }
+      } catch (err) {
+        console.error("Failed to check scan status:", err)
+      }
+    }
+
+    checkStatus()
+    const interval = setInterval(() => {
+      if (!cancelled) {
+        checkStatus()
+      }
+    }, 2000)
+
+    return () => {
+      cancelled = true
+      clearInterval(interval)
+    }
+  }, [scanning, reset, loadMore])
+
+  // Load initial documents on mount
   useEffect(() => {
-    loadDocuments(currentPage)
-  }, [currentPage, loadDocuments])
+    loadMore()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Set up intersection observer for infinite scroll
+  useEffect(() => {
+    const sentinel = sentinelRef.current
+    if (!sentinel) return
+
+    observerRef.current = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !isLoading) {
+          loadMore()
+        }
+      },
+      {
+        root: null,
+        rootMargin: "400px", // Prefetch 400px before reaching bottom
+        threshold: 0.1,
+      }
+    )
+
+    observerRef.current.observe(sentinel)
+
+    return () => {
+      if (observerRef.current) {
+        observerRef.current.disconnect()
+      }
+    }
+  }, [hasMore, isLoading, loadMore])
 
   const handleStartScan = async () => {
     try {
       await startOcrClassification()
       setScanning(true)
       toast.success(t("api.ocr.started"))
-    } catch (err: any) {
-      toast.error(err.message || t("api.ocr.failed"))
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("api.ocr.failed"))
     }
   }
 
   const handleDocumentClick = useCallback((doc: OcrDocumentDTO) => {
     setSelectedImage(doc.path)
   }, [])
-
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page)
-    window.scrollTo({ top: 0, behavior: "smooth" })
-  }
 
   return (
     <div className="space-y-4">
@@ -127,23 +144,23 @@ export function OcrTab() {
       )}
 
       {/* Document count */}
-      {!scanning && total > 0 && (
+      {!scanning && totalDocuments > 0 && (
         <p className="text-sm text-muted-foreground">
-          {total === 1
-            ? t("ocr.documentCountOne", { count: total })
-            : t("ocr.documentCount", { count: total })}
+          {totalDocuments === 1
+            ? t("ocr.documentCountOne", { count: totalDocuments })
+            : t("ocr.documentCount", { count: totalDocuments })}
         </p>
       )}
 
-      {/* Loading state */}
-      {loading && (
+      {/* Loading state (initial) */}
+      {isLoading && documents.length === 0 && (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin" />
         </div>
       )}
 
       {/* Empty state */}
-      {!loading && !scanning && documents.length === 0 && (
+      {!isLoading && !scanning && documents.length === 0 && (
         <div className="flex flex-col items-center justify-center py-12 text-center">
           <FileText className="h-12 w-12 text-muted-foreground mb-4" />
           <h3 className="text-lg font-medium">{t("ocr.empty")}</h3>
@@ -152,7 +169,7 @@ export function OcrTab() {
       )}
 
       {/* Document grid */}
-      {!loading && documents.length > 0 && (
+      {(!isLoading || documents.length > 0) && documents.length > 0 && (
         <>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
             {documents.map((doc) => (
@@ -192,14 +209,25 @@ export function OcrTab() {
             ))}
           </div>
 
-          {/* Pagination */}
-          <Pagination
-            currentPage={currentPage}
-            totalPages={totalPages}
-            hasPrevPage={currentPage > 1}
-            hasNextPage={currentPage < totalPages}
-            onPageChange={handlePageChange}
-          />
+          {/* Sentinel for infinite scroll */}
+          <div ref={sentinelRef} className="h-4" />
+
+          {/* Loading more indicator */}
+          {isLoading && documents.length > 0 && (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin" />
+              <span className="ml-2 text-sm text-muted-foreground">
+                {t("ocr.loadingMore")}
+              </span>
+            </div>
+          )}
+
+          {/* All loaded message */}
+          {!hasMore && documents.length > 0 && (
+            <p className="text-center text-sm text-muted-foreground py-4">
+              {t("ocr.allLoaded", { count: totalDocuments })}
+            </p>
+          )}
         </>
       )}
 

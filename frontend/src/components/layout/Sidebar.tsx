@@ -21,29 +21,38 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
   const { t } = useTranslation()
   const { user } = useAuth()
   const [galleryExpanded, setGalleryExpanded] = useState(true)
+  const [toolsExpanded, setToolsExpanded] = useState(true)
   const [adminExpanded, setAdminExpanded] = useState(false)
-
-  const tabs: TabItem[] = [
-    { value: "settings", icon: Settings, label: t("tabs.preferences") },
-    { value: "deduplication", icon: FileScan, label: t("tabs.deduplication") },
-    { value: "ocr", icon: FileText, label: t("tabs.ocr") },
-    { value: "profile", icon: Shield, label: t("adminPanel.updateProfile") },
-  ]
-
-  const adminTabs: TabItem[] = [
-    { value: "admin-users", icon: Users, label: t("adminPanel.title") },
-    { value: "admin-settings", icon: Settings, label: t("adminPanel.adminSettings") },
-  ]
 
   const gallerySubModes = [
     { value: "gallery-folders", icon: Folder, label: t("gallery.subModes.folders") },
     { value: "gallery-calendar", icon: Calendar, label: t("gallery.subModes.calendar") },
   ]
 
+  const toolsSubModes = [
+    { value: "deduplication", icon: FileScan, label: t("tabs.deduplication") },
+    { value: "ocr", icon: FileText, label: t("tabs.ocr") },
+  ]
+
+  const profileTab = { value: "profile", icon: Shield, label: t("adminPanel.updateProfile") }
+
+  const adminTabs: TabItem[] = [
+    { value: "admin-users", icon: Users, label: t("adminPanel.title") },
+    { value: "admin-settings", icon: Settings, label: t("adminPanel.adminSettings") },
+  ]
+
   const isGalleryActive = activeTab.startsWith("gallery")
+  const isToolsActive = activeTab === "deduplication" || activeTab === "ocr"
   const isAdminActive = activeTab === "admin-users" || activeTab === "admin-settings"
 
   const handleGalleryModeChange = useCallback(
+    (mode: string) => {
+      onTabChange(mode)
+    },
+    [onTabChange]
+  )
+
+  const handleToolsModeChange = useCallback(
     (mode: string) => {
       onTabChange(mode)
     },
@@ -116,22 +125,67 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
           )}
         </div>
 
-        {/* Other tabs */}
-        {tabs.map((tab) => {
-          const isActive = isTabActive(tab.value)
+        {/* Settings tab */}
+        <Button
+          variant={isTabActive("settings") ? "default" : "ghost"}
+          className={cn("w-full justify-start gap-3", isTabActive("settings") && "bg-primary text-primary-foreground hover:bg-primary/90")}
+          onClick={() => handleTabChange("settings")}
+        >
+          <Settings className="h-4 w-4 flex-shrink-0" />
+          <span className="font-medium">{t("tabs.preferences")}</span>
+        </Button>
 
-          return (
-            <Button
-              key={tab.value}
-              variant={isActive ? "default" : "ghost"}
-              className={cn("w-full justify-start gap-3", isActive && "bg-primary text-primary-foreground hover:bg-primary/90")}
-              onClick={() => handleTabChange(tab.value)}
-            >
-              <tab.icon className="h-4 w-4 flex-shrink-0" />
-              <span className="font-medium">{tab.label}</span>
-            </Button>
-          )
-        })}
+        {/* Tools group with sub-items */}
+        <div className="space-y-1 mt-4">
+          <Button
+            variant={isToolsActive ? "default" : "ghost"}
+            className={cn("w-full justify-start gap-3", isToolsActive && "bg-primary text-primary-foreground hover:bg-primary/90")}
+            onClick={() => {
+              setToolsExpanded(!toolsExpanded)
+              if (!isToolsActive) {
+                handleToolsModeChange("deduplication")
+              }
+            }}
+          >
+            <FileScan className="h-4 w-4 flex-shrink-0" />
+            <span className="flex-1 font-medium text-left">{t("tabs.tools")}</span>
+            {toolsExpanded ? (
+              <ChevronDown className="h-3 w-3 flex-shrink-0" />
+            ) : (
+              <ChevronRight className="h-3 w-3 flex-shrink-0" />
+            )}
+          </Button>
+
+          {toolsExpanded && (
+            <div className="ml-6 space-y-0.5 border-l pl-2">
+              {toolsSubModes.map((subMode) => {
+                const isActive = isTabActive(subMode.value)
+                return (
+                  <Button
+                    key={subMode.value}
+                    variant={isActive ? "default" : "ghost"}
+                    size="sm"
+                    className={cn("w-full justify-start gap-2 h-8", isActive && "bg-primary text-primary-foreground hover:bg-primary/90")}
+                    onClick={() => handleToolsModeChange(subMode.value)}
+                  >
+                    <subMode.icon className="h-3.5 w-3.5 flex-shrink-0" />
+                    <span className="text-sm font-medium">{subMode.label}</span>
+                  </Button>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Profile tab */}
+        <Button
+          variant={isTabActive("profile") ? "default" : "ghost"}
+          className={cn("w-full justify-start gap-3 mt-4", isTabActive("profile") && "bg-primary text-primary-foreground hover:bg-primary/90")}
+          onClick={() => handleTabChange("profile")}
+        >
+          <Shield className="h-4 w-4 flex-shrink-0" />
+          <span className="font-medium">{profileTab.label}</span>
+        </Button>
 
         {/* Admin administration group */}
         {user?.role === "admin" && (
