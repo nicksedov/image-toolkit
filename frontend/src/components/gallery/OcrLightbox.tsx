@@ -80,10 +80,14 @@ export function OcrLightbox({ imagePath, onClose }: OcrLightboxProps) {
   const baseScaleX = imageDimensions && displayDimensions ? displayDimensions.width / imageDimensions.width : 1
   const baseScaleY = imageDimensions && displayDimensions ? displayDimensions.height / imageDimensions.height : 1
   const scaleFactor = ocrData?.scaleFactor || 1
-  const scaleX = baseScaleX / scaleFactor
-  const scaleY = baseScaleY / scaleFactor
+  const scaleX = baseScaleX
+  const scaleY = baseScaleY
 
-  const imageUrl = imagePath ? `${API_BASE_URL}/api/image?path=${encodeURIComponent(imagePath)}` : ""
+  const angle = ocrData?.angle || 0
+  const ocrScaleFactor = ocrData?.scaleFactor || 1
+  const imageUrl = imagePath
+    ? `${API_BASE_URL}/api/ocr-image?path=${encodeURIComponent(imagePath)}&angle=${angle}&scaleFactor=${ocrScaleFactor}`
+    : ""
 
   return (
     <Dialog open={imagePath !== null} onOpenChange={() => onClose()}>
@@ -112,9 +116,6 @@ export function OcrLightbox({ imagePath, onClose }: OcrLightboxProps) {
 
             <div
               className="relative inline-block"
-              style={{
-                transform: ocrData ? `rotate(${ocrData.angle}deg)` : undefined,
-              }}
             >
               {/* Image */}
               {imagePath && (

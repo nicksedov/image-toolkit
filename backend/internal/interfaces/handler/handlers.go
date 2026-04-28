@@ -591,6 +591,60 @@ func (s *Server) handleServeImage(c *gin.Context) {
 	c.File(osPath)
 }
 
+// handleServeOcrImage serves an image scaled and rotated for OCR overlay display
+func (s *Server) handleServeOcrImage(c *gin.Context) {
+	path := c.Query("path")
+	if path == "" {
+		c.JSON(http.StatusBadRequest, i18n.ErrorResponse(i18n.MsgImagePathRequired))
+		return
+	}
+
+	angleStr := c.DefaultQuery("angle", "0")
+	scaleFactorStr := c.DefaultQuery("scaleFactor", "1")
+
+	angle, err := strconv.ParseFloat(angleStr, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, i18n.ErrorResponse(i18n.MsgImagePathRequired))
+		return
+	}
+
+	scaleFactor, err := strconv.ParseFloat(scaleFactorStr, 64)
+	if err != nil || scaleFactor <= 0 {
+		c.JSON(http.StatusBadRequest, i18n.ErrorResponse(i18n.MsgImagePathRequired))
+		return
+	}
+
+	// Security: verify the path is within a gallery folder
+	var folders []domain.GalleryFolder
+	s.db.Find(&folders)
+
+	allowed := false
+	for _, f := range folders {
+		if strings.HasPrefix(path, f.Path+"/") || strings.HasPrefix(path, f.Path+"\\") {
+			allowed = true
+			break
+		}
+	}
+	if !allowed {
+		c.JSON(http.StatusForbidden, i18n.ErrorResponse(i18n.MsgImageAccessDenied))
+		return
+	}
+
+	osPath := filepath.FromSlash(path)
+
+	data, err := imaging.PrepareOcrImage(osPath, scaleFactor, angle)
+	if err != nil {
+		if os.IsNotExist(err) {
+			c.JSON(http.StatusNotFound, i18n.ErrorResponse(i18n.MsgImageNotFound))
+		} else {
+			c.JSON(http.StatusInternalServerError, i18n.ErrorResponse(i18n.MsgImageThumbnailFailed))
+		}
+		return
+	}
+
+	c.Data(http.StatusOK, "image/jpeg", data)
+}
+
 // --- App Settings Handlers ---
 
 // handleGetSettings returns the current application settings

@@ -61,6 +61,7 @@ func (s *Server) SetupRouter(authMiddleware *middleware.AuthMiddleware, csrfProt
 			protected.GET("/gallery/calendar", s.handleGetGalleryCalendar)
 			protected.GET("/gallery/calendar/month", s.handleGetCalendarMonthInfo)
 			protected.GET("/image", s.handleServeImage)
+			protected.GET("/ocr-image", s.handleServeOcrImage)
 			protected.GET("/settings", s.handleGetSettings)
 			protected.PUT("/settings", s.handleUpdateSettings)
 			protected.GET("/user-settings", s.handleGetUserSettings)
