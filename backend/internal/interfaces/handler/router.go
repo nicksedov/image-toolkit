@@ -49,6 +49,7 @@ func (s *Server) SetupRouter(authMiddleware *middleware.AuthMiddleware, csrfProt
 			// Existing endpoints (now protected)
 			protected.GET("/duplicates", s.handleGetDuplicates)
 			protected.POST("/scan", s.handleScan)
+			protected.POST("/fast-scan", s.handleFastScan)
 			protected.GET("/status", s.handleGetStatus)
 			protected.POST("/delete-files", s.handleDeleteFiles)
 			protected.GET("/thumbnail", s.handleThumbnail)

@@ -212,6 +212,197 @@ func flushDBBatch(db *gorm.DB, toCreate *[]domain.ImageFile, toUpdate *[]domain.
 	*toUpdate = (*toUpdate)[:0]
 }
 
+// fastScanGalleryDirectory performs a fast gallery scan that only computes hash
+// when file record doesn't exist in DB or size differs.
+// It also cleans up records for files that no longer exist on disk.
+// Returns statistics about the scan operation.
+// numWorkers controls the number of parallel goroutines used for file hashing.
+func fastScanGalleryDirectory(db *gorm.DB, dirPath string, progressChan chan<- string, numWorkers int) FastScanResult {
+	stats := FastScanResult{}
+
+	absPath, err := filepath.Abs(dirPath)
+	if err != nil {
+		progressChan <- "Error: failed to get absolute path: " + err.Error()
+		return stats
+	}
+
+	if numWorkers <= 0 {
+		numWorkers = 1
+	}
+
+	// Phase 1: Collect all image files from the directory tree
+	var allFiles []fileInfo
+	err = filepath.Walk(absPath, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			progressChan <- "Error accessing " + path + ": " + err.Error()
+			return nil
+		}
+		if info.IsDir() {
+			return nil
+		}
+		if !domain.IsImageFile(path) {
+			return nil
+		}
+		allFiles = append(allFiles, fileInfo{
+			path:           path,
+			normalizedPath: filepath.ToSlash(path),
+			size:           info.Size(),
+			modTime:        info.ModTime(),
+		})
+		return nil
+	})
+	if err != nil {
+		return stats
+	}
+
+	if len(allFiles) == 0 {
+		return stats
+	}
+
+	// Phase 2: Batch query existing files from DB by path to build a cache map
+	// Also track all DB record IDs for later cleanup
+	existingMap := make(map[string]domain.ImageFile)
+	checkedIDs := make(map[uint]bool) // IDs of files that were checked
+	const dbBatchSize = 500
+	for i := 0; i < len(allFiles); i += dbBatchSize {
+		end := i + dbBatchSize
+		if end > len(allFiles) {
+			end = len(allFiles)
+		}
+		paths := make([]string, end-i)
+		for j, fi := range allFiles[i:end] {
+			paths[j] = fi.normalizedPath
+		}
+		var existingFiles []domain.ImageFile
+		db.Where("path IN ?", paths).Find(&existingFiles)
+		for _, ef := range existingFiles {
+			existingMap[ef.Path] = ef
+			checkedIDs[ef.ID] = true // Mark this ID as checked (exists on disk)
+		}
+	}
+
+	// Phase 3: Check files - if record exists with matching size, skip hashing
+	// Otherwise, compute hash and update/create record
+	var filesToProcess []fileInfo
+	for _, fi := range allFiles {
+		if existing, ok := existingMap[fi.normalizedPath]; ok {
+			if existing.Size == fi.size {
+				// File exists and size matches - no change needed
+				stats.Unchanged++
+				progressChan <- "Skipped (unchanged): " + fi.path
+				continue
+			}
+			// Size differs - need to update
+			filesToProcess = append(filesToProcess, fi)
+			stats.TotalChecked++ // Count modified as checked
+		} else {
+			// New file - need to create
+			filesToProcess = append(filesToProcess, fi)
+			stats.TotalChecked++ // Count created as checked
+		}
+	}
+
+	// Phase 3.5: Delete records for files that don't exist on disk anymore
+	// Get all IDs in this directory that were NOT checked
+	var existingFilesInDir []domain.ImageFile
+	prefix := filepath.ToSlash(absPath) + "/"
+	db.Where("path LIKE ?", prefix+"%").Find(&existingFilesInDir)
+
+	for _, ef := range existingFilesInDir {
+		if !checkedIDs[ef.ID] {
+			// This file exists in DB but not on disk - delete it
+			progressChan <- "Removing missing file from DB: " + ef.Path
+			db.Delete(&ef)
+			stats.Deleted++
+		}
+	}
+
+	if len(filesToProcess) == 0 {
+		return stats
+	}
+
+	// Phase 4: Hash files in parallel using a worker pool
+	jobs := make(chan fileInfo, numWorkers*2)
+	results := make(chan hashResult, numWorkers*2)
+
+	var wg sync.WaitGroup
+	for w := 0; w < numWorkers; w++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for fi := range jobs {
+				hash, err := calculateFileHash(fi.path)
+				var existing *domain.ImageFile
+				if ef, ok := existingMap[fi.normalizedPath]; ok {
+					existing = &ef
+				}
+				results <- hashResult{
+					fi:       fi,
+					hash:     hash,
+					err:      err,
+					existing: existing,
+				}
+			}
+		}()
+	}
+
+	// Close results channel when all workers finish
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+
+	// Send jobs to workers
+	go func() {
+		for _, fi := range filesToProcess {
+			jobs <- fi
+		}
+		close(jobs)
+	}()
+
+	// Phase 5: Collect results and batch write to DB
+	const writeBatchSize = 50
+	var toCreate []domain.ImageFile
+	var toUpdate []domain.ImageFile
+
+	for result := range results {
+		if result.err != nil {
+			progressChan <- "Error hashing " + result.fi.path + ": " + result.err.Error()
+			continue
+		}
+
+		progressChan <- "Processed: " + result.fi.path
+
+		imageFile := domain.ImageFile{
+			Path:    result.fi.normalizedPath,
+			Size:    result.fi.size,
+			Hash:    result.hash,
+			ModTime: result.fi.modTime,
+		}
+
+		if result.existing != nil {
+			imageFile.ID = result.existing.ID
+			toUpdate = append(toUpdate, imageFile)
+			stats.Modified++
+		} else {
+			toCreate = append(toCreate, imageFile)
+			stats.Created++
+		}
+
+		if len(toCreate)+len(toUpdate) >= writeBatchSize {
+			flushDBBatch(db, &toCreate, &toUpdate)
+		}
+	}
+
+	// Flush remaining
+	flushDBBatch(db, &toCreate, &toUpdate)
+
+	// Update total checked count (modified + created)
+	stats.TotalChecked = stats.Modified + stats.Created
+
+	return stats
+}
+
 // findDuplicates finds all duplicate groups from the database
 func findDuplicates(db *gorm.DB) ([]domain.DuplicateGroup, error) {
 	type HashSizeCount struct {

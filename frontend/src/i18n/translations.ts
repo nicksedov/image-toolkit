@@ -43,10 +43,17 @@ export const translations = {
     "settings.saveFailed": "Failed to save preferences",
     "settings.adminOnlyNotice": "Gallery folder management is only available to administrators.",
     "settings.rescanAll": "Rescan All",
+    "settings.fastScanChanges": "Scan Changes",
     "settings.folderCount": "{count} folder(s) in gallery",
     "settings.folderCountOne": "{count} folder in gallery",
     "settings.toastScanComplete": "Scan complete!",
     "settings.toastRescanStarted": "Rescan started",
+    "settings.toastFastScanStarted": "Fast scan started",
+    "settings.toastFastScanComplete": "Fast scan complete",
+    "settings.fastScanStats": "{unchanged} unchanged",
+    "settings.fastScanModified": "{modified} modified",
+    "settings.fastScanCreated": "{created} created",
+    "settings.fastScanDeleted": "{deleted} deleted",
     "settings.toastRescanComplete": "Rescan complete!",
     "settings.toastNoFolders": "No folders in the gallery to scan",
     "settings.toastAddFailed": "Failed to add folder",
@@ -147,6 +154,7 @@ export const translations = {
 
     // Toolbar
     "toolbar.rescan": "Rescan",
+    "toolbar.fastRescan": "Fast Scan",
     "toolbar.resetSelection": "Reset Selection",
     "toolbar.deleteSelected": "Delete Selected",
     "toolbar.batchDedup": "Batch Dedup",
@@ -159,6 +167,12 @@ export const translations = {
     "dedup.toastScanComplete": "Scan complete!",
     "dedup.toastSelectFile": "Please select at least one file.",
     "dedup.toastScanFailed": "Failed to start scan",
+    "dedup.toastFastScanStarted": "Fast scan started",
+    "dedup.toastFastScanComplete": "Fast scan complete",
+    "dedup.fastScanStats": "{unchanged} unchanged",
+    "dedup.fastScanModified": "{modified} modified",
+    "dedup.fastScanCreated": "{created} created",
+    "dedup.fastScanDeleted": "{deleted} deleted",
 
     // Duplicate group card
     "duplicateGroup.title": "Group #{index}",
@@ -227,8 +241,9 @@ export const translations = {
     // Admin panel
     "adminPanel.toastUsersLoadFailed": "Failed to load users list",
     "adminPanel.accessDenied": "Access denied",
-    "adminPanel.title": "User Management",
+    "adminPanel.title": "Users",
     "adminPanel.description": "Create and manage user accounts",
+    "adminPanel.account": "Account",
     "adminPanel.createButton": "Create User",
     "adminPanel.noUsers": "No users",
     "adminPanel.noUsersHint": "Create your first account",
@@ -440,7 +455,7 @@ export const translations = {
     "header.toggleLanguage": "Переключить язык",
 
     // Tabs
-    "tabs.preferences": "Настройки пользователя",
+    "tabs.preferences": "Настройки",
     "tabs.gallery": "Галерея",
     "tabs.tools": "Инструменты",
     "tabs.deduplication": "Дедупликация",
@@ -476,10 +491,17 @@ export const translations = {
     "settings.saveFailed": "Не удалось сохранить настройки",
     "settings.adminOnlyNotice": "Управление папками галереи доступно только администраторам.",
     "settings.rescanAll": "Сканировать все",
+    "settings.fastScanChanges": "Сканировать изменения",
     "settings.folderCount": "{count} папок в галерее",
     "settings.folderCountOne": "{count} папка в галерее",
     "settings.toastScanComplete": "Сканирование завершено!",
     "settings.toastRescanStarted": "Повторное сканирование начато",
+    "settings.toastFastScanStarted": "Быстрое сканирование начато",
+    "settings.toastFastScanComplete": "Быстрое сканирование завершено",
+    "settings.fastScanStats": "{unchanged} без изменений",
+    "settings.fastScanModified": "{modified} изменено",
+    "settings.fastScanCreated": "{created} добавлено",
+    "settings.fastScanDeleted": "{deleted} удалено",
     "settings.toastRescanComplete": "Повторное сканирование завершено!",
     "settings.toastNoFolders": "В галерее нет папок для сканирования",
     "settings.toastAddFailed": "Не удалось добавить папку",
@@ -580,6 +602,7 @@ export const translations = {
 
     // Toolbar
     "toolbar.rescan": "Сканировать",
+    "toolbar.fastRescan": "Быстрое сканирование",
     "toolbar.resetSelection": "Сбросить выбор",
     "toolbar.deleteSelected": "Удалить выбранные",
     "toolbar.batchDedup": "Пакетная дедупликация",
@@ -592,6 +615,12 @@ export const translations = {
     "dedup.toastScanComplete": "Сканирование завершено!",
     "dedup.toastSelectFile": "Выберите хотя бы один файл.",
     "dedup.toastScanFailed": "Не удалось начать сканирование",
+    "dedup.toastFastScanStarted": "Быстрое сканирование начато",
+    "dedup.toastFastScanComplete": "Быстрое сканирование завершено",
+    "dedup.fastScanStats": "{unchanged} без изменений",
+    "dedup.fastScanModified": "{modified} изменено",
+    "dedup.fastScanCreated": "{created} добавлено",
+    "dedup.fastScanDeleted": "{deleted} удалено",
 
     // Duplicate group card
     "duplicateGroup.title": "Группа #{index}",
@@ -660,8 +689,9 @@ export const translations = {
     // Admin panel
     "adminPanel.toastUsersLoadFailed": "Не удалось загрузить список пользователей",
     "adminPanel.accessDenied": "Доступ запрещен",
-    "adminPanel.title": "Управление пользователями",
+    "adminPanel.title": "Пользователи",
     "adminPanel.description": "Создание и настройка учетных записей",
+    "adminPanel.account": "Учетная запись",
     "adminPanel.createButton": "Создать пользователя",
     "adminPanel.noUsers": "Нет пользователей",
     "adminPanel.noUsersHint": "Создайте первую учетную запись",

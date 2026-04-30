@@ -22,6 +22,7 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
   const { user } = useAuth()
   const [galleryExpanded, setGalleryExpanded] = useState(true)
   const [toolsExpanded, setToolsExpanded] = useState(true)
+  const [accountExpanded, setAccountExpanded] = useState(true)
   const [adminExpanded, setAdminExpanded] = useState(false)
 
   const gallerySubModes = [
@@ -34,7 +35,10 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
     { value: "ocr", icon: FileText, label: t("tabs.ocr") },
   ]
 
-  const profileTab = { value: "profile", icon: Shield, label: t("adminPanel.updateProfile") }
+  const accountTabs: TabItem[] = [
+    { value: "settings", icon: Settings, label: t("tabs.preferences") },
+    { value: "profile", icon: Shield, label: t("adminPanel.updateProfile") },
+  ]
 
   const adminTabs: TabItem[] = [
     { value: "admin-users", icon: Users, label: t("adminPanel.title") },
@@ -43,6 +47,7 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
 
   const isGalleryActive = activeTab.startsWith("gallery")
   const isToolsActive = activeTab === "deduplication" || activeTab === "ocr"
+  const isAccountActive = activeTab === "settings" || activeTab === "profile"
   const isAdminActive = activeTab === "admin-users" || activeTab === "admin-settings"
 
   const handleGalleryModeChange = useCallback(
@@ -125,16 +130,6 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
           )}
         </div>
 
-        {/* Settings tab */}
-        <Button
-          variant={isTabActive("settings") ? "default" : "ghost"}
-          className={cn("w-full justify-start gap-3", isTabActive("settings") && "bg-primary text-primary-foreground hover:bg-primary/90")}
-          onClick={() => handleTabChange("settings")}
-        >
-          <Settings className="h-4 w-4 flex-shrink-0" />
-          <span className="font-medium">{t("tabs.preferences")}</span>
-        </Button>
-
         {/* Tools group with sub-items */}
         <div className="space-y-1 mt-4">
           <Button
@@ -177,15 +172,47 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
           )}
         </div>
 
-        {/* Profile tab */}
-        <Button
-          variant={isTabActive("profile") ? "default" : "ghost"}
-          className={cn("w-full justify-start gap-3 mt-4", isTabActive("profile") && "bg-primary text-primary-foreground hover:bg-primary/90")}
-          onClick={() => handleTabChange("profile")}
-        >
-          <Shield className="h-4 w-4 flex-shrink-0" />
-          <span className="font-medium">{profileTab.label}</span>
-        </Button>
+        {/* Account group with sub-items */}
+        <div className="space-y-1">
+          <Button
+            variant={isAccountActive ? "default" : "ghost"}
+            className={cn("w-full justify-start gap-3", isAccountActive && "bg-primary text-primary-foreground hover:bg-primary/90")}
+            onClick={() => {
+              setAccountExpanded(!accountExpanded)
+              if (!isAccountActive) {
+                handleTabChange("settings")
+              }
+            }}
+          >
+            <Shield className="h-4 w-4 flex-shrink-0" />
+            <span className="flex-1 font-medium text-left">{t("adminPanel.account")}</span>
+            {accountExpanded ? (
+              <ChevronDown className="h-3 w-3 flex-shrink-0" />
+            ) : (
+              <ChevronRight className="h-3 w-3 flex-shrink-0" />
+            )}
+          </Button>
+
+          {accountExpanded && (
+            <div className="ml-6 space-y-0.5 border-l pl-2">
+              {accountTabs.map((tab) => {
+                const isActive = isTabActive(tab.value)
+                return (
+                  <Button
+                    key={tab.value}
+                    variant={isActive ? "default" : "ghost"}
+                    size="sm"
+                    className={cn("w-full justify-start gap-2 h-8", isActive && "bg-primary text-primary-foreground hover:bg-primary/90")}
+                    onClick={() => handleTabChange(tab.value)}
+                  >
+                    <tab.icon className="h-3.5 w-3.5 flex-shrink-0" />
+                    <span className="text-sm font-medium">{tab.label}</span>
+                  </Button>
+                )
+              })}
+            </div>
+          )}
+        </div>
 
         {/* Admin administration group */}
         {user?.role === "admin" && (

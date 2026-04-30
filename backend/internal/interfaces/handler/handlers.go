@@ -138,6 +138,20 @@ func (s *Server) handleScan(c *gin.Context) {
 	c.JSON(http.StatusAccepted, dto.ScanResponse{Message: string(i18n.MsgScanStarted)})
 }
 
+// handleFastScan triggers an async fast scan of directories
+// Fast scan only computes hash when file record doesn't exist or size differs
+func (s *Server) handleFastScan(c *gin.Context) {
+	result := s.scanManager.FastScanGallery()
+	c.JSON(http.StatusOK, dto.FastScanResponse{
+		Message:   string(i18n.MsgScanStarted),
+		Unchanged: result.Unchanged,
+		Modified:  result.Modified,
+		Created:   result.Created,
+		Deleted:   result.Deleted,
+		Total:     result.TotalChecked,
+	})
+}
+
 // handleGetStatus returns the current scan status
 func (s *Server) handleGetStatus(c *gin.Context) {
 	c.JSON(http.StatusOK, s.scanManager.GetStatus())

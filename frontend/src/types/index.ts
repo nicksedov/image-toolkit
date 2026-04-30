@@ -33,6 +33,15 @@ export interface ScanResponse {
   message: string
 }
 
+export interface FastScanResponse {
+  message: string
+  unchanged: number
+  modified: number
+  created: number
+  deleted: number
+  total: number
+}
+
 export interface ScanStatusResponse {
   scanning: boolean
   progress: string

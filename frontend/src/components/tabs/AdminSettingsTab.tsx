@@ -9,10 +9,10 @@ import { FolderList } from "@/components/settings/FolderList"
 import { ScanProgressBanner } from "@/components/ScanProgressBanner"
 import { useGalleryFolders } from "@/hooks/useGalleryFolders"
 import { useScanStatus } from "@/hooks/useScanStatus"
-import { fetchTrashInfo, cleanTrash, updateSettings, fetchOCRStatus, triggerScan } from "@/api/endpoints"
+import { fetchTrashInfo, cleanTrash, updateSettings, fetchOCRStatus, triggerScan, triggerFastScan } from "@/api/endpoints"
 import { useSettings } from "@/providers/useSettings"
 import { useAuth } from "@/providers/AuthProvider"
-import { RefreshCw, Trash2, Shield, Loader2 } from "lucide-react"
+import { RefreshCw, Trash2, Shield, Loader2, Zap } from "lucide-react"
 import { useTranslation, type TranslationKey } from "@/i18n"
 import type { OCRStatus } from "@/types"
 
@@ -148,6 +148,30 @@ export function AdminSettingsTab() {
     }
   }, [folders.length, startPolling, setOnScanComplete, refetch, t])
 
+  const handleFastRescanAll = useCallback(async () => {
+    if (folders.length === 0) {
+      toast.error(t("settings.toastNoFolders"))
+      return
+    }
+    try {
+      const result = await triggerFastScan()
+      toast.success(t("settings.toastFastScanStarted"))
+      setOnScanComplete(() => {
+        refetch()
+        const statsMsg = [
+          t("settings.fastScanStats", { unchanged: result.unchanged }),
+          t("settings.fastScanModified", { modified: result.modified }),
+          t("settings.fastScanCreated", { created: result.created }),
+          t("settings.fastScanDeleted", { deleted: result.deleted }),
+        ].join(", ")
+        toast.success(t("settings.toastFastScanComplete") + " (" + statsMsg + ")")
+      })
+      startPolling()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("settings.toastRescanFailed"))
+    }
+  }, [folders.length, startPolling, setOnScanComplete, refetch, t])
+
   return (
     <div className="space-y-6">
       <div>
@@ -170,21 +194,32 @@ export function AdminSettingsTab() {
 
               <ScanProgressBanner status={status} />
 
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-2">
                 <h3 className="text-sm font-medium text-muted-foreground">
                   {folders.length === 1
                     ? t("settings.folderCountOne", { count: folders.length })
                     : t("settings.folderCount", { count: folders.length })}
                 </h3>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleRescanAll}
-                  disabled={status.scanning || folders.length === 0}
-                >
-                  <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${status.scanning ? "animate-spin" : ""}`} />
-                  {t("settings.rescanAll")}
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleFastRescanAll}
+                    disabled={status.scanning || folders.length === 0}
+                  >
+                    <Zap className={`mr-1.5 h-3.5 w-3.5 ${status.scanning ? "animate-spin" : ""}`} />
+                    {t("settings.fastScanChanges")}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleRescanAll}
+                    disabled={status.scanning || folders.length === 0}
+                  >
+                    <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${status.scanning ? "animate-spin" : ""}`} />
+                    {t("settings.rescanAll")}
+                  </Button>
+                </div>
               </div>
 
               <FolderList

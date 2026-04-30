@@ -44,6 +44,16 @@ type ScanResponse struct {
 	Message string `json:"message"`
 }
 
+// FastScanResponse is the JSON response for POST /api/fast-scan
+type FastScanResponse struct {
+	Message string `json:"message"`
+	Unchanged int    `json:"unchanged"`    // Files that exist and haven't changed
+	Modified  int    `json:"modified"`     // Files that were modified (size changed)
+	Created   int    `json:"created"`      // New files added
+	Deleted   int    `json:"deleted"`      // Records removed from DB (files no longer exist)
+	Total     int    `json:"total"`        // Total checked (modified + created)
+}
+
 // --- Delete Files API ---
 
 // DeleteFilesRequest represents the request for direct file deletion

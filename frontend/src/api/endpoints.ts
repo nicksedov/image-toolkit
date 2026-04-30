@@ -2,6 +2,7 @@ import { apiGet, apiPost, apiDelete, apiPut, apiPatch } from "./client"
 import type {
   DuplicatesResponse,
   ScanResponse,
+  FastScanResponse,
   ScanStatusResponse,
   ThumbnailResponse,
   DeleteFilesRequest,
@@ -48,6 +49,10 @@ export function fetchDuplicates(page: number, pageSize: number): Promise<Duplica
 
 export function triggerScan(): Promise<ScanResponse> {
   return apiPost<ScanResponse>("/api/scan")
+}
+
+export function triggerFastScan(): Promise<FastScanResponse> {
+  return apiPost<FastScanResponse>("/api/fast-scan")
 }
 
 export function fetchScanStatus(): Promise<ScanStatusResponse> {
