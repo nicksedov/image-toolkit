@@ -908,6 +908,7 @@ export const translations = {
 
     // OCR lightbox
     "lightbox.ocrTitle": "Предпросмотр OCR документа",
+    "lightbox.ocrDescription": "Предпросмотр текста и изображения документа, распознанного OCR",
     "lightbox.ocrAngle": "Обнаруженный угол: {angle}°",
     "lightbox.ocrConfidence": "Уверенность: {confidence}",
     "lightbox.ocrTokens": "Токены: {count}",
