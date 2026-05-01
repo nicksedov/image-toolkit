@@ -12,11 +12,13 @@ import (
 
 	"image-toolkit/internal/application/imaging"
 	"image-toolkit/internal/domain"
+	"image-toolkit/internal/infrastructure/llm"
 	"image-toolkit/internal/interfaces/dto"
 	"image-toolkit/internal/interfaces/i18n"
 	"image-toolkit/internal/interfaces/middleware"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // handleGetDuplicates returns paginated duplicate groups as JSON
@@ -1429,5 +1431,194 @@ func (s *Server) handleGetOcrData(c *gin.Context) {
 		Angle:       classification.Angle,
 		ScaleFactor: classification.ScaleFactor,
 		Boxes:       boxDTOs,
+	})
+}
+
+// handleGetLlmSettings returns LLM settings
+func (s *Server) handleGetLlmSettings(c *gin.Context) {
+	var settings domain.LlmSettings
+	if err := s.db.First(&settings).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusOK, dto.LlmSettingsDTO{
+				Provider: "ollama",
+				ApiUrl:   "http://localhost:11434",
+				Model:    "minicpm-v",
+			})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, i18n.ErrorResponse(i18n.MsgLlmOcrSettingsNotFound))
+		return
+	}
+
+	// Don't expose API key in full, mask it
+	apiKey := settings.ApiKey
+	if len(apiKey) > 8 {
+		apiKey = apiKey[:4] + "..." + apiKey[len(apiKey)-4:]
+	}
+
+	c.JSON(http.StatusOK, dto.LlmSettingsDTO{
+		ID:       settings.ID,
+		Provider: settings.Provider,
+		ApiUrl:   settings.ApiUrl,
+		ApiKey:   apiKey,
+		Model:    settings.Model,
+		Enabled:  settings.Enabled,
+	})
+}
+
+// handleUpdateLlmSettings updates LLM settings
+func (s *Server) handleUpdateLlmSettings(c *gin.Context) {
+	var req dto.UpdateLlmSettingsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, i18n.ErrorResponse(i18n.ValidationError))
+		return
+	}
+
+	var settings domain.LlmSettings
+	err := s.db.First(&settings).Error
+
+	if err == gorm.ErrRecordNotFound {
+		// Create new settings
+		settings = domain.LlmSettings{
+			Provider: req.Provider,
+			ApiUrl:   req.ApiUrl,
+			ApiKey:   req.ApiKey,
+			Model:    req.Model,
+			Enabled:  req.Enabled,
+		}
+		if err := s.db.Create(&settings).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, i18n.ErrorResponse(i18n.MsgLlmOcrSettingsSaveFailed))
+			return
+		}
+	} else if err != nil {
+		c.JSON(http.StatusInternalServerError, i18n.ErrorResponse(i18n.MsgLlmOcrSettingsSaveFailed))
+		return
+	} else {
+		// Update existing settings
+		s.db.Model(&settings).Updates(map[string]interface{}{
+			"provider": req.Provider,
+			"api_url":  req.ApiUrl,
+			"api_key":  req.ApiKey,
+			"model":    req.Model,
+			"enabled":  req.Enabled,
+		})
+	}
+
+	c.JSON(http.StatusOK, map[string]string{"message": string(i18n.MsgLlmOcrSettingsSaved)})
+}
+
+// handleLlmRecognize starts LLM-based OCR recognition
+func (s *Server) handleLlmRecognize(c *gin.Context) {
+	var req dto.LlmOcrRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, i18n.ErrorResponse(i18n.ValidationError))
+		return
+	}
+
+	// Get LLM settings
+	var settings domain.LlmSettings
+	if err := s.db.First(&settings).Error; err != nil || !settings.Enabled {
+		c.JSON(http.StatusServiceUnavailable, i18n.ErrorResponse(i18n.MsgLlmOcrNotEnabled))
+		return
+	}
+
+	// Get image file ID from path
+	var imageFile domain.ImageFile
+	if err := s.db.Where("path = ?", req.ImagePath).First(&imageFile).Error; err != nil {
+		c.JSON(http.StatusNotFound, i18n.ErrorResponse(i18n.MsgOcrDataNotFound))
+		return
+	}
+
+	// Check if already recognized
+	if s.llmOcrService != nil {
+		existing, _ := s.llmOcrService.GetRecognition(imageFile.ID)
+		if existing != nil && existing.Success {
+			c.JSON(http.StatusOK, dto.LlmOcrResponse{
+				Success:          true,
+				MarkdownContent:  existing.MarkdownContent,
+				Language:         existing.Language,
+				Provider:         existing.Provider,
+				Model:            existing.Model,
+				ProcessingTimeMs: existing.ProcessingTimeMs,
+			})
+			return
+		}
+	}
+
+	// Create LLM client
+	llmClient, err := llm.NewClient(settings.Provider, settings.ApiUrl, settings.ApiKey, settings.Model)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, i18n.ErrorResponse(i18n.MsgLlmOcrRecognitionFailed))
+		return
+	}
+
+	// Perform recognition
+	if s.llmOcrService == nil {
+		c.JSON(http.StatusServiceUnavailable, i18n.ErrorResponse(i18n.MsgLlmOcrRecognitionFailed))
+		return
+	}
+
+	result, err := s.llmOcrService.RecognizeWithLlm(imageFile.ID, llmClient, settings)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, dto.LlmOcrResponse{
+			Success: false,
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, dto.LlmOcrResponse{
+		Success:          result.Success,
+		MarkdownContent:  result.MarkdownContent,
+		Language:         result.Language,
+		Provider:         result.Provider,
+		Model:            result.Model,
+		ProcessingTimeMs: result.ProcessingTimeMs,
+		Error:            result.Error,
+	})
+}
+
+// handleGetLlmRecognition retrieves LLM OCR recognition for an image
+func (s *Server) handleGetLlmRecognition(c *gin.Context) {
+	imagePath := c.Query("path")
+	if imagePath == "" {
+		c.JSON(http.StatusBadRequest, i18n.ErrorResponse(i18n.MsgOcrImagePathRequired))
+		return
+	}
+
+	// Get image file ID
+	var imageFile domain.ImageFile
+	if err := s.db.Where("path = ?", imagePath).First(&imageFile).Error; err != nil {
+		c.JSON(http.StatusNotFound, i18n.ErrorResponse(i18n.MsgOcrDataNotFound))
+		return
+	}
+
+	// Get recognition
+	if s.llmOcrService == nil {
+		c.JSON(http.StatusOK, dto.LlmOcrDataResponse{Found: false})
+		return
+	}
+
+	recognition, err := s.llmOcrService.GetRecognition(imageFile.ID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, i18n.ErrorResponse(i18n.MsgLlmOcrRecognitionFailed))
+		return
+	}
+
+	if recognition == nil {
+		c.JSON(http.StatusOK, dto.LlmOcrDataResponse{Found: false})
+		return
+	}
+
+	c.JSON(http.StatusOK, dto.LlmOcrDataResponse{
+		Found:            true,
+		MarkdownContent:  recognition.MarkdownContent,
+		Language:         recognition.Language,
+		Provider:         recognition.Provider,
+		Model:            recognition.Model,
+		ProcessingTimeMs: recognition.ProcessingTimeMs,
+		Success:          recognition.Success,
+		Error:            recognition.Error,
+		CreatedAt:        recognition.CreatedAt.Format("2006-01-02 15:04:05"),
 	})
 }

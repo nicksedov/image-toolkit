@@ -38,6 +38,11 @@ import type {
   OcrDocumentsResponse,
   OcrDataResponse,
   OcrClassificationStatusResponse,
+  LlmSettingsDTO,
+  UpdateLlmSettingsRequest,
+  LlmOcrRequest,
+  LlmOcrResponse,
+  LlmOcrDataResponse,
 } from "@/types"
 
 export function fetchDuplicates(page: number, pageSize: number): Promise<DuplicatesResponse> {
@@ -261,4 +266,22 @@ export function fetchOcrDocuments(
 
 export function fetchOcrData(path: string): Promise<OcrDataResponse> {
   return apiGet<OcrDataResponse>("/api/ocr/data", { path })
+}
+
+// --- LLM OCR ---
+
+export function fetchLlmSettings(): Promise<LlmSettingsDTO> {
+  return apiGet<LlmSettingsDTO>("/api/llm/settings")
+}
+
+export function updateLlmSettings(req: UpdateLlmSettingsRequest): Promise<{ message: string }> {
+  return apiPut<{ message: string }>("/api/llm/settings", req)
+}
+
+export function recognizeWithLlm(req: LlmOcrRequest): Promise<LlmOcrResponse> {
+  return apiPost<LlmOcrResponse>("/api/llm/recognize", req)
+}
+
+export function fetchLlmRecognition(path: string): Promise<LlmOcrDataResponse> {
+  return apiGet<LlmOcrDataResponse>("/api/llm/recognition", { path })
 }

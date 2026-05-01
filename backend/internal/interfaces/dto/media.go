@@ -46,12 +46,12 @@ type ScanResponse struct {
 
 // FastScanResponse is the JSON response for POST /api/fast-scan
 type FastScanResponse struct {
-	Message string `json:"message"`
-	Unchanged int    `json:"unchanged"`    // Files that exist and haven't changed
-	Modified  int    `json:"modified"`     // Files that were modified (size changed)
-	Created   int    `json:"created"`      // New files added
-	Deleted   int    `json:"deleted"`      // Records removed from DB (files no longer exist)
-	Total     int    `json:"total"`        // Total checked (modified + created)
+	Message   string `json:"message"`
+	Unchanged int    `json:"unchanged"` // Files that exist and haven't changed
+	Modified  int    `json:"modified"`  // Files that were modified (size changed)
+	Created   int    `json:"created"`   // New files added
+	Deleted   int    `json:"deleted"`   // Records removed from DB (files no longer exist)
+	Total     int    `json:"total"`     // Total checked (modified + created)
 }
 
 // --- Delete Files API ---
@@ -346,4 +346,56 @@ type OcrDataResponse struct {
 	Angle       int              `json:"angle"`
 	ScaleFactor float32          `json:"scaleFactor"`
 	Boxes       []BoundingBoxDTO `json:"boxes"`
+}
+
+// --- LLM Settings API ---
+
+// LlmSettingsDTO for LLM settings responses
+type LlmSettingsDTO struct {
+	ID       uint   `json:"id"`
+	Provider string `json:"provider"`
+	ApiUrl   string `json:"apiUrl"`
+	ApiKey   string `json:"apiKey"`
+	Model    string `json:"model"`
+	Enabled  bool   `json:"enabled"`
+}
+
+// UpdateLlmSettingsRequest for PUT /api/llm/settings
+type UpdateLlmSettingsRequest struct {
+	Provider string `json:"provider"`
+	ApiUrl   string `json:"apiUrl"`
+	ApiKey   string `json:"apiKey"`
+	Model    string `json:"model"`
+	Enabled  bool   `json:"enabled"`
+}
+
+// --- LLM OCR API ---
+
+// LlmOcrRequest for POST /api/llm/recognize
+type LlmOcrRequest struct {
+	ImagePath string `json:"imagePath" binding:"required"`
+}
+
+// LlmOcrResponse for POST /api/llm/recognize
+type LlmOcrResponse struct {
+	Success          bool   `json:"success"`
+	MarkdownContent  string `json:"markdownContent,omitempty"`
+	Language         string `json:"language"`
+	Provider         string `json:"provider"`
+	Model            string `json:"model"`
+	ProcessingTimeMs int    `json:"processingTimeMs"`
+	Error            string `json:"error,omitempty"`
+}
+
+// LlmOcrDataResponse for GET /api/llm/recognition
+type LlmOcrDataResponse struct {
+	Found            bool   `json:"found"`
+	MarkdownContent  string `json:"markdownContent,omitempty"`
+	Language         string `json:"language,omitempty"`
+	Provider         string `json:"provider,omitempty"`
+	Model            string `json:"model,omitempty"`
+	ProcessingTimeMs int    `json:"processingTimeMs,omitempty"`
+	Success          bool   `json:"success,omitempty"`
+	Error            string `json:"error,omitempty"`
+	CreatedAt        string `json:"createdAt,omitempty"`
 }

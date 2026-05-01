@@ -108,3 +108,31 @@ type OcrBoundingBox struct {
 	Word             string  `json:"word"`
 	Confidence       float32 `json:"confidence"`
 }
+
+// LlmSettings stores VL LLM connection settings (singleton, ID=1)
+type LlmSettings struct {
+	ID        uint      `gorm:"primaryKey" json:"id"`
+	Provider  string    `gorm:"default:ollama;not null" json:"provider"` // "ollama" or "openai"
+	ApiUrl    string    `gorm:"not null" json:"apiUrl"`
+	ApiKey    string    `gorm:"default:''" json:"apiKey"` // Empty for Ollama
+	Model     string    `gorm:"not null" json:"model"`
+	Enabled   bool      `gorm:"default:false" json:"enabled"`
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
+}
+
+// OcrLlmRecognition stores VL LLM OCR recognition results
+type OcrLlmRecognition struct {
+	ID                  uint      `gorm:"primaryKey" json:"id"`
+	ImageFileID         uint      `gorm:"uniqueIndex;not null" json:"imageFileId"`
+	OcrClassificationID uint      `gorm:"index" json:"ocrClassificationId"`
+	Language            string    `gorm:"not null" json:"language"` // "en", "ru", etc.
+	MarkdownContent     string    `gorm:"type:text;not null" json:"markdownContent"`
+	Provider            string    `json:"provider"`         // Which provider was used
+	Model               string    `json:"model"`            // Which model was used
+	ProcessingTimeMs    int       `json:"processingTimeMs"` // Processing time in milliseconds
+	Error               string    `json:"error"`            // Error message if failed
+	Success             bool      `gorm:"default:false" json:"success"`
+	CreatedAt           time.Time `json:"createdAt"`
+	UpdatedAt           time.Time `json:"updatedAt"`
+}

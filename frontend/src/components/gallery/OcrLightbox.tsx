@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { X, Loader2, FileText } from "lucide-react"
+import { X, Loader2, Wand2 } from "lucide-react"
 import { useTranslation } from "@/i18n"
-import { fetchOcrData } from "@/api/endpoints"
-import type { OcrDataResponse } from "@/types"
+import { fetchOcrData, fetchLlmRecognition, recognizeWithLlm } from "@/api/endpoints"
+import type { OcrDataResponse, LlmOcrDataResponse } from "@/types"
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || ""
 
@@ -15,7 +15,9 @@ interface OcrLightboxProps {
 export function OcrLightbox({ imagePath, onClose }: OcrLightboxProps) {
   const { t } = useTranslation()
   const [ocrData, setOcrData] = useState<OcrDataResponse | null>(null)
+  const [llmData, setLlmData] = useState<LlmOcrDataResponse | null>(null)
   const [loading, setLoading] = useState(false)
+  const [recognizing, setRecognizing] = useState(false)
   const [imageLoaded, setImageLoaded] = useState(false)
   const [imageDimensions, setImageDimensions] = useState<{ width: number; height: number } | null>(null)
   const [displayDimensions, setDisplayDimensions] = useState<{ width: number; height: number } | null>(null)
@@ -26,6 +28,7 @@ export function OcrLightbox({ imagePath, onClose }: OcrLightboxProps) {
   useEffect(() => {
     if (!imagePath) {
       setOcrData(null)
+      setLlmData(null)
       setImageLoaded(false)
       setImageDimensions(null)
       setDisplayDimensions(null)
@@ -33,18 +36,48 @@ export function OcrLightbox({ imagePath, onClose }: OcrLightboxProps) {
     }
 
     setLoading(true)
-    fetchOcrData(imagePath)
-      .then((data) => {
-        setOcrData(data)
+    Promise.all([
+      fetchOcrData(imagePath).catch(() => null),
+      fetchLlmRecognition(imagePath).catch(() => null),
+    ]).then(([ocr, llm]) => {
+      setOcrData(ocr)
+      setLlmData(llm)
+    }).finally(() => {
+      setLoading(false)
+    })
+  }, [imagePath])
+
+  // Handle recognize button click
+  const handleRecognize = useCallback(() => {
+    if (!imagePath || recognizing) return
+
+    setRecognizing(true)
+    recognizeWithLlm({ imagePath })
+      .then((result) => {
+        if (result.success) {
+          setLlmData({
+            found: true,
+            markdownContent: result.markdownContent,
+            language: result.language,
+            provider: result.provider,
+            model: result.model,
+            processingTimeMs: result.processingTimeMs,
+            success: true,
+          })
+        }
       })
       .catch((err) => {
-        console.error("Failed to load OCR data:", err)
-        setOcrData(null)
+        console.error("LLM recognition failed:", err)
+        setLlmData({
+          found: false,
+          error: err.message,
+          success: false,
+        })
       })
       .finally(() => {
-        setLoading(false)
+        setRecognizing(false)
       })
-  }, [imagePath])
+  }, [imagePath, recognizing])
 
   // Calculate display dimensions when image loads
   const handleImageLoad = useCallback(() => {
@@ -75,8 +108,6 @@ export function OcrLightbox({ imagePath, onClose }: OcrLightboxProps) {
   }, [imageLoaded])
 
   // Calculate scale factor for bounding boxes
-  // scaleFactor converts from OCR-processed image coords to original image coords
-  // scaleX/scaleY convert from original image coords to display coords
   const baseScaleX = imageDimensions && displayDimensions ? displayDimensions.width / imageDimensions.width : 1
   const baseScaleY = imageDimensions && displayDimensions ? displayDimensions.height / imageDimensions.height : 1
   const scaleX = baseScaleX
@@ -87,6 +118,13 @@ export function OcrLightbox({ imagePath, onClose }: OcrLightboxProps) {
   const imageUrl = imagePath
     ? `${API_BASE_URL}/api/ocr-image?path=${encodeURIComponent(imagePath)}&angle=${angle}&scaleFactor=${ocrScaleFactor}`
     : ""
+
+  // Format processing time
+  const formatProcessingTime = (ms?: number) => {
+    if (!ms) return ""
+    if (ms < 1000) return t("llm_ocr.milliseconds", { ms })
+    return t("llm_ocr.seconds", { seconds: (ms / 1000).toFixed(1) })
+  }
 
   return (
     <Dialog open={imagePath !== null} onOpenChange={() => onClose()}>
@@ -105,17 +143,15 @@ export function OcrLightbox({ imagePath, onClose }: OcrLightboxProps) {
         </button>
 
         <div className="flex h-full">
-          {/* Image with bounding boxes */}
-          <div className="flex-1 flex items-center justify-center p-8 relative" ref={containerRef}>
+          {/* Image with bounding boxes - 60% width */}
+          <div className="w-[60%] flex items-center justify-center p-8 relative" ref={containerRef}>
             {loading && (
               <div className="absolute inset-0 flex items-center justify-center">
                 <Loader2 className="h-8 w-8 animate-spin text-white" />
               </div>
             )}
 
-            <div
-              className="relative inline-block"
-            >
+            <div className="relative inline-block">
               {/* Image */}
               {imagePath && (
                 <img
@@ -148,7 +184,6 @@ export function OcrLightbox({ imagePath, onClose }: OcrLightboxProps) {
                       }}
                       title={`${box.word} (${(box.confidence * 100).toFixed(0)}%)`}
                     >
-                      {/* Word label */}
                       {box.width * scaleX > 30 && box.height * scaleY > 15 && (
                         <span className="absolute -top-5 left-0 text-[10px] text-yellow-400 whitespace-nowrap bg-black/70 px-1 rounded">
                           {box.word}
@@ -161,71 +196,120 @@ export function OcrLightbox({ imagePath, onClose }: OcrLightboxProps) {
             </div>
           </div>
 
-          {/* Metadata panel */}
-          {ocrData && (
-            <div className="w-80 bg-card border-l p-4 overflow-y-auto hidden lg:block">
-              <h3 className="text-lg font-semibold mb-4">{t("metadata.title")}</h3>
-
-              {/* OCR metadata */}
-              <div className="space-y-3">
-                <div className="p-3 bg-muted rounded-lg">
-                  <h4 className="text-sm font-medium text-muted-foreground mb-2">OCR</h4>
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-sm">{t("ocr.angle")}</span>
-                      <span className="text-sm font-medium">{ocrData.angle}°</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm">{t("lightbox.ocrTokens", { count: 0 }).split(":")[0]}</span>
-                      <span className="text-sm font-medium">{ocrData.boxes.length}</span>
-                    </div>
-                  </div>
+          {/* Right panel - 40% width */}
+          <div className="w-[40%] bg-card border-l p-4 overflow-y-auto">
+            {recognizing ? (
+              <div className="flex flex-col items-center justify-center h-full">
+                <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+                <p className="text-lg font-medium">{t("llm_ocr.recognizing")}</p>
+              </div>
+            ) : llmData?.found && llmData.success && llmData.markdownContent ? (
+              /* LLM recognition result */
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold">{t("llm_ocr.title")}</h3>
+                  <button
+                    onClick={handleRecognize}
+                    className="flex items-center gap-2 px-3 py-1.5 text-sm bg-primary text-primary-foreground rounded hover:bg-primary/90"
+                  >
+                    <Wand2 className="h-4 w-4" />
+                    {t("llm_ocr.recognizeButton")}
+                  </button>
                 </div>
 
-                {/* File info */}
-                <div className="p-3 bg-muted rounded-lg">
-                  <h4 className="text-sm font-medium text-muted-foreground mb-2">File</h4>
-                  <p className="text-sm break-all">{imagePath}</p>
+                {/* Metadata */}
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">{t("llm_ocr.language")}:</span>
+                    <span className="font-medium">{llmData.language === "ru" ? "Русский" : "English"}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">{t("llm_ocr.provider")}:</span>
+                    <span className="font-medium">{llmData.provider}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">{t("llm_ocr.model")}:</span>
+                    <span className="font-medium">{llmData.model}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">{t("llm_ocr.processingTime")}:</span>
+                    <span className="font-medium">{formatProcessingTime(llmData.processingTimeMs)}</span>
+                  </div>
+                  {imagePath && (
+                    <div>
+                      <span className="text-muted-foreground">{t("llm_ocr.filePath")}:</span>
+                      <p className="text-xs break-all mt-1">{imagePath}</p>
+                    </div>
+                  )}
                 </div>
 
-                {/* Bounding boxes list */}
-                {ocrData.boxes.length > 0 && (
-                  <div className="p-3 bg-muted rounded-lg">
-                    <h4 className="text-sm font-medium text-muted-foreground mb-2">
-                      Text Regions ({ocrData.boxes.length})
-                    </h4>
-                    <div className="space-y-1 max-h-64 overflow-y-auto">
-                      {ocrData.boxes.slice(0, 50).map((box, index) => (
-                        <div key={index} className="text-xs flex justify-between">
-                          <span className="truncate flex-1" title={box.word}>
-                            {box.word || "(empty)"}
-                          </span>
-                          <span className="text-muted-foreground ml-2">
-                            {(box.confidence * 100).toFixed(0)}%
-                          </span>
-                        </div>
-                      ))}
-                      {ocrData.boxes.length > 50 && (
-                        <p className="text-xs text-muted-foreground">
-                          ... and {ocrData.boxes.length - 50} more
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                )}
+                {/* Markdown content */}
+                <div className="mt-4 p-4 bg-muted rounded-lg">
+                  <pre className="whitespace-pre-wrap text-sm font-mono">{llmData.markdownContent}</pre>
+                </div>
               </div>
-            </div>
-          )}
+            ) : llmData?.error ? (
+              /* Error state */
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-destructive">{t("llm_ocr.failed")}</h3>
+                <p className="text-sm text-muted-foreground">{llmData.error}</p>
+                <button
+                  onClick={handleRecognize}
+                  className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90"
+                >
+                  <Wand2 className="h-4 w-4" />
+                  {t("llm_ocr.recognizeButton")}
+                </button>
+              </div>
+            ) : (
+              /* No LLM recognition yet */
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">{t("llm_ocr.title")}</h3>
 
-          {/* No OCR data */}
-          {!ocrData && !loading && (
-            <div className="w-80 bg-card border-l p-4 flex items-center justify-center hidden lg:flex">
-              <div className="text-center">
-                <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground">{t("metadata.noData")}</p>
+                {/* Basic info */}
+                <div className="space-y-2 text-sm">
+                  {imagePath && (
+                    <div>
+                      <span className="text-muted-foreground">{t("llm_ocr.filePath")}:</span>
+                      <p className="text-xs break-all mt-1">{imagePath}</p>
+                    </div>
+                  )}
+                  {ocrData && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">{t("llm_ocr.language")}:</span>
+                      <span className="font-medium">
+                        {(() => {
+                          // Detect language from OCR data
+                          let ruCount = 0
+                          let enCount = 0
+                          for (const box of ocrData.boxes) {
+                            for (const ch of box.word.toLowerCase()) {
+                              if (ch.charCodeAt(0) >= 0x0400 && ch.charCodeAt(0) <= 0x04FF) ruCount++
+                              if (ch.charCodeAt(0) >= 0x0061 && ch.charCodeAt(0) <= 0x007A) enCount++
+                            }
+                          }
+                          return ruCount > enCount ? "Русский" : "English"
+                        })()}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Recognize button */}
+                <button
+                  onClick={handleRecognize}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+                >
+                  <Wand2 className="h-5 w-5" />
+                  {t("llm_ocr.recognizeButton")}
+                </button>
+
+                <p className="text-xs text-muted-foreground text-center">
+                  {t("llm_ocr.description")}
+                </p>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </DialogContent>
     </Dialog>

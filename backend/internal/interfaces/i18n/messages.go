@@ -99,6 +99,15 @@ const (
 	MsgOcrAlreadyRunning    MessageKey = "ocr.already_running"
 	MsgOcrImagePathRequired MessageKey = "ocr.image_path_required"
 	MsgOcrDataNotFound      MessageKey = "ocr.data_not_found"
+
+	// LLM OCR messages
+	MsgLlmOcrNotEnabled         MessageKey = "llm_ocr.not_enabled"
+	MsgLlmOcrSettingsNotFound   MessageKey = "llm_ocr.settings_not_found"
+	MsgLlmOcrRecognitionFailed  MessageKey = "llm_ocr.recognition_failed"
+	MsgLlmOcrRecognitionStarted MessageKey = "llm_ocr.recognition_started"
+	MsgLlmOcrSettingsSaved      MessageKey = "llm_ocr.settings_saved"
+	MsgLlmOcrSettingsSaveFailed MessageKey = "llm_ocr.settings_save_failed"
+	MsgLlmOcrNoRecognition      MessageKey = "llm_ocr.no_recognition"
 )
 
 // GetMessage returns the message key as string

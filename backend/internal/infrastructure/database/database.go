@@ -36,6 +36,8 @@ func InitDatabase(cfg *config.AppConfig) (*gorm.DB, error) {
 		&domain.AuditLog{},
 		&domain.OcrClassification{},
 		&domain.OcrBoundingBox{},
+		&domain.LlmSettings{},
+		&domain.OcrLlmRecognition{},
 	); err != nil {
 		return nil, fmt.Errorf("failed to migrate database: %w", err)
 	}
@@ -45,6 +47,19 @@ func InitDatabase(cfg *config.AppConfig) (*gorm.DB, error) {
 	db.Model(&domain.AppSettings{}).Count(&count)
 	if count == 0 {
 		db.Create(&domain.AppSettings{ID: 1, Theme: "light-purple", Language: "en"})
+	}
+
+	// Seed default LLM settings row if not exists
+	var llmCount int64
+	db.Model(&domain.LlmSettings{}).Count(&llmCount)
+	if llmCount == 0 {
+		db.Create(&domain.LlmSettings{
+			ID:       1,
+			Provider: "ollama",
+			ApiUrl:   "http://localhost:11434",
+			Model:    "minicpm-v",
+			Enabled:  false,
+		})
 	}
 
 	return db, nil

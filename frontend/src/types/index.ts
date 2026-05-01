@@ -408,3 +408,48 @@ export interface OcrClassificationStatusResponse {
   filesProcessed: number
   totalFiles: number
 }
+
+// --- LLM OCR Types ---
+
+export interface LlmSettingsDTO {
+  id: number
+  provider: "ollama" | "openai"
+  apiUrl: string
+  apiKey: string
+  model: string
+  enabled: boolean
+}
+
+export interface UpdateLlmSettingsRequest {
+  provider: "ollama" | "openai"
+  apiUrl: string
+  apiKey: string
+  model: string
+  enabled: boolean
+}
+
+export interface LlmOcrRequest {
+  imagePath: string
+}
+
+export interface LlmOcrResponse {
+  success: boolean
+  markdownContent?: string
+  language: string
+  provider: string
+  model: string
+  processingTimeMs: number
+  error?: string
+}
+
+export interface LlmOcrDataResponse {
+  found: boolean
+  markdownContent?: string
+  language?: string
+  provider?: string
+  model?: string
+  processingTimeMs?: number
+  success?: boolean
+  error?: string
+  createdAt?: string
+}

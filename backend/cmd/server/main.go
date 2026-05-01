@@ -115,8 +115,12 @@ func main() {
 
 	fmt.Println("Authentication system initialized!")
 
+	// Create LLM OCR service
+	llmOcrService := imaging.NewLlmOcrService(db)
+	fmt.Println("LLM OCR service initialized")
+
 	// Start web server
-	server := handler.NewServer(db, scanManager, metadataManager, ocrManager, cfg)
+	server := handler.NewServer(db, scanManager, metadataManager, ocrManager, llmOcrService, cfg)
 	router := server.SetupRouter(authMiddleware, csrfProtection, authHandlers)
 
 	// Start OCR health check if enabled
