@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden"
 import { Button } from "@/components/ui/button"
 import { X, Loader2, Wand2, Download } from "lucide-react"
@@ -290,21 +290,18 @@ ${html}
   return (
     <Dialog open={imagePath !== null} onOpenChange={() => handleClose()}>
       <DialogContent className="max-w-[95vw] w-[95vw] h-[90vh] p-0 bg-black/95 border-0 flex flex-col">
-        <DialogHeader className="absolute top-4 left-4 right-16 z-50">
-          <DialogTitle className="text-white text-lg">
-            {t("lightbox.ocrTitle")}
-          </DialogTitle>
-          <DialogDescription className="sr-only">
-            {t("lightbox.ocrDescription")}
-          </DialogDescription>
-        </DialogHeader>
-
-        <button
+        <VisuallyHidden>
+          <DialogTitle>{t("lightbox.ocrTitle")}</DialogTitle>
+          <DialogDescription>{t("lightbox.ocrDescription")}</DialogDescription>
+        </VisuallyHidden>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="absolute right-2 top-2 z-10 h-8 w-8 p-0 bg-black/50 text-white hover:bg-black/70 rounded-full"
           onClick={handleClose}
-          className="absolute top-4 right-4 z-50 p-2 rounded-full bg-black/50 hover:bg-black/70 text-white transition-colors"
         >
-          <X className="h-5 w-5" />
-        </button>
+          <X className="h-4 w-4" />
+        </Button>
 
         <div className="flex h-full">
           {/* Image with bounding boxes - 50% width */}
