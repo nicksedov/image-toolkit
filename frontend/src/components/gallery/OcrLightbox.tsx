@@ -6,6 +6,7 @@ import { fetchOcrData, fetchLlmRecognition, recognizeWithLlm, fetchLlmRecognizeS
 import type { OcrDataResponse, LlmOcrDataResponse } from "@/types"
 import ReactMarkdown, { type Components } from "react-markdown"
 import remarkGfm from "remark-gfm"
+import { marked } from "marked"
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || ""
 
@@ -243,24 +244,11 @@ export function OcrLightbox({ imagePath, onClose }: OcrLightboxProps) {
   const handleSaveHtml = useCallback(() => {
     if (!llmData?.markdownContent) return
     
-    // Simple markdown to HTML conversion
-    let html = llmData.markdownContent
-      // Headers
-      .replace(/^### (.+)$/gm, "<h3>$1</h3>")
-      .replace(/^## (.+)$/gm, "<h2>$1</h2>")
-      .replace(/^# (.+)$/gm, "<h1>$1</h1>")
-      // Bold and italic
-      .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-      .replace(/\*(.+?)\*/g, "<em>$1</em>")
-      // Line breaks
-      .replace(/\n\n/g, "</p><p>")
-      .replace(/\n/g, "<br>")
-    
-    html = `<p>${html}</p>`
-      .replace(/<p><h/g, "<h")
-      .replace(/<\/h1><\/p>/g, "</h1>")
-      .replace(/<\/h2><\/p>/g, "</h2>")
-      .replace(/<\/h3><\/p>/g, "</h3>")
+    // Convert markdown to HTML using marked
+    const html = marked(llmData.markdownContent, {
+      gfm: true,
+      breaks: true,
+    })
 
     const fullHtml = `<!DOCTYPE html>
 <html lang="en">
@@ -269,10 +257,18 @@ export function OcrLightbox({ imagePath, onClose }: OcrLightboxProps) {
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>${getFileName()}</title>
 <style>
-body { font-family: system-ui, -apple-system, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; }
+body { font-family: system-ui, -apple-system, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; color: #333; }
+h1, h2, h3 { margin-top: 1.5em; margin-bottom: 0.5em; }
+p { margin-bottom: 1em; }
 table { border-collapse: collapse; width: 100%; margin: 1em 0; }
 th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
 th { background: #f5f5f5; font-weight: bold; }
+code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-family: monospace; }
+pre { background: #f4f4f4; padding: 1em; border-radius: 5px; overflow-x: auto; }
+pre code { background: none; padding: 0; }
+blockquote { border-left: 4px solid #ddd; margin: 1em 0; padding: 0.5em 1em; color: #666; }
+a { color: #0066cc; }
+ul, ol { margin-left: 1.5em; }
 </style>
 </head>
 <body>
