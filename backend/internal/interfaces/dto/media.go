@@ -389,6 +389,7 @@ type LlmModelsResponse struct {
 // LlmOcrRequest for POST /api/llm/recognize
 type LlmOcrRequest struct {
 	ImagePath string `json:"imagePath" binding:"required"`
+	Force     bool   `json:"force"`
 }
 
 // LlmOcrResponse for POST /api/llm/recognize
@@ -413,4 +414,15 @@ type LlmOcrDataResponse struct {
 	Success          bool   `json:"success,omitempty"`
 	Error            string `json:"error,omitempty"`
 	CreatedAt        string `json:"createdAt,omitempty"`
+}
+
+// LlmRecognizeStatusResponse for GET /api/llm/recognize-status
+type LlmRecognizeStatusResponse struct {
+	Status           string `json:"status"` // "processing", "completed", "failed", "not_found"
+	MarkdownContent  string `json:"markdownContent,omitempty"`
+	Language         string `json:"language,omitempty"`
+	Provider         string `json:"provider,omitempty"`
+	Model            string `json:"model,omitempty"`
+	ProcessingTimeMs int    `json:"processingTimeMs,omitempty"`
+	Error            string `json:"error,omitempty"`
 }

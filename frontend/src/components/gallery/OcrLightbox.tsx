@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { X, Loader2, Wand2 } from "lucide-react"
 import { useTranslation } from "@/i18n"
-import { fetchOcrData, fetchLlmRecognition, recognizeWithLlm } from "@/api/endpoints"
+import { fetchOcrData, fetchLlmRecognition, recognizeWithLlm, fetchLlmRecognizeStatus } from "@/api/endpoints"
 import type { OcrDataResponse, LlmOcrDataResponse } from "@/types"
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || ""
@@ -68,14 +68,35 @@ export function OcrLightbox({ imagePath, onClose }: OcrLightboxProps) {
     }
   }, [imagePath])
 
-  // Handle recognize button click
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  // Stop polling on unmount or image change
+  useEffect(() => {
+    return () => {
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current)
+        pollingRef.current = null
+      }
+    }
+  }, [imagePath])
+
+  // Handle recognize button click - starts async recognition with polling
   const handleRecognize = useCallback(() => {
     if (!imagePath || recognizing) return
 
+    const hasExistingResult = llmData?.found && llmData.success
     setRecognizing(true)
-    recognizeWithLlm({ imagePath })
+
+    // Stop any existing polling
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current)
+      pollingRef.current = null
+    }
+
+    recognizeWithLlm({ imagePath, force: hasExistingResult || undefined })
       .then((result) => {
-        if (result.success) {
+        // If the backend returned a cached result (status 200 with success)
+        if (result.status === "completed" && result.markdownContent) {
           setLlmData({
             found: true,
             markdownContent: result.markdownContent,
@@ -85,7 +106,52 @@ export function OcrLightbox({ imagePath, onClose }: OcrLightboxProps) {
             processingTimeMs: result.processingTimeMs,
             success: true,
           })
+          setRecognizing(false)
+          return
         }
+
+        // Start polling for async task status
+        const currentPath = imagePath
+        pollingRef.current = setInterval(() => {
+          fetchLlmRecognizeStatus(currentPath)
+            .then((status) => {
+              if (status.status === "completed") {
+                if (pollingRef.current) {
+                  clearInterval(pollingRef.current)
+                  pollingRef.current = null
+                }
+                setLlmData({
+                  found: true,
+                  markdownContent: status.markdownContent,
+                  language: status.language,
+                  provider: status.provider,
+                  model: status.model,
+                  processingTimeMs: status.processingTimeMs,
+                  success: true,
+                })
+                setRecognizing(false)
+              } else if (status.status === "failed") {
+                if (pollingRef.current) {
+                  clearInterval(pollingRef.current)
+                  pollingRef.current = null
+                }
+                setLlmData({
+                  found: false,
+                  error: status.error,
+                  success: false,
+                })
+                setRecognizing(false)
+              }
+              // status === "processing" — keep polling
+            })
+            .catch(() => {
+              if (pollingRef.current) {
+                clearInterval(pollingRef.current)
+                pollingRef.current = null
+              }
+              setRecognizing(false)
+            })
+        }, 2000)
       })
       .catch((err) => {
         console.error("LLM recognition failed:", err)
@@ -94,11 +160,9 @@ export function OcrLightbox({ imagePath, onClose }: OcrLightboxProps) {
           error: err.message,
           success: false,
         })
-      })
-      .finally(() => {
         setRecognizing(false)
       })
-  }, [imagePath, recognizing])
+  }, [imagePath, recognizing, llmData])
 
   // Calculate display dimensions when image loads
   const handleImageLoad = useCallback(() => {

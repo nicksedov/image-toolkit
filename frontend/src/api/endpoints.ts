@@ -41,7 +41,7 @@ import type {
   LlmSettingsDTO,
   UpdateLlmSettingsRequest,
   LlmOcrRequest,
-  LlmOcrResponse,
+  LlmRecognizeStatusResponse,
   LlmOcrDataResponse,
   LlmModelsResponse,
 } from "@/types"
@@ -279,8 +279,12 @@ export function updateLlmSettings(req: UpdateLlmSettingsRequest): Promise<{ mess
   return apiPut<{ message: string }>("/api/llm/settings", req)
 }
 
-export function recognizeWithLlm(req: LlmOcrRequest): Promise<LlmOcrResponse> {
-  return apiPost<LlmOcrResponse>("/api/llm/recognize", req)
+export function recognizeWithLlm(req: LlmOcrRequest): Promise<LlmRecognizeStatusResponse> {
+  return apiPost<LlmRecognizeStatusResponse>("/api/llm/recognize", req)
+}
+
+export function fetchLlmRecognizeStatus(path: string): Promise<LlmRecognizeStatusResponse> {
+  return apiGet<LlmRecognizeStatusResponse>("/api/llm/recognize-status", { path })
 }
 
 export function fetchLlmRecognition(path: string): Promise<LlmOcrDataResponse> {

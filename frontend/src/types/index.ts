@@ -430,6 +430,7 @@ export interface UpdateLlmSettingsRequest {
 
 export interface LlmOcrRequest {
   imagePath: string
+  force?: boolean
 }
 
 export interface LlmOcrResponse {
@@ -439,6 +440,16 @@ export interface LlmOcrResponse {
   provider: string
   model: string
   processingTimeMs: number
+  error?: string
+}
+
+export interface LlmRecognizeStatusResponse {
+  status: "processing" | "completed" | "failed" | "not_found"
+  markdownContent?: string
+  language?: string
+  provider?: string
+  model?: string
+  processingTimeMs?: number
   error?: string
 }
 

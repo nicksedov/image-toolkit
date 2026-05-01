@@ -1507,7 +1507,7 @@ func (s *Server) handleUpdateLlmSettings(c *gin.Context) {
 	c.JSON(http.StatusOK, map[string]string{"message": string(i18n.MsgLlmOcrSettingsSaved)})
 }
 
-// handleLlmRecognize starts LLM-based OCR recognition
+// handleLlmRecognize starts LLM-based OCR recognition asynchronously
 func (s *Server) handleLlmRecognize(c *gin.Context) {
 	var req dto.LlmOcrRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -1529,12 +1529,12 @@ func (s *Server) handleLlmRecognize(c *gin.Context) {
 		return
 	}
 
-	// Check if already recognized
-	if s.llmOcrService != nil {
+	// Check if already recognized (return cached result unless force re-recognition)
+	if !req.Force && s.llmOcrService != nil {
 		existing, _ := s.llmOcrService.GetRecognition(imageFile.ID)
 		if existing != nil && existing.Success {
-			c.JSON(http.StatusOK, dto.LlmOcrResponse{
-				Success:          true,
+			c.JSON(http.StatusOK, dto.LlmRecognizeStatusResponse{
+				Status:           "completed",
 				MarkdownContent:  existing.MarkdownContent,
 				Language:         existing.Language,
 				Provider:         existing.Provider,
@@ -1552,30 +1552,87 @@ func (s *Server) handleLlmRecognize(c *gin.Context) {
 		return
 	}
 
-	// Perform recognition
+	// Start async recognition
 	if s.llmOcrService == nil {
 		c.JSON(http.StatusServiceUnavailable, i18n.ErrorResponse(i18n.MsgLlmOcrRecognitionFailed))
 		return
 	}
 
-	result, err := s.llmOcrService.RecognizeWithLlm(imageFile.ID, llmClient, settings)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, dto.LlmOcrResponse{
-			Success: false,
-			Error:   err.Error(),
+	started := s.llmOcrService.StartRecognizeAsync(imageFile.ID, llmClient, settings)
+	if started {
+		c.JSON(http.StatusAccepted, dto.LlmRecognizeStatusResponse{
+			Status: "processing",
 		})
+	} else {
+		// Already processing this image
+		c.JSON(http.StatusAccepted, dto.LlmRecognizeStatusResponse{
+			Status: "processing",
+		})
+	}
+}
+
+// handleLlmRecognizeStatus returns the status of an async LLM recognition task
+func (s *Server) handleLlmRecognizeStatus(c *gin.Context) {
+	imagePath := c.Query("path")
+	if imagePath == "" {
+		c.JSON(http.StatusBadRequest, i18n.ErrorResponse(i18n.MsgOcrImagePathRequired))
 		return
 	}
 
-	c.JSON(http.StatusOK, dto.LlmOcrResponse{
-		Success:          result.Success,
-		MarkdownContent:  result.MarkdownContent,
-		Language:         result.Language,
-		Provider:         result.Provider,
-		Model:            result.Model,
-		ProcessingTimeMs: result.ProcessingTimeMs,
-		Error:            result.Error,
-	})
+	// Get image file ID
+	var imageFile domain.ImageFile
+	if err := s.db.Where("path = ?", imagePath).First(&imageFile).Error; err != nil {
+		c.JSON(http.StatusNotFound, i18n.ErrorResponse(i18n.MsgOcrDataNotFound))
+		return
+	}
+
+	if s.llmOcrService == nil {
+		c.JSON(http.StatusOK, dto.LlmRecognizeStatusResponse{Status: "not_found"})
+		return
+	}
+
+	taskStatus := s.llmOcrService.GetRecognizeStatus(imageFile.ID)
+	if taskStatus == nil {
+		// No active task — check if there's a result in DB
+		existing, _ := s.llmOcrService.GetRecognition(imageFile.ID)
+		if existing != nil && existing.Success {
+			c.JSON(http.StatusOK, dto.LlmRecognizeStatusResponse{
+				Status:           "completed",
+				MarkdownContent:  existing.MarkdownContent,
+				Language:         existing.Language,
+				Provider:         existing.Provider,
+				Model:            existing.Model,
+				ProcessingTimeMs: existing.ProcessingTimeMs,
+			})
+			return
+		}
+		c.JSON(http.StatusOK, dto.LlmRecognizeStatusResponse{Status: "not_found"})
+		return
+	}
+
+	switch taskStatus.Status {
+	case "processing":
+		c.JSON(http.StatusOK, dto.LlmRecognizeStatusResponse{Status: "processing"})
+	case "completed":
+		resp := dto.LlmRecognizeStatusResponse{
+			Status: "completed",
+		}
+		if taskStatus.Result != nil {
+			resp.MarkdownContent = taskStatus.Result.MarkdownContent
+			resp.Language = taskStatus.Result.Language
+			resp.Provider = taskStatus.Result.Provider
+			resp.Model = taskStatus.Result.Model
+			resp.ProcessingTimeMs = taskStatus.Result.ProcessingTimeMs
+		}
+		c.JSON(http.StatusOK, resp)
+	case "failed":
+		c.JSON(http.StatusOK, dto.LlmRecognizeStatusResponse{
+			Status: "failed",
+			Error:  taskStatus.Error,
+		})
+	default:
+		c.JSON(http.StatusOK, dto.LlmRecognizeStatusResponse{Status: "not_found"})
+	}
 }
 
 // handleGetLlmRecognition retrieves LLM OCR recognition for an image

@@ -3,6 +3,7 @@ package imaging
 import (
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"image-toolkit/internal/domain"
@@ -11,14 +12,26 @@ import (
 	"gorm.io/gorm"
 )
 
+// LlmRecognitionStatus represents the status of an async recognition task
+type LlmRecognitionStatus struct {
+	Status string           // "processing", "completed", "failed"
+	Result *RecognizeResult // non-nil when Status == "completed"
+	Error  string           // non-empty when Status == "failed"
+}
+
 // LlmOcrService handles VL LLM-based OCR recognition
 type LlmOcrService struct {
-	db *gorm.DB
+	db              *gorm.DB
+	processingTasks map[uint]*LlmRecognitionStatus
+	taskMu          sync.Mutex
 }
 
 // NewLlmOcrService creates a new LLM OCR service
 func NewLlmOcrService(db *gorm.DB) *LlmOcrService {
-	return &LlmOcrService{db: db}
+	return &LlmOcrService{
+		db:              db,
+		processingTasks: make(map[uint]*LlmRecognitionStatus),
+	}
 }
 
 // RecognizeResult holds the result of LLM recognition
@@ -105,6 +118,59 @@ func (s *LlmOcrService) RecognizeWithLlm(imageFileID uint, client llm.Client, se
 		ProcessingTimeMs: processingTime,
 		Error:            "",
 	}, nil
+}
+
+// StartRecognizeAsync starts LLM recognition in a background goroutine.
+// Returns true if a new task was started, false if already processing.
+func (s *LlmOcrService) StartRecognizeAsync(imageFileID uint, client llm.Client, settings domain.LlmSettings) bool {
+	s.taskMu.Lock()
+	defer s.taskMu.Unlock()
+
+	if task, exists := s.processingTasks[imageFileID]; exists && task.Status == "processing" {
+		return false // already processing
+	}
+
+	s.processingTasks[imageFileID] = &LlmRecognitionStatus{Status: "processing"}
+
+	go func() {
+		result, err := s.RecognizeWithLlm(imageFileID, client, settings)
+
+		s.taskMu.Lock()
+		defer s.taskMu.Unlock()
+
+		if err != nil {
+			s.processingTasks[imageFileID] = &LlmRecognitionStatus{
+				Status: "failed",
+				Error:  err.Error(),
+			}
+		} else {
+			s.processingTasks[imageFileID] = &LlmRecognitionStatus{
+				Status: "completed",
+				Result: result,
+			}
+		}
+	}()
+
+	return true
+}
+
+// GetRecognizeStatus returns the current async task status for an image.
+// Returns nil if no task exists for this image.
+func (s *LlmOcrService) GetRecognizeStatus(imageFileID uint) *LlmRecognitionStatus {
+	s.taskMu.Lock()
+	defer s.taskMu.Unlock()
+
+	task, exists := s.processingTasks[imageFileID]
+	if !exists {
+		return nil
+	}
+
+	// Clean up completed/failed tasks after reading
+	if task.Status != "processing" {
+		delete(s.processingTasks, imageFileID)
+	}
+
+	return task
 }
 
 // GetRecognition retrieves LLM OCR recognition for an image

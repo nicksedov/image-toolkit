@@ -81,6 +81,7 @@ func (s *Server) SetupRouter(authMiddleware *middleware.AuthMiddleware, csrfProt
 			protected.GET("/llm/settings", s.handleGetLlmSettings)
 			protected.PUT("/llm/settings", s.handleUpdateLlmSettings)
 			protected.POST("/llm/recognize", s.handleLlmRecognize)
+			protected.GET("/llm/recognize-status", s.handleLlmRecognizeStatus)
 			protected.GET("/llm/recognition", s.handleGetLlmRecognition)
 			protected.GET("/llm/models", s.handleGetLlmModels)
 
