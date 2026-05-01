@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
-import { X, Loader2, Wand2 } from "lucide-react"
+import { X, Loader2, Wand2, Download } from "lucide-react"
 import { useTranslation } from "@/i18n"
 import { fetchOcrData, fetchLlmRecognition, recognizeWithLlm, fetchLlmRecognizeStatus } from "@/api/endpoints"
 import type { OcrDataResponse, LlmOcrDataResponse } from "@/types"
 import ReactMarkdown, { type Components } from "react-markdown"
+import remarkGfm from "remark-gfm"
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || ""
 
@@ -219,6 +220,75 @@ export function OcrLightbox({ imagePath, onClose }: OcrLightboxProps) {
     return t("llm_ocr.seconds", { seconds: (ms / 1000).toFixed(1) })
   }
 
+  // Extract filename from image path
+  const getFileName = () => {
+    if (!imagePath) return "document"
+    const base = imagePath.split(/[\\/]/).pop() || "document"
+    return base.replace(/\.[^.]+$/, "")
+  }
+
+  // Save as markdown file
+  const handleSaveMd = useCallback(() => {
+    if (!llmData?.markdownContent) return
+    const blob = new Blob([llmData.markdownContent], { type: "text/markdown" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `${getFileName()}.md`
+    a.click()
+    URL.revokeObjectURL(url)
+  }, [llmData, imagePath])
+
+  // Save as HTML file
+  const handleSaveHtml = useCallback(() => {
+    if (!llmData?.markdownContent) return
+    
+    // Simple markdown to HTML conversion
+    let html = llmData.markdownContent
+      // Headers
+      .replace(/^### (.+)$/gm, "<h3>$1</h3>")
+      .replace(/^## (.+)$/gm, "<h2>$1</h2>")
+      .replace(/^# (.+)$/gm, "<h1>$1</h1>")
+      // Bold and italic
+      .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+      .replace(/\*(.+?)\*/g, "<em>$1</em>")
+      // Line breaks
+      .replace(/\n\n/g, "</p><p>")
+      .replace(/\n/g, "<br>")
+    
+    html = `<p>${html}</p>`
+      .replace(/<p><h/g, "<h")
+      .replace(/<\/h1><\/p>/g, "</h1>")
+      .replace(/<\/h2><\/p>/g, "</h2>")
+      .replace(/<\/h3><\/p>/g, "</h3>")
+
+    const fullHtml = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${getFileName()}</title>
+<style>
+body { font-family: system-ui, -apple-system, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; }
+table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+th { background: #f5f5f5; font-weight: bold; }
+</style>
+</head>
+<body>
+${html}
+</body>
+</html>`
+
+    const blob = new Blob([fullHtml], { type: "text/html" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `${getFileName()}.html`
+    a.click()
+    URL.revokeObjectURL(url)
+  }, [llmData, imagePath])
+
   return (
     <Dialog open={imagePath !== null} onOpenChange={() => handleClose()}>
       <DialogContent className="max-w-[95vw] w-[95vw] h-[90vh] p-0 bg-black/95 border-0 flex flex-col">
@@ -287,7 +357,7 @@ export function OcrLightbox({ imagePath, onClose }: OcrLightboxProps) {
           </div>
 
           {/* Right panel - 50% width */}
-          <div className="w-[50%] bg-card border-l p-4 h-full overflow-y-auto">
+          <div className="w-[50%] bg-card border-l p-4 h-full flex flex-col">
             {recognizing ? (
               <div className="flex flex-col items-center justify-center h-full">
                 <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
@@ -295,47 +365,69 @@ export function OcrLightbox({ imagePath, onClose }: OcrLightboxProps) {
               </div>
             ) : llmData?.found && llmData.success && llmData.markdownContent ? (
               /* LLM recognition result */
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold">{t("llm_ocr.title")}</h3>
-                  <button
-                    onClick={handleRecognize}
-                    className="flex items-center gap-2 px-3 py-1.5 text-sm bg-primary text-primary-foreground rounded hover:bg-primary/90"
-                  >
-                    <Wand2 className="h-4 w-4" />
-                    {t("llm_ocr.recognizeButton")}
-                  </button>
-                </div>
+              <div className="flex flex-col h-full">
+                <div className="flex-shrink-0 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold">{t("llm_ocr.title")}</h3>
+                    <button
+                      onClick={handleRecognize}
+                      className="flex items-center gap-2 px-3 py-1.5 text-sm bg-primary text-primary-foreground rounded hover:bg-primary/90"
+                    >
+                      <Wand2 className="h-4 w-4" />
+                      {t("llm_ocr.recognizeButton")}
+                    </button>
+                  </div>
 
-                {/* Metadata */}
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">{t("llm_ocr.language")}:</span>
-                    <span className="font-medium">{llmData.language === "ru" ? "Русский" : "English"}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">{t("llm_ocr.provider")}:</span>
-                    <span className="font-medium">{llmData.provider}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">{t("llm_ocr.model")}:</span>
-                    <span className="font-medium">{llmData.model}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">{t("llm_ocr.processingTime")}:</span>
-                    <span className="font-medium">{formatProcessingTime(llmData.processingTimeMs)}</span>
-                  </div>
-                  {imagePath && (
-                    <div>
-                      <span className="text-muted-foreground">{t("llm_ocr.filePath")}:</span>
-                      <p className="text-xs break-all mt-1">{imagePath}</p>
+                  {/* Metadata */}
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">{t("llm_ocr.language")}:</span>
+                      <span className="font-medium">{llmData.language === "ru" ? "Русский" : "English"}</span>
                     </div>
-                  )}
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">{t("llm_ocr.provider")}:</span>
+                      <span className="font-medium">{llmData.provider}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">{t("llm_ocr.model")}:</span>
+                      <span className="font-medium">{llmData.model}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">{t("llm_ocr.processingTime")}:</span>
+                      <span className="font-medium">{formatProcessingTime(llmData.processingTimeMs)}</span>
+                    </div>
+                    {imagePath && (
+                      <div>
+                        <span className="text-muted-foreground">{t("llm_ocr.filePath")}:</span>
+                        <p className="text-xs break-all mt-1">{imagePath}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Save buttons */}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleSaveMd}
+                      className="flex items-center gap-2 px-3 py-1.5 text-sm bg-primary/10 hover:bg-primary/20 text-primary rounded transition-colors"
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      Save as .md
+                    </button>
+                    <button
+                      onClick={handleSaveHtml}
+                      className="flex items-center gap-2 px-3 py-1.5 text-sm bg-primary/10 hover:bg-primary/20 text-primary rounded transition-colors"
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      Save as .html
+                    </button>
+                  </div>
                 </div>
 
-                {/* Markdown content */}
-                <div className="mt-4 p-4 bg-muted rounded-lg markdown-body">
+                {/* Scrollable markdown container */}
+                <div className="flex-1 mt-4 overflow-y-auto min-h-0">
+                  <div className="p-4 bg-muted rounded-lg markdown-body">
                   <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
                     components={
                       {
                         h1: (props) => <h1 className="text-xl font-bold mt-4 mb-2" {...props} />,
@@ -365,6 +457,7 @@ export function OcrLightbox({ imagePath, onClose }: OcrLightboxProps) {
                   >
                     {llmData.markdownContent}
                   </ReactMarkdown>
+                  </div>
                 </div>
               </div>
             ) : llmData?.error ? (
