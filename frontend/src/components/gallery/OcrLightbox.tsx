@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
+import { VisuallyHidden } from "@radix-ui/react-visually-hidden"
+import { Button } from "@/components/ui/button"
 import { X, Loader2, Wand2, Download } from "lucide-react"
 import { useTranslation } from "@/i18n"
 import { fetchOcrData, fetchLlmRecognition, recognizeWithLlm, fetchLlmRecognizeStatus } from "@/api/endpoints"
