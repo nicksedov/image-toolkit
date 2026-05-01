@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { X, Loader2, Wand2 } from "lucide-react"
 import { useTranslation } from "@/i18n"
 import { fetchOcrData, fetchLlmRecognition, recognizeWithLlm, fetchLlmRecognizeStatus } from "@/api/endpoints"
@@ -218,6 +218,9 @@ export function OcrLightbox({ imagePath, onClose }: OcrLightboxProps) {
           <DialogTitle className="text-white text-lg">
             {t("lightbox.ocrTitle")}
           </DialogTitle>
+          <DialogDescription className="sr-only">
+            {t("lightbox.ocrDescription")}
+          </DialogDescription>
         </DialogHeader>
 
         <button

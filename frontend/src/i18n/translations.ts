@@ -126,6 +126,7 @@ export const translations = {
 
     // Image lightbox
     "lightbox.title": "Image preview",
+    "lightbox.description": "View image with metadata",
     "lightbox.alt": "Full size preview",
 
     // Metadata panel
@@ -431,6 +432,7 @@ export const translations = {
 
     // OCR lightbox
     "lightbox.ocrTitle": "OCR Document Preview",
+    "lightbox.ocrDescription": "Preview OCR recognized text and document image",
     "lightbox.ocrAngle": "Detected angle: {angle}°",
     "lightbox.ocrConfidence": "Confidence: {confidence}",
     "lightbox.ocrTokens": "Tokens: {count}",
@@ -610,6 +612,7 @@ export const translations = {
 
     // Image lightbox
     "lightbox.title": "Просмотр изображения",
+    "lightbox.description": "Просмотр изображения с метаданными",
     "lightbox.alt": "Полноразмерный просмотр",
 
     // Metadata panel

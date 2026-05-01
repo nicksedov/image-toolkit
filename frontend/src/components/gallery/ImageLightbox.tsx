@@ -2,6 +2,7 @@ import {
   Dialog,
   DialogContent,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog"
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden"
 import { Button } from "@/components/ui/button"
@@ -31,6 +32,7 @@ export function ImageLightbox({ imagePath, onClose }: ImageLightboxProps) {
       <DialogContent className="max-w-[95vw] max-h-[90vh] p-0 overflow-hidden">
         <VisuallyHidden>
           <DialogTitle>{t("lightbox.title")}</DialogTitle>
+          <DialogDescription>{t("lightbox.description")}</DialogDescription>
         </VisuallyHidden>
         <Button
           variant="ghost"
