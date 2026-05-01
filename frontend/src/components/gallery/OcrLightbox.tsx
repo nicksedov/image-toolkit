@@ -336,28 +336,28 @@ export function OcrLightbox({ imagePath, onClose }: OcrLightboxProps) {
                 <div className="mt-4 p-4 bg-muted rounded-lg markdown-body">
                   <ReactMarkdown
                     components={{
-                      h1: ({ children }) => <h1 className="text-xl font-bold mt-4 mb-2">{children}</h1>,
-                      h2: ({ children }) => <h2 className="text-lg font-bold mt-3 mb-2">{children}</h2>,
-                      h3: ({ children }) => <h3 className="text-base font-bold mt-2 mb-1">{children}</h3>,
-                      p: ({ children }) => <p className="mb-2 leading-relaxed">{children}</p>,
-                      ul: ({ children }) => <ul className="list-disc list-inside mb-2 space-y-1">{children}</ul>,
-                      ol: ({ children }) => <ol className="list-decimal list-inside mb-2 space-y-1">{children}</ol>,
-                      li: ({ children }) => <li className="text-sm">{children}</li>,
-                      code: ({ className, children }) => {
+                      h1: (props) => <h1 className="text-xl font-bold mt-4 mb-2" {...props} />,
+                      h2: (props) => <h2 className="text-lg font-bold mt-3 mb-2" {...props} />,
+                      h3: (props) => <h3 className="text-base font-bold mt-2 mb-1" {...props} />,
+                      p: (props) => <p className="mb-2 leading-relaxed" {...props} />,
+                      ul: (props) => <ul className="list-disc list-inside mb-2 space-y-1" {...props} />,
+                      ol: (props) => <ol className="list-decimal list-inside mb-2 space-y-1" {...props} />,
+                      li: (props) => <li className="text-sm" {...props} />,
+                      code: ({ className, ...props }) => {
                         const isInline = !className
                         return isInline
-                          ? <code className="bg-muted-foreground/20 px-1.5 py-0.5 rounded text-sm font-mono">{children}</code>
-                          : <code className="block bg-muted-foreground/20 p-2 rounded text-sm font-mono overflow-x-auto">{children}</code>
+                          ? <code className="bg-muted-foreground/20 px-1.5 py-0.5 rounded text-sm font-mono" {...props} />
+                          : <code className="block bg-muted-foreground/20 p-2 rounded text-sm font-mono overflow-x-auto" {...props} />
                       },
-                      blockquote: ({ children }) => <blockquote className="border-l-4 border-primary pl-3 italic my-2">{children}</blockquote>,
-                      table: ({ children }) => <table className="min-w-full border-collapse border border-border my-2">{children}</table>,
-                      th: ({ children }) => <th className="border border-border px-3 py-1.5 font-semibold text-left">{children}</th>,
-                      td: ({ children }) => <td className="border border-border px-3 py-1.5">{children}</td>,
-                      a: ({ href, children }) => <a href={href} className="text-primary underline hover:opacity-80">{children}</a>,
-                      strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
-                      em: ({ children }) => <em className="italic">{children}</em>,
-                      hr: () => <hr className="border-border my-3" />,
-                      img: ({ src, alt }) => <img src={src} alt={alt} className="max-w-full h-auto rounded my-2" />,
+                      blockquote: (props) => <blockquote className="border-l-4 border-primary pl-3 italic my-2" {...props} />,
+                      table: (props) => <table className="min-w-full border-collapse border border-border my-2" {...props} />,
+                      th: (props) => <th className="border border-border px-3 py-1.5 font-semibold text-left" {...props} />,
+                      td: (props) => <td className="border border-border px-3 py-1.5" {...props} />,
+                      a: (props) => <a className="text-primary underline hover:opacity-80" {...props} />,
+                      strong: (props) => <strong className="font-semibold" {...props} />,
+                      em: (props) => <em className="italic" {...props} />,
+                      hr: (props) => <hr className="border-border my-3" {...props} />,
+                      img: (props) => <img className="max-w-full h-auto rounded my-2" {...props} />,
                     }}
                   >
                     {llmData.markdownContent}
