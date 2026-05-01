@@ -6,17 +6,17 @@ import (
 	"fmt"
 	"image"
 	"image/jpeg"
-	"image/png"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 
+	"github.com/deepteams/webp"
 	"github.com/disintegration/imaging"
 )
 
 const (
-	maxThumbnailSize = 192
+	maxThumbnailSize = 384
 )
 
 // ThumbnailCache stores generated thumbnails in memory
@@ -80,12 +80,21 @@ func GenerateThumbnail(imagePath string, cache *ThumbnailCache) (string, error) 
 	thumbnail := imaging.Resize(img, newWidth, newHeight, imaging.Lanczos)
 
 	var buf bytes.Buffer
-	if err := jpeg.Encode(&buf, thumbnail, &jpeg.Options{Quality: 80}); err != nil {
-		return "", fmt.Errorf("failed to encode thumbnail: %w", err)
+	err = webp.Encode(&buf, thumbnail, &webp.Options{Quality: 80})
+	if err != nil {
+		// Fallback to JPEG if WebP encoding fails
+		buf.Reset()
+		if err := jpeg.Encode(&buf, thumbnail, &jpeg.Options{Quality: 85}); err != nil {
+			return "", fmt.Errorf("failed to encode thumbnail: %w", err)
+		}
+		base64Str := base64.StdEncoding.EncodeToString(buf.Bytes())
+		result := "data:image/jpeg;base64," + base64Str
+		cache.Set(imagePath, result)
+		return result, nil
 	}
 
 	base64Str := base64.StdEncoding.EncodeToString(buf.Bytes())
-	result := "data:image/jpeg;base64," + base64Str
+	result := "data:image/webp;base64," + base64Str
 
 	cache.Set(imagePath, result)
 
@@ -111,10 +120,4 @@ func GetImageMimeType(path string) string {
 	default:
 		return "image/jpeg"
 	}
-}
-
-// init registers additional image formats
-func init() {
-	image.RegisterFormat("jpeg", "\xff\xd8", jpeg.Decode, jpeg.DecodeConfig)
-	image.RegisterFormat("png", "\x89PNG\r\n\x1a\n", png.Decode, png.DecodeConfig)
 }

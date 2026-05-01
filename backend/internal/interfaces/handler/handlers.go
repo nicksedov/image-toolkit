@@ -658,7 +658,7 @@ func (s *Server) handleServeOcrImage(c *gin.Context) {
 		return
 	}
 
-	c.Data(http.StatusOK, "image/jpeg", data)
+	c.Data(http.StatusOK, "image/webp", data)
 }
 
 // --- App Settings Handlers ---

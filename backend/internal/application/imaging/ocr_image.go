@@ -8,11 +8,12 @@ import (
 	"image/jpeg"
 	"os"
 
+	"github.com/deepteams/webp"
 	"github.com/disintegration/imaging"
 )
 
 // PrepareOcrImage opens an image, scales it by scaleFactor and rotates
-// clockwise by the given angle (in degrees). Returns JPEG-encoded bytes.
+// clockwise by the given angle (in degrees). Returns WebP-encoded bytes.
 func PrepareOcrImage(imagePath string, scaleFactor float64, angle float64) ([]byte, error) {
 	file, err := os.Open(imagePath)
 	if err != nil {
@@ -40,8 +41,14 @@ func PrepareOcrImage(imagePath string, scaleFactor float64, angle float64) ([]by
 	}
 
 	var buf bytes.Buffer
-	if err := jpeg.Encode(&buf, img, &jpeg.Options{Quality: 75}); err != nil {
-		return nil, fmt.Errorf("failed to encode image: %w", err)
+	err = webp.Encode(&buf, img, &webp.Options{Quality: 80})
+	if err != nil {
+		// Fallback to JPEG if WebP encoding fails
+		buf.Reset()
+		if err := jpeg.Encode(&buf, img, &jpeg.Options{Quality: 85}); err != nil {
+			return nil, fmt.Errorf("failed to encode image: %w", err)
+		}
+		return buf.Bytes(), nil
 	}
 
 	return buf.Bytes(), nil
