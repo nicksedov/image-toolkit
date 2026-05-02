@@ -24,10 +24,10 @@ type AppConfig struct {
 	MetadataIntervalMin int
 
 	// OCR classifier configuration
-	OCREnabled         bool
-	OCRHost            string
-	OCRPort            string
-	OCRCheckInterval   int
+	OCREnabled            bool
+	OCRHost               string
+	OCRPort               string
+	OCRCheckInterval      int
 	OCRConcurrentRequests int // Max concurrent OCR requests (default: 4)
 
 	// Auth configuration
@@ -70,26 +70,26 @@ func LoadConfig() *AppConfig {
 	}
 
 	return &AppConfig{
-		DBHost:              getEnv("DB_HOST", "localhost"),
-		DBPort:              getEnv("DB_PORT", "5432"),
-		DBUser:              getEnv("DB_USER", "postgres"),
-		DBPassword:          getEnv("DB_PASSWORD", "postgres"),
-		DBName:              getEnv("DB_NAME", "image_dedup"),
-		ServerHost:          getEnv("SERVER_HOST", "0.0.0.0"),
-		ServerPort:          getEnv("SERVER_PORT", "5170"),
-		CORSOrigins:         origins,
-		ScanWorkers:         scanWorkers,
-		MetadataWorkers:     metadataWorkers,
-		MetadataIntervalMin: metadataInterval,
-		OCREnabled:          getEnv("OCR_ENABLED", "true") == "true",
-		OCRHost:             getEnv("OCR_HOST", "localhost"),
-		OCRPort:             getEnv("OCR_PORT", "8080"),
-		OCRCheckInterval:    getEnvInt("OCR_CHECK_INTERVAL", 10),
+		DBHost:                getEnv("DB_HOST", "localhost"),
+		DBPort:                getEnv("DB_PORT", "5432"),
+		DBUser:                getEnv("DB_USER", "postgres"),
+		DBPassword:            getEnv("DB_PASSWORD", "postgres"),
+		DBName:                getEnv("DB_NAME", "image_dedup"),
+		ServerHost:            getEnv("SERVER_HOST", "0.0.0.0"),
+		ServerPort:            getEnv("SERVER_PORT", "5170"),
+		CORSOrigins:           origins,
+		ScanWorkers:           scanWorkers,
+		MetadataWorkers:       metadataWorkers,
+		MetadataIntervalMin:   metadataInterval,
+		OCREnabled:            getEnv("OCR_ENABLED", "true") == "true",
+		OCRHost:               getEnv("OCR_HOST", "localhost"),
+		OCRPort:               getEnv("OCR_PORT", "8080"),
+		OCRCheckInterval:      getEnvInt("OCR_CHECK_INTERVAL", 10),
 		OCRConcurrentRequests: getEnvInt("OCR_CONCURRENT_REQUESTS", 4),
-		BootstrapLogin:      getEnv("BOOTSTRAP_LOGIN", "admin"),
-		BootstrapPassword:   getEnv("BOOTSTRAP_PASSWORD", "admin"),
-		SessionIdleHours:    getEnvInt("SESSION_IDLE_HOURS", 720),   // 30 days
-		SessionAbsoluteDays: getEnvInt("SESSION_ABSOLUTE_DAYS", 90), // 90 days
+		BootstrapLogin:        getEnv("BOOTSTRAP_LOGIN", "admin"),
+		BootstrapPassword:     getEnv("BOOTSTRAP_PASSWORD", "admin"),
+		SessionIdleHours:      getEnvInt("SESSION_IDLE_HOURS", 720),   // 30 days
+		SessionAbsoluteDays:   getEnvInt("SESSION_ABSOLUTE_DAYS", 90), // 90 days
 	}
 }
 
