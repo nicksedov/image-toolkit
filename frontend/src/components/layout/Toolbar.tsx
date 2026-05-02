@@ -1,4 +1,4 @@
-import { Button } from "@/components/ui/button"
+import { IconButton } from "@/components/ui/icon-button"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { PAGE_SIZES } from "@/lib/constants"
@@ -30,22 +30,18 @@ export function Toolbar({
 
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-card p-3">
-      <Button size="sm" onClick={onRescan} disabled={isScanning}>
-        <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${isScanning ? "animate-spin" : ""}`} />
+      <IconButton size="sm" icon={RefreshCw} onClick={onRescan} disabled={isScanning}>
         {t("toolbar.rescan")}
-      </Button>
-      <Button size="sm" variant="outline" onClick={onResetSelection}>
-        <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+      </IconButton>
+      <IconButton size="sm" variant="outline" icon={RotateCcw} onClick={onResetSelection}>
         {t("toolbar.resetSelection")}
-      </Button>
-      <Button size="sm" variant="destructive" onClick={onOpenDeleteFiles} disabled={selectedCount === 0}>
-        <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+      </IconButton>
+      <IconButton size="sm" variant="destructive" icon={Trash2} onClick={onOpenDeleteFiles} disabled={selectedCount === 0}>
         {t("toolbar.deleteSelected")}
-      </Button>
-      <Button size="sm" variant="outline" onClick={onOpenBatchDedup}>
-        <Layers className="mr-1.5 h-3.5 w-3.5" />
+      </IconButton>
+      <IconButton size="sm" variant="outline" icon={Layers} onClick={onOpenBatchDedup}>
         {t("toolbar.batchDedup")}
-      </Button>
+      </IconButton>
 
       <div className="ml-auto flex items-center gap-3">
         {selectedCount > 0 && (

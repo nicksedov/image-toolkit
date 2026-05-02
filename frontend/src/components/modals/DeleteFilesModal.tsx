@@ -1,10 +1,8 @@
 import { useState } from "react"
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
-} from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Label } from "@/components/ui/label"
 import { deleteFiles } from "@/api/endpoints"
 import { useSettings } from "@/providers/useSettings"
 import { useTranslation } from "@/i18n"
@@ -45,12 +43,10 @@ export function DeleteFilesModal({
         trashDir: useTrash ? trashDir : "",
       })
       onOpenChange(false)
-      let message: string
-      if (result.failed > 0) {
-        message = t("deleteFiles.successWithFailed", { count: result.success, failed: result.failed })
-      } else {
-        message = t("deleteFiles.success", { count: result.success })
-      }
+      const message =
+        result.failed > 0
+          ? t("deleteFiles.successWithFailed", { count: result.success, failed: result.failed })
+          : t("deleteFiles.success", { count: result.success })
       onSuccess(message)
       onComplete()
     } catch (err) {
@@ -90,7 +86,9 @@ export function DeleteFilesModal({
           )}
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>{t("common.cancel")}</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
+            {t("common.cancel")}
+          </Button>
           <Button variant="destructive" onClick={handleDelete} disabled={isSubmitting}>
             {isSubmitting ? t("deleteFiles.deleting") : t("deleteFiles.button")}
           </Button>

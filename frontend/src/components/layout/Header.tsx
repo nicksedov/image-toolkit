@@ -1,8 +1,8 @@
 import { useTranslation } from "@/i18n"
 import { useAuth } from "@/providers/AuthProvider"
 import { LogOut, User } from "lucide-react"
-import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { IconButton } from "@/components/ui/icon-button"
 
 export function Header() {
   const { t } = useTranslation()
@@ -20,15 +20,14 @@ export function Header() {
                 {user.role === "admin" ? t("adminPanel.roleAdmin") : t("adminPanel.roleUser")}
               </Badge>
             </div>
-            <Button
+            <IconButton
               variant="ghost"
               size="sm"
+              icon={LogOut}
               onClick={logout}
-              className="gap-1.5"
             >
-              <LogOut className="h-4 w-4" />
-              <span>{t("adminPanel.logout")}</span>
-            </Button>
+              {t("adminPanel.logout")}
+            </IconButton>
           </>
         )}
       </div>

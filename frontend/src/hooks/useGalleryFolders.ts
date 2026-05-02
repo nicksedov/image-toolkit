@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react"
 import { fetchFolders, addFolder, removeFolder } from "@/api/endpoints"
-import type { GalleryFolderDTO } from "@/types"
+import type { GalleryFolderDTO, AddFolderResponse, RemoveFolderResponse } from "@/types"
 
 export function useGalleryFolders() {
   const [folders, setFolders] = useState<GalleryFolderDTO[]>([])
@@ -25,7 +25,7 @@ export function useGalleryFolders() {
   }, [load])
 
   const add = useCallback(
-    async (path: string) => {
+    async (path: string): Promise<AddFolderResponse> => {
       const result = await addFolder({ path })
       await load()
       return result
@@ -34,7 +34,7 @@ export function useGalleryFolders() {
   )
 
   const remove = useCallback(
-    async (id: number) => {
+    async (id: number): Promise<RemoveFolderResponse> => {
       const result = await removeFolder(id)
       await load()
       return result
