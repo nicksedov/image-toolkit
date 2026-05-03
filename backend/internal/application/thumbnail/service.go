@@ -373,15 +373,22 @@ func (s *Service) UpdateCachePath(newPath string) error {
 
 	// Если путь не изменился, просто обновляем статистику
 	if oldPath == newPath {
-		s.cfg.CacheDir = newPath
+		s.updateStats()
 		return nil
 	}
 
-	// Копируем файлы из старого места в новое
+	// Перемещаем файлы из старого хранилища в новое
 	if err := s.moveCacheTo(newPath); err != nil {
 		return err
 	}
 
+	// Создаем новое хранилище и заменяем старое
+	newStorage, err := NewThumbnailCacheStorage(newPath)
+	if err != nil {
+		return &ErrCacheInitFailed{Path: newPath, Err: err}
+	}
+
+	s.storage = newStorage
 	s.cfg.CacheDir = newPath
 	s.cfg.Enabled = true
 	s.initialized = true
@@ -392,27 +399,32 @@ func (s *Service) UpdateCachePath(newPath string) error {
 
 // moveCacheTo перемещает кэш в новое место
 func (s *Service) moveCacheTo(newPath string) error {
+	oldPath := s.cfg.CacheDir
+
+	// Если старый путь пустой, ничего не перемещаем
+	if oldPath == "" {
+		return nil
+	}
+
+	// Проверяем, существует ли старая директория
+	if _, err := os.Stat(oldPath); os.IsNotExist(err) {
+		// Старая директория не существует, просто создаем новую
+		if err := os.MkdirAll(newPath, 0755); err != nil {
+			return &ErrCacheInitFailed{Path: newPath, Err: err}
+		}
+		return nil
+	}
+
 	// Получаем список файлов в текущем кэше
 	files, err := s.storage.ListFiles()
 	if err != nil {
-		return &ErrCacheReadFailed{Path: s.cfg.CacheDir, Err: err}
-	}
-
-	// Создаем новое хранилище
-	_, err = NewThumbnailCacheStorage(newPath)
-	if err != nil {
-		return &ErrCacheInitFailed{Path: newPath, Err: err}
+		// Если не удалось получить список файлов, пробуем продолжить
+		// Возможно, кэш пустой или структура не создана
+		files = []string{}
 	}
 
 	// Перемещаем каждый файл
 	for _, srcPath := range files {
-		// Получаем имя файла
-		filename := filepath.Base(srcPath)
-
-		// Вычисляем путь в новом хранилище
-		// Имя файла - это хеш, который уже содержит информацию о подпапке
-		// Мы просто копируем его в новое место
-
 		// Считываем содержимое
 		data, err := os.ReadFile(srcPath)
 		if err != nil {
@@ -421,7 +433,7 @@ func (s *Service) moveCacheTo(newPath string) error {
 		}
 
 		// Записываем в новое место
-		dstPath := filepath.Join(newPath, filepath.Base(filepath.Dir(srcPath)), filename)
+		dstPath := filepath.Join(newPath, filepath.Base(filepath.Dir(srcPath)), filepath.Base(srcPath))
 		if err := os.MkdirAll(filepath.Dir(dstPath), 0755); err != nil {
 			continue
 		}
@@ -431,15 +443,11 @@ func (s *Service) moveCacheTo(newPath string) error {
 		}
 
 		// Удаляем старый файл после успешного копирования
-		if err := os.Remove(srcPath); err != nil {
-			// Логируем ошибку, но продолжаем
-			continue
-		}
+		os.Remove(srcPath)
 	}
 
 	// Удаляем старую папку кэша (она должна быть пустой после перемещения файлов)
-	// Очищаем только пустые подпапки второго уровня
-	s.cleanupEmptyDirs(s.cfg.CacheDir)
+	s.cleanupEmptyDirs(oldPath)
 
 	return nil
 }
