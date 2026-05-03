@@ -37,10 +37,10 @@ type AppConfig struct {
 	SessionAbsoluteDays int
 
 	// Thumbnail cache configuration
-	ThumbnailCacheEnabled    bool
-	ThumbnailCachePath       string
-	ThumbnailCacheMaxSize    int
-	ThumbnailCacheQuality    int
+	ThumbnailCacheEnabled       bool
+	ThumbnailCachePath          string
+	ThumbnailCacheMaxSize       int
+	ThumbnailCacheQuality       int
 	ThumbnailCachePreloadOnScan bool
 
 	// Background sync configuration
@@ -81,33 +81,33 @@ func LoadConfig() *AppConfig {
 	}
 
 	return &AppConfig{
-		DBHost:                getEnv("DB_HOST", "localhost"),
-		DBPort:                getEnv("DB_PORT", "5432"),
-		DBUser:                getEnv("DB_USER", "postgres"),
-		DBPassword:            getEnv("DB_PASSWORD", "postgres"),
-		DBName:                getEnv("DB_NAME", "image_dedup"),
-		ServerHost:            getEnv("SERVER_HOST", "0.0.0.0"),
-		ServerPort:            getEnv("SERVER_PORT", "5170"),
-		CORSOrigins:           origins,
-		ScanWorkers:           scanWorkers,
-		MetadataWorkers:       metadataWorkers,
-		MetadataIntervalMin:   metadataInterval,
-		OCREnabled:            getEnv("OCR_ENABLED", "true") == "true",
-		OCRHost:               getEnv("OCR_HOST", "localhost"),
-		OCRPort:               getEnv("OCR_PORT", "8080"),
-		OCRCheckInterval:      getEnvInt("OCR_CHECK_INTERVAL", 10),
-		OCRConcurrentRequests: getEnvInt("OCR_CONCURRENT_REQUESTS", 4),
-		BootstrapLogin:        getEnv("BOOTSTRAP_LOGIN", "admin"),
-		BootstrapPassword:     getEnv("BOOTSTRAP_PASSWORD", "admin"),
-		SessionIdleHours:      getEnvInt("SESSION_IDLE_HOURS", 720),   // 30 days
-		SessionAbsoluteDays:   getEnvInt("SESSION_ABSOLUTE_DAYS", 90), // 90 days
-		ThumbnailCacheEnabled:    getEnv("THUMBNAIL_CACHE_ENABLED", "true") == "true",
-		ThumbnailCachePath:       getEnv("THUMBNAIL_CACHE_PATH", ""),
-		ThumbnailCacheMaxSize:    getEnvInt("THUMBNAIL_CACHE_MAX_SIZE", 320),
-		ThumbnailCacheQuality:    getEnvInt("THUMBNAIL_CACHE_QUALITY", 80),
+		DBHost:                      getEnv("DB_HOST", "localhost"),
+		DBPort:                      getEnv("DB_PORT", "5432"),
+		DBUser:                      getEnv("DB_USER", "postgres"),
+		DBPassword:                  getEnv("DB_PASSWORD", "postgres"),
+		DBName:                      getEnv("DB_NAME", "image_dedup"),
+		ServerHost:                  getEnv("SERVER_HOST", "0.0.0.0"),
+		ServerPort:                  getEnv("SERVER_PORT", "5170"),
+		CORSOrigins:                 origins,
+		ScanWorkers:                 scanWorkers,
+		MetadataWorkers:             metadataWorkers,
+		MetadataIntervalMin:         metadataInterval,
+		OCREnabled:                  getEnv("OCR_ENABLED", "true") == "true",
+		OCRHost:                     getEnv("OCR_HOST", "localhost"),
+		OCRPort:                     getEnv("OCR_PORT", "8080"),
+		OCRCheckInterval:            getEnvInt("OCR_CHECK_INTERVAL", 10),
+		OCRConcurrentRequests:       getEnvInt("OCR_CONCURRENT_REQUESTS", 4),
+		BootstrapLogin:              getEnv("BOOTSTRAP_LOGIN", "admin"),
+		BootstrapPassword:           getEnv("BOOTSTRAP_PASSWORD", "admin"),
+		SessionIdleHours:            getEnvInt("SESSION_IDLE_HOURS", 720),   // 30 days
+		SessionAbsoluteDays:         getEnvInt("SESSION_ABSOLUTE_DAYS", 90), // 90 days
+		ThumbnailCacheEnabled:       getEnv("THUMBNAIL_CACHE_ENABLED", "true") == "true",
+		ThumbnailCachePath:          getEnv("THUMBNAIL_CACHE_PATH", ""),
+		ThumbnailCacheMaxSize:       getEnvInt("THUMBNAIL_CACHE_MAX_SIZE", 320),
+		ThumbnailCacheQuality:       getEnvInt("THUMBNAIL_CACHE_QUALITY", 80),
 		ThumbnailCachePreloadOnScan: getEnv("THUMBNAIL_CACHE_PRELOAD_ON_SCAN", "true") == "true",
-		BackgroundSyncEnabled:     getEnv("BACKGROUND_SYNC_ENABLED", "true") == "true",
-		BackgroundSyncIntervalMin: getEnvInt("BACKGROUND_SYNC_INTERVAL_MIN", 60*12), // 12 hours
+		BackgroundSyncEnabled:       getEnv("BACKGROUND_SYNC_ENABLED", "true") == "true",
+		BackgroundSyncIntervalMin:   getEnvInt("BACKGROUND_SYNC_INTERVAL_MIN", 60*12), // 12 hours
 	}
 }
 
