@@ -2,6 +2,7 @@ package thumbnail
 
 import (
 	"bytes"
+	"encoding/base64"
 	"fmt"
 	"image"
 	"image/jpeg"
@@ -171,7 +172,7 @@ func (s *Service) GetOrGenerate(filePath string) (string, error) {
 		}
 
 		s.stats.TotalFiles++
-		return string(data), nil
+		return s.encodeToDataURL(data), nil
 	}
 
 	// Генерируем новую миниатюру
@@ -188,7 +189,18 @@ func (s *Service) GetOrGenerate(filePath string) (string, error) {
 	s.stats.TotalFiles++
 	s.stats.TotalSize += int64(len(encodedData))
 
-	return string(encodedData), nil
+	return s.encodeToDataURL(encodedData), nil
+}
+
+// encodeToDataURL кодирует бинарные данные в data URL с правильным MIME типом
+func (s *Service) encodeToDataURL(data []byte) string {
+	mimeType := "image/webp"
+	if s.cfg.Format == "jpeg" {
+		mimeType = "image/jpeg"
+	} else if s.cfg.Format == "png" {
+		mimeType = "image/png"
+	}
+	return "data:" + mimeType + ";base64," + base64.StdEncoding.EncodeToString(data)
 }
 
 // GenerateThumbnail генерирует миниатюру для указанного файла (без сохранения в кэш)
