@@ -287,7 +287,7 @@ ${html}
 
   return (
     <Dialog open={imagePath !== null} onOpenChange={() => handleClose()}>
-      <DialogContent className="max-w-[95vw] w-[95vw] h-[90vh] p-0 bg-black/95 border-0 flex flex-col">
+      <DialogContent className="max-w-[95vw] w-[95vw] h-[90vh] p-0 overflow-hidden flex flex-col">
         <VisuallyHidden>
           <DialogTitle>{t("lightbox.ocrTitle")}</DialogTitle>
           <DialogDescription>{t("lightbox.ocrDescription")}</DialogDescription>

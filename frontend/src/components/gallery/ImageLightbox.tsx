@@ -53,7 +53,7 @@ export function ImageLightbox({ imagePath, onClose }: ImageLightboxProps) {
           </div>
 
           {/* Metadata panel */}
-          <div className="w-full md:w-[300px] lg:w-[340px] md:min-w-[280px] border-t md:border-t-0 md:border-l bg-background overflow-y-auto max-h-[40vh] md:max-h-[85vh] shrink-0">
+          <div className="w-full md:w-[300px] lg:w-[340px] md:min-w-[280px] border-t md:border-t-0 md:border-l bg-card overflow-y-auto max-h-[40vh] md:max-h-[85vh] shrink-0">
             <div className="p-4">
               <h3 className="text-sm font-semibold mb-3">{t("metadata.title")}</h3>
               {isLoading ? (
