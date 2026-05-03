@@ -150,8 +150,6 @@ export interface GalleryImagesResponse {
 // --- App Settings Types ---
 
 export interface AppSettingsDTO {
-  theme: "light-purple" | "dark-purple" | "light-green" | "dark-green" | "light-blue" | "dark-blue" | "light-orange" | "dark-orange" | "dark-contrast"
-  language: "en" | "ru"
   trashDir: string
   thumbnailCachePath?: string
   thumbnailCacheSize?: number
@@ -169,14 +167,16 @@ export interface UserSettingsDTO {
     | "dark-orange"
     | "dark-contrast"
   language: "en" | "ru"
-  trashDir: string
 }
 
 export interface UpdateSettingsRequest {
-  theme?: "light-purple" | "dark-purple" | "light-green" | "dark-green" | "light-blue" | "dark-blue" | "light-orange" | "dark-orange" | "dark-contrast"
-  language?: "en" | "ru"
   trashDir?: string
   thumbnailCachePath?: string
+}
+
+export interface UpdateUserSettingsRequest {
+  theme?: "light-purple" | "dark-purple" | "light-green" | "dark-green" | "light-blue" | "dark-blue" | "light-orange" | "dark-orange" | "dark-contrast"
+  language?: "en" | "ru"
 }
 
 // --- Trash Types ---

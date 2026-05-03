@@ -11,6 +11,7 @@ import (
 	"image-toolkit/internal/application/auth"
 	"image-toolkit/internal/application/imaging"
 	"image-toolkit/internal/application/thumbnail"
+	"image-toolkit/internal/domain"
 	"image-toolkit/internal/infrastructure/config"
 	"image-toolkit/internal/infrastructure/database"
 	"image-toolkit/internal/infrastructure/geocoder"
@@ -84,8 +85,20 @@ func main() {
 	var thumbnailService *thumbnail.Service
 	// Initialize thumbnail cache service
 	fmt.Println("Initializing thumbnail cache service...")
+
+	// Load thumbnail cache path from database if available
+	cachePath := cfg.ThumbnailCachePath
+	if cfg.ThumbnailCachePath == "" {
+		// Check database for saved cache path
+		var appSettings domain.AppSettings
+		if result := db.First(&appSettings, 1); result.Error == nil && appSettings.ThumbnailCachePath != "" {
+			cachePath = appSettings.ThumbnailCachePath
+			fmt.Printf("Using thumbnail cache path from database: %s\n", cachePath)
+		}
+	}
+
 	tcConfig := &thumbnail.Config{
-		CacheDir:      cfg.ThumbnailCachePath,
+		CacheDir:      cachePath,
 		MaxSize:       cfg.ThumbnailCacheMaxSize,
 		Quality:       cfg.ThumbnailCacheQuality,
 		Enabled:       cfg.ThumbnailCacheEnabled,
@@ -163,7 +176,7 @@ func main() {
 	fmt.Printf("Scan workers: %d\n", cfg.ScanWorkers)
 	fmt.Printf("Metadata workers: %d, interval: %d min\n", cfg.MetadataWorkers, cfg.MetadataIntervalMin)
 	fmt.Printf("CORS allowed origins: %s\n", strings.Join(cfg.CORSOrigins, ", "))
-	fmt.Printf("Thumbnail cache: enabled=%v, path=%s\n", cfg.ThumbnailCacheEnabled, cfg.ThumbnailCachePath)
+	fmt.Printf("Thumbnail cache: enabled=%v, path=%s\n", cfg.ThumbnailCacheEnabled, cachePath)
 	fmt.Println("Configure gallery folders via the web UI Settings tab.")
 	fmt.Println("Press Ctrl+C to stop the server")
 

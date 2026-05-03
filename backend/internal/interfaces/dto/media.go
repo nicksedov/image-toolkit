@@ -204,8 +204,6 @@ type GalleryImagesResponse struct {
 
 // AppSettingsDTO is the JSON response for GET /api/settings
 type AppSettingsDTO struct {
-	Theme              string `json:"theme"`
-	Language           string `json:"language"`
 	TrashDir           string `json:"trashDir"`
 	ThumbnailCachePath string `json:"thumbnailCachePath,omitempty"`
 	ThumbnailCacheSize int    `json:"thumbnailCacheSize,omitempty"`
@@ -215,15 +213,18 @@ type AppSettingsDTO struct {
 type UserSettingsDTO struct {
 	Theme    string `json:"theme"`
 	Language string `json:"language"`
-	TrashDir string `json:"trashDir"`
 }
 
 // UpdateSettingsRequest is the JSON request for PUT /api/settings
 type UpdateSettingsRequest struct {
-	Theme              string  `json:"theme"`
-	Language           string  `json:"language"`
 	TrashDir           *string `json:"trashDir"`
 	ThumbnailCachePath *string `json:"thumbnailCachePath,omitempty"`
+}
+
+// UpdateUserSettingsRequest is the JSON request for PUT /api/user-settings
+type UpdateUserSettingsRequest struct {
+	Theme    string `json:"theme"`
+	Language string `json:"language"`
 }
 
 // --- Trash API ---

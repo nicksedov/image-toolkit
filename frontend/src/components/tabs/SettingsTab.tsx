@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ThemeSelect, ThemeSelectContent, ThemeSelectItem, ThemeSelectTrigger, ThemeSelectValue } from "@/components/ui/theme-select"
 import type { Theme } from "@/theme"
-import { updateSettings } from "@/api/endpoints"
+import { updateUserSettings } from "@/api/endpoints"
 import { useSettings } from "@/providers/useSettings"
 import { Globe, Sun, Moon } from "lucide-react"
 import { useTranslation } from "@/i18n"
@@ -30,7 +30,7 @@ export function SettingsTab() {
   const handleSavePreferences = useCallback(async () => {
     setIsSaving(true)
     try {
-      await updateSettings({ theme: selectedTheme, language: selectedLanguage })
+      await updateUserSettings({ theme: selectedTheme, language: selectedLanguage })
       setTheme(selectedTheme)
       setLanguage(selectedLanguage)
       toast.success(t("settings.preferencesSaved"))

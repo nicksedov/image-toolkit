@@ -696,13 +696,13 @@ func (s *Server) handleServeOcrImage(c *gin.Context) {
 func (s *Server) handleGetSettings(c *gin.Context) {
 	var settings domain.AppSettings
 	if result := s.db.First(&settings, 1); result.Error != nil {
-		c.JSON(http.StatusOK, dto.AppSettingsDTO{Theme: "light-purple", Language: "en", TrashDir: ""})
+		c.JSON(http.StatusOK, dto.AppSettingsDTO{TrashDir: ""})
 		return
 	}
 	c.JSON(http.StatusOK, dto.AppSettingsDTO{
-		Theme:    settings.Theme,
-		Language: settings.Language,
-		TrashDir: settings.TrashDir,
+		TrashDir:           settings.TrashDir,
+		ThumbnailCachePath: settings.ThumbnailCachePath,
+		ThumbnailCacheSize: settings.ThumbnailCacheSize,
 	})
 }
 
@@ -714,39 +714,11 @@ func (s *Server) handleUpdateSettings(c *gin.Context) {
 		return
 	}
 
-	validThemes := map[string]bool{
-		"light-purple":  true,
-		"dark-purple":   true,
-		"light-green":   true,
-		"dark-green":    true,
-		"light-blue":    true,
-		"dark-blue":     true,
-		"light-orange":  true,
-		"dark-orange":   true,
-		"dark-contrast": true,
-	}
-	validLanguages := map[string]bool{"en": true, "ru": true}
-
-	if req.Theme != "" && !validThemes[req.Theme] {
-		c.JSON(http.StatusBadRequest, i18n.ErrorResponse(i18n.MsgImageInvalidTheme))
-		return
-	}
-	if req.Language != "" && !validLanguages[req.Language] {
-		c.JSON(http.StatusBadRequest, i18n.ErrorResponse(i18n.MsgImageInvalidLanguage))
-		return
-	}
-
 	var settings domain.AppSettings
 	if result := s.db.First(&settings, 1); result.Error != nil {
-		settings = domain.AppSettings{ID: 1, Theme: "light-purple", Language: "en"}
+		settings = domain.AppSettings{ID: 1}
 	}
 
-	if req.Theme != "" {
-		settings.Theme = req.Theme
-	}
-	if req.Language != "" {
-		settings.Language = req.Language
-	}
 	if req.TrashDir != nil {
 		newTrashDir := strings.TrimSpace(*req.TrashDir)
 		if newTrashDir != "" {
@@ -803,10 +775,9 @@ func (s *Server) handleUpdateSettings(c *gin.Context) {
 	s.db.Save(&settings)
 
 	c.JSON(http.StatusOK, dto.AppSettingsDTO{
-		Theme:              settings.Theme,
-		Language:           settings.Language,
 		TrashDir:           settings.TrashDir,
 		ThumbnailCachePath: settings.ThumbnailCachePath,
+		ThumbnailCacheSize: settings.ThumbnailCacheSize,
 	})
 }
 
@@ -829,7 +800,6 @@ func (s *Server) handleGetUserSettings(c *gin.Context) {
 	c.JSON(http.StatusOK, dto.UserSettingsDTO{
 		Theme:    settings.Theme,
 		Language: settings.Language,
-		TrashDir: settings.TrashDir,
 	})
 }
 
@@ -841,7 +811,7 @@ func (s *Server) handleUpdateUserSettings(c *gin.Context) {
 		return
 	}
 
-	var req dto.UpdateSettingsRequest
+	var req dto.UpdateUserSettingsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, i18n.CreateValidationError(i18n.ValidationError))
 		return
@@ -882,38 +852,12 @@ func (s *Server) handleUpdateUserSettings(c *gin.Context) {
 	if req.Language != "" {
 		settings.Language = req.Language
 	}
-	if req.TrashDir != nil {
-		newTrashDir := strings.TrimSpace(*req.TrashDir)
-		if newTrashDir != "" {
-			// Normalize the trash dir path
-			absTrash, err := filepath.Abs(newTrashDir)
-			if err != nil {
-				c.JSON(http.StatusBadRequest, i18n.ErrorResponse(i18n.MsgImageInvalidTrashPath))
-				return
-			}
-			normalizedTrash := filepath.ToSlash(absTrash)
-
-			// Check conflict with all gallery folders
-			var galleryFolders []domain.GalleryFolder
-			s.db.Find(&galleryFolders)
-			for _, gf := range galleryFolders {
-				if reason := pathsConflict(normalizedTrash, gf.Path); reason != "" {
-					c.JSON(http.StatusBadRequest, i18n.ErrorResponse(i18n.MsgImageTrashConflict))
-					return
-				}
-			}
-			settings.TrashDir = normalizedTrash
-		} else {
-			settings.TrashDir = ""
-		}
-	}
 
 	s.db.Save(&settings)
 
 	c.JSON(http.StatusOK, dto.UserSettingsDTO{
 		Theme:    settings.Theme,
 		Language: settings.Language,
-		TrashDir: settings.TrashDir,
 	})
 }
 

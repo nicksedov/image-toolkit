@@ -11,7 +11,7 @@ import { FolderList } from "@/components/settings/FolderList"
 import { ScanProgressBanner } from "@/components/ScanProgressBanner"
 import { useGalleryFolders } from "@/hooks/useGalleryFolders"
 import { useScanStatus } from "@/hooks/useScanStatus"
-import { fetchTrashInfo, cleanTrash, updateSettings, fetchOCRStatus, startOcrClassification, startOcrClassificationChanges, stopOcrClassification, fetchOcrClassificationStatus, triggerScan, triggerFastScan, fetchLlmSettings, updateLlmSettings, fetchLlmModels, fetchThumbnailCacheStats, enableThumbnailCache, disableThumbnailCache, invalidateAllThumbnails } from "@/api/endpoints"
+import { fetchTrashInfo, cleanTrash, fetchSettings, updateSettings, fetchOCRStatus, startOcrClassification, startOcrClassificationChanges, stopOcrClassification, fetchOcrClassificationStatus, triggerScan, triggerFastScan, fetchLlmSettings, updateLlmSettings, fetchLlmModels, fetchThumbnailCacheStats, enableThumbnailCache, disableThumbnailCache, invalidateAllThumbnails } from "@/api/endpoints"
 import { useSettings } from "@/providers/useSettings"
 import { useAuth } from "@/providers/AuthProvider"
 import { RefreshCw, Trash2, Shield, Loader2, Zap, Wand2, Play, Square, DatabaseZap, DatabaseBackup, Database } from "lucide-react"
@@ -82,6 +82,19 @@ export function AdminSettingsTab() {
       setIsThumbnailLoading(false)
     }
   }, [])
+
+  // Load app settings to sync trashDir and thumbnailCachePath
+  useEffect(() => {
+    if (!isAdmin) return
+
+    fetchSettings().then((settings) => {
+      setTrashInput(settings.trashDir || "")
+      setTrashDir(settings.trashDir || "")
+      setThumbnailCachePath(settings.thumbnailCachePath || "")
+    }).catch(() => {
+      // Use local state values
+    })
+  }, [isAdmin, setTrashDir])
 
   useEffect(() => {
     loadTrashInfo()

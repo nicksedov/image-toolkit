@@ -19,6 +19,7 @@ import type {
   AppSettingsDTO,
   UserSettingsDTO,
   UpdateSettingsRequest,
+  UpdateUserSettingsRequest,
   TrashInfoResponse,
   CleanTrashResponse,
   ImageMetadataResponse,
@@ -165,7 +166,7 @@ export function fetchUserSettings(): Promise<UserSettingsDTO> {
   return apiGet<UserSettingsDTO>("/api/user-settings")
 }
 
-export function updateUserSettings(req: UpdateSettingsRequest): Promise<UserSettingsDTO> {
+export function updateUserSettings(req: UpdateUserSettingsRequest): Promise<UserSettingsDTO> {
   return apiPut<UserSettingsDTO>("/api/user-settings", req)
 }
 

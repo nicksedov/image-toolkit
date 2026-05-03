@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { ThemeProvider, type Theme } from "@/theme"
 import { I18nProvider, type Language } from "@/i18n"
-import { fetchSettings, fetchUserSettings, updateUserSettings } from "@/api/endpoints"
+import { fetchUserSettings, updateUserSettings } from "@/api/endpoints"
 import { SettingsContext } from "./settingsContext"
 import { useAuth } from "./AuthProvider"
 
@@ -28,41 +28,32 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
       "dark": "dark-purple",
     }
 
-    // Load user settings first, fallback to global settings
-    Promise.all([
-      fetchUserSettings().catch(() => null),
-      fetchSettings().catch(() => null),
-    ]).then(([userSettings, globalSettings]) => {
-      // Prefer user settings, fallback to global settings
-      let effectiveTheme = userSettings?.theme || globalSettings?.theme || "light-purple"
+    // Load user settings for theme and language
+    fetchUserSettings().catch(() => null).then((userSettings) => {
+      let effectiveTheme = userSettings?.theme || "light-purple"
       
       // Migrate old theme values
       if (effectiveTheme in themeMigration) {
         effectiveTheme = themeMigration[effectiveTheme]
       }
       
-      const effectiveLanguage = userSettings?.language || globalSettings?.language || "en"
-      const effectiveTrashDir = userSettings?.trashDir || globalSettings?.trashDir || ""
+      const effectiveLanguage = userSettings?.language || "en"
 
       setThemeState(effectiveTheme as Theme)
       setLanguageState(effectiveLanguage)
-      setTrashDirState(effectiveTrashDir)
     }).catch(() => {
       // Use defaults on failure
     }).finally(() => setIsLoading(false))
   }, [isAuthenticated])
 
-  const persistSettings = useCallback((newTheme: Theme, newLanguage: Language, newTrashDir?: string) => {
+  const persistSettings = useCallback((newTheme: Theme, newLanguage: Language) => {
     if (debounceRef.current) {
       clearTimeout(debounceRef.current)
     }
     debounceRef.current = setTimeout(() => {
-      const req: { theme?: string; language?: string; trashDir?: string } = {
+      const req: { theme?: string; language?: string } = {
         theme: newTheme,
         language: newLanguage,
-      }
-      if (newTrashDir !== undefined) {
-        req.trashDir = newTrashDir
       }
       updateUserSettings(req as any).catch(() => {
         // Silently fail - UI already updated
@@ -115,15 +106,8 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
   const setTrashDir = useCallback(
     (newTrashDir: string) => {
       setTrashDirState(newTrashDir)
-      setThemeState((th) => {
-        setLanguageState((lang) => {
-          persistSettings(th, lang, newTrashDir)
-          return lang
-        })
-        return th
-      })
     },
-    [persistSettings]
+    []
   )
 
   return (

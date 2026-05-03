@@ -32,7 +32,6 @@ type UserSettings struct {
 	UserID    uint      `gorm:"uniqueIndex;not null" json:"userId"`
 	Theme     string    `gorm:"default:light-purple;not null" json:"theme"`
 	Language  string    `gorm:"default:en;not null" json:"language"`
-	TrashDir  string    `gorm:"default:''" json:"trashDir"`
 	CreatedAt time.Time `json:"createdAt"`
 	UpdatedAt time.Time `json:"updatedAt"`
 }
