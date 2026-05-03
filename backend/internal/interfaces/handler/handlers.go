@@ -1927,7 +1927,7 @@ func (s *Server) handleThumbnailCacheWarmup(c *gin.Context) {
 // handleThumbnailCacheEnable включает кэш миниатюр
 func (s *Server) handleThumbnailCacheEnable(c *gin.Context) {
 	if s.thumbnailService == nil {
-		c.JSON(http.StatusNotFound, i18n.ErrorResponse(i18n.MsgScanDuplicateFailed))
+		c.JSON(http.StatusNotFound, i18n.ErrorResponse(i18n.MsgThumbnailCacheNotAvailable))
 		return
 	}
 
@@ -1938,7 +1938,7 @@ func (s *Server) handleThumbnailCacheEnable(c *gin.Context) {
 // handleThumbnailCacheDisable выключает кэш миниатюр
 func (s *Server) handleThumbnailCacheDisable(c *gin.Context) {
 	if s.thumbnailService == nil {
-		c.JSON(http.StatusNotFound, i18n.ErrorResponse(i18n.MsgScanDuplicateFailed))
+		c.JSON(http.StatusNotFound, i18n.ErrorResponse(i18n.MsgThumbnailCacheNotAvailable))
 		return
 	}
 

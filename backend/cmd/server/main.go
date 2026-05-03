@@ -82,25 +82,26 @@ func main() {
 
 	// Initialize thumbnail cache service
 	var thumbnailService *thumbnail.Service
-	if cfg.ThumbnailCacheEnabled {
-		fmt.Println("Initializing thumbnail cache service...")
-		tcConfig := &thumbnail.Config{
-			CacheDir:      cfg.ThumbnailCachePath,
-			MaxSize:       cfg.ThumbnailCacheMaxSize,
-			Quality:       cfg.ThumbnailCacheQuality,
-			Enabled:       true,
-			Format:        "webp",
-			PreloadOnScan: cfg.ThumbnailCachePreloadOnScan,
-		}
-		var err error
-		thumbnailService, err = thumbnail.NewService(tcConfig)
-		if err != nil {
-			log.Printf("Failed to initialize thumbnail cache: %v", err)
-		} else {
-			fmt.Println("Thumbnail cache service initialized")
-		}
+	// Initialize thumbnail cache service
+	fmt.Println("Initializing thumbnail cache service...")
+	tcConfig := &thumbnail.Config{
+		CacheDir:      cfg.ThumbnailCachePath,
+		MaxSize:       cfg.ThumbnailCacheMaxSize,
+		Quality:       cfg.ThumbnailCacheQuality,
+		Enabled:       cfg.ThumbnailCacheEnabled,
+		Format:        "webp",
+		PreloadOnScan: cfg.ThumbnailCachePreloadOnScan,
+	}
+	thumbnailService, err = thumbnail.NewService(tcConfig)
+	if err != nil {
+		log.Printf("Failed to initialize thumbnail cache: %v", err)
+		thumbnailService = nil
 	} else {
-		fmt.Println("Thumbnail cache disabled")
+		if cfg.ThumbnailCacheEnabled {
+			fmt.Println("Thumbnail cache service initialized and enabled")
+		} else {
+			fmt.Println("Thumbnail cache service initialized (disabled)")
+		}
 	}
 
 	// Start thumbnail service

@@ -422,6 +422,9 @@ export const translations = {
     "api.image.thumbnail_failed": "Failed to generate thumbnail",
     "api.image.metadata_failed": "Failed to get image metadata",
 
+    // Thumbnail cache messages
+    "api.thumbnail_cache.not_available": "Thumbnail cache service is not available",
+
     // User service messages
     "api.user_service.invalid_role": "Invalid role",
     "api.user_service.password_length": "Password must be between 8 and 128 characters",
@@ -904,6 +907,9 @@ export const translations = {
     "api.image.trash_read_failed": "Не удалось прочитать директорию корзины",
     "api.image.thumbnail_failed": "Не удалось создать миниатюру",
     "api.image.metadata_failed": "Не удалось получить метаданные изображения",
+
+    // Thumbnail cache messages
+    "api.thumbnail_cache.not_available": "Сервис кэша миниатюр недоступен",
 
     // User service messages
     "api.user_service.invalid_role": "Неверная роль",

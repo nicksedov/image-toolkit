@@ -109,6 +109,9 @@ const (
 	MsgLlmOcrSettingsSaved      MessageKey = "llm_ocr.settings_saved"
 	MsgLlmOcrSettingsSaveFailed MessageKey = "llm_ocr.settings_save_failed"
 	MsgLlmOcrNoRecognition      MessageKey = "llm_ocr.no_recognition"
+
+	// Thumbnail cache messages
+	MsgThumbnailCacheNotAvailable MessageKey = "thumbnail_cache.not_available"
 )
 
 // GetMessage returns the message key as string
