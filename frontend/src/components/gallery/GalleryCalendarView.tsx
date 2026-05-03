@@ -66,8 +66,10 @@ export function GalleryCalendarView({ onImageClick }: GalleryCalendarViewProps) 
   }, [calendarViewDate])
 
   // Fetch calendar data
+  const loadingRef = useRef(false)
   const loadPage = useCallback(async (page: number, reset = false) => {
-    if (isLoading) return
+    if (loadingRef.current) return
+    loadingRef.current = true
     setIsLoading(true)
     setError(null)
     try {
@@ -107,9 +109,10 @@ export function GalleryCalendarView({ onImageClick }: GalleryCalendarViewProps) 
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load images")
     } finally {
+      loadingRef.current = false
       setIsLoading(false)
     }
-  }, [isLoading, dateRangeFilter.start, dateRangeFilter.end, calendarMonthKey])
+  }, [dateRangeFilter.start, dateRangeFilter.end, calendarMonthKey])
 
   // Preload images for smoother scrolling
   const preloadImages = useCallback((imageUrls: string[]) => {
@@ -147,11 +150,12 @@ export function GalleryCalendarView({ onImageClick }: GalleryCalendarViewProps) 
   }, [groups, preloadImages])
 
   // Preload next page images when approaching end of current content
+  const prefetchingRef = useRef(false)
   useEffect(() => {
-    if (!hasMore || isLoading) return
+    if (!hasMore) return
     
     const checkAndPreloadNextPage = () => {
-      if (!mainContentRef.current) return
+      if (!mainContentRef.current || isLoading || prefetchingRef.current) return
       
       const scrollHeight = mainContentRef.current.scrollHeight
       const scrollTop = mainContentRef.current.scrollTop || window.scrollY
@@ -162,6 +166,7 @@ export function GalleryCalendarView({ onImageClick }: GalleryCalendarViewProps) 
         const nextPage = pageRef.current
         
         // Preload next page images in background
+        prefetchingRef.current = true
         fetchGalleryCalendar(
           nextPage,
           PAGE_SIZE,
@@ -177,6 +182,9 @@ export function GalleryCalendarView({ onImageClick }: GalleryCalendarViewProps) 
           })
           .catch(() => {
             // Silently fail - next page will load normally when needed
+          })
+          .finally(() => {
+            prefetchingRef.current = false
           })
       }
     }
