@@ -588,7 +588,9 @@ func (s *Server) handleGetGalleryImages(c *gin.Context) {
 
 				if err == nil {
 					imageDTOs[idx].Thumbnail = thumb
-					imageDTOs[idx].ThumbnailCachePath = s.thumbnailService.GetThumbnailPath(filePath)
+					if s.thumbnailService != nil {
+						imageDTOs[idx].ThumbnailCachePath = s.thumbnailService.GetThumbnailPath(filePath)
+					}
 				}
 			}(i, f.Path)
 		}
