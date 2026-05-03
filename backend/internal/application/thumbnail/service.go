@@ -49,7 +49,8 @@ type ThumbnailStats struct {
 // DefaultCacheDir возвращает путь по умолчанию для кэша миниатюр (Linux XDG Compatible)
 func DefaultCacheDir() string {
 	home := os.Getenv("HOME")
-	if home == "" {
+	// В Docker/Alpine HOME может быть "/" или пустым - в этих случаях используем /tmp
+	if home == "" || home == "/" {
 		return filepath.Join(os.TempDir(), "image-tool", "thumbnails")
 	}
 	return filepath.Join(home, ".cache", "image-tool", "thumbnails")
