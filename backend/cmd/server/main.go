@@ -10,6 +10,7 @@ import (
 
 	"image-toolkit/internal/application/auth"
 	"image-toolkit/internal/application/imaging"
+	"image-toolkit/internal/application/thumbnail"
 	"image-toolkit/internal/infrastructure/config"
 	"image-toolkit/internal/infrastructure/database"
 	"image-toolkit/internal/infrastructure/geocoder"
@@ -79,6 +80,36 @@ func main() {
 		fmt.Printf("OCR manager initialized: max concurrent requests=%d\n", cfg.OCRConcurrentRequests)
 	}
 
+	// Initialize thumbnail cache service
+	var thumbnailService *thumbnail.Service
+	if cfg.ThumbnailCacheEnabled {
+		fmt.Println("Initializing thumbnail cache service...")
+		tcConfig := &thumbnail.Config{
+			CacheDir:      cfg.ThumbnailCachePath,
+			MaxSize:       cfg.ThumbnailCacheMaxSize,
+			Quality:       cfg.ThumbnailCacheQuality,
+			Enabled:       true,
+			Format:        "webp",
+			PreloadOnScan: cfg.ThumbnailCachePreloadOnScan,
+		}
+		var err error
+		thumbnailService, err = thumbnail.NewService(tcConfig)
+		if err != nil {
+			log.Printf("Failed to initialize thumbnail cache: %v", err)
+		} else {
+			fmt.Println("Thumbnail cache service initialized")
+		}
+	} else {
+		fmt.Println("Thumbnail cache disabled")
+	}
+
+	// Start thumbnail service
+	if thumbnailService != nil {
+		if err := thumbnailService.Start(); err != nil {
+			log.Printf("Failed to start thumbnail service: %v", err)
+		}
+	}
+
 	// Wire scan complete callback to trigger metadata extraction and OCR classification
 	scanManager.OnScanComplete = func() {
 		if err := metadataManager.StartExtraction(); err != nil {
@@ -120,7 +151,7 @@ func main() {
 	fmt.Println("LLM OCR service initialized")
 
 	// Start web server
-	server := handler.NewServer(db, scanManager, metadataManager, ocrManager, llmOcrService, cfg)
+	server := handler.NewServer(db, scanManager, metadataManager, ocrManager, llmOcrService, thumbnailService, cfg)
 	router := server.SetupRouter(authMiddleware, csrfProtection, authHandlers)
 
 	// Start OCR health check if enabled
@@ -131,6 +162,7 @@ func main() {
 	fmt.Printf("Scan workers: %d\n", cfg.ScanWorkers)
 	fmt.Printf("Metadata workers: %d, interval: %d min\n", cfg.MetadataWorkers, cfg.MetadataIntervalMin)
 	fmt.Printf("CORS allowed origins: %s\n", strings.Join(cfg.CORSOrigins, ", "))
+	fmt.Printf("Thumbnail cache: enabled=%v, path=%s\n", cfg.ThumbnailCacheEnabled, cfg.ThumbnailCachePath)
 	fmt.Println("Configure gallery folders via the web UI Settings tab.")
 	fmt.Println("Press Ctrl+C to stop the server")
 

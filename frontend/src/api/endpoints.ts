@@ -44,6 +44,8 @@ import type {
   LlmRecognizeStatusResponse,
   LlmOcrDataResponse,
   LlmModelsResponse,
+  ThumbnailCacheStatsResponse,
+  WarmupThumbnailsRequest,
 } from "@/types"
 
 export function fetchDuplicates(page: number, pageSize: number): Promise<DuplicatesResponse> {
@@ -301,4 +303,26 @@ export function fetchLlmRecognition(path: string): Promise<LlmOcrDataResponse> {
 
 export function fetchLlmModels(): Promise<LlmModelsResponse> {
   return apiGet<LlmModelsResponse>("/api/llm/models")
+}
+
+// --- Thumbnail Cache Management ---
+
+export function fetchThumbnailCacheStats(): Promise<ThumbnailCacheStatsResponse> {
+  return apiGet<ThumbnailCacheStatsResponse>("/api/thumbnail/cache/stats")
+}
+
+export function invalidateAllThumbnails(): Promise<{ message: string }> {
+  return apiDelete<{ message: string }>("/api/thumbnail/cache/invalidate-all")
+}
+
+export function warmupThumbnails(req: WarmupThumbnailsRequest): Promise<{ message: string }> {
+  return apiPost<{ message: string }>("/api/thumbnail/cache/warmup", req)
+}
+
+export function enableThumbnailCache(): Promise<{ message: string }> {
+  return apiPost<{ message: string }>("/api/thumbnail/cache/enable")
+}
+
+export function disableThumbnailCache(): Promise<{ message: string }> {
+  return apiPost<{ message: string }>("/api/thumbnail/cache/disable")
 }

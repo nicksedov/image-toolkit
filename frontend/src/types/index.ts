@@ -13,6 +13,7 @@ export interface DuplicateGroupDTO {
   sizeHuman: string
   files: FileDTO[]
   thumbnail: string
+  thumbnailCachePath?: string
 }
 
 export interface DuplicatesResponse {
@@ -134,6 +135,7 @@ export interface GalleryImageDTO {
   sizeHuman: string
   modTime: string
   thumbnail?: string
+  thumbnailCachePath?: string
 }
 
 export interface GalleryImagesResponse {
@@ -148,9 +150,11 @@ export interface GalleryImagesResponse {
 // --- App Settings Types ---
 
 export interface AppSettingsDTO {
-  theme: "light" | "dark"
+  theme: "light-purple" | "dark-purple" | "light-green" | "dark-green" | "light-blue" | "dark-blue" | "light-orange" | "dark-orange" | "dark-contrast"
   language: "en" | "ru"
   trashDir: string
+  thumbnailCachePath?: string
+  thumbnailCacheSize?: number
 }
 
 export interface UserSettingsDTO {
@@ -169,18 +173,10 @@ export interface UserSettingsDTO {
 }
 
 export interface UpdateSettingsRequest {
-  theme?: 
-    | "light-purple" 
-    | "dark-purple"
-    | "light-green"
-    | "dark-green"
-    | "light-blue"
-    | "dark-blue"
-    | "light-orange"
-    | "dark-orange"
-    | "dark-contrast"
+  theme?: "light-purple" | "dark-purple" | "light-green" | "dark-green" | "light-blue" | "dark-blue" | "light-orange" | "dark-orange" | "dark-contrast"
   language?: "en" | "ru"
   trashDir?: string
+  thumbnailCachePath?: string
 }
 
 // --- Trash Types ---
@@ -379,6 +375,7 @@ export interface OcrDocumentDTO {
   sizeHuman: string
   modTime: string
   thumbnail?: string
+  thumbnailCachePath?: string
   meanConfidence: number
   weightedConfidence: number
   tokenCount: number
@@ -477,4 +474,26 @@ export interface LlmModelsResponse {
   models: LlmModelDTO[]
   error?: string
   provider: string
+}
+
+// --- Thumbnail Cache Types ---
+
+export interface ThumbnailCacheStatsResponse {
+  totalSize: number
+  totalFiles: number
+  cacheDir: string
+  enabled: boolean
+  initialized: boolean
+}
+
+export interface ThumbnailCacheStatusResponse {
+  enabled: boolean
+  cacheDir: string
+  filesCount: number
+  totalSize: number
+  totalSizeHuman: string
+}
+
+export interface WarmupThumbnailsRequest {
+  filePaths: string[]
 }

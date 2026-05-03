@@ -35,6 +35,13 @@ type AppConfig struct {
 	BootstrapPassword   string
 	SessionIdleHours    int
 	SessionAbsoluteDays int
+
+	// Thumbnail cache configuration
+	ThumbnailCacheEnabled    bool
+	ThumbnailCachePath       string
+	ThumbnailCacheMaxSize    int
+	ThumbnailCacheQuality    int
+	ThumbnailCachePreloadOnScan bool
 }
 
 // LoadConfig reads configuration from environment variables
@@ -90,6 +97,11 @@ func LoadConfig() *AppConfig {
 		BootstrapPassword:     getEnv("BOOTSTRAP_PASSWORD", "admin"),
 		SessionIdleHours:      getEnvInt("SESSION_IDLE_HOURS", 720),   // 30 days
 		SessionAbsoluteDays:   getEnvInt("SESSION_ABSOLUTE_DAYS", 90), // 90 days
+		ThumbnailCacheEnabled:    getEnv("THUMBNAIL_CACHE_ENABLED", "true") == "true",
+		ThumbnailCachePath:       getEnv("THUMBNAIL_CACHE_PATH", ""),
+		ThumbnailCacheMaxSize:    getEnvInt("THUMBNAIL_CACHE_MAX_SIZE", 320),
+		ThumbnailCacheQuality:    getEnvInt("THUMBNAIL_CACHE_QUALITY", 80),
+		ThumbnailCachePreloadOnScan: getEnv("THUMBNAIL_CACHE_PRELOAD_ON_SCAN", "true") == "true",
 	}
 }
 

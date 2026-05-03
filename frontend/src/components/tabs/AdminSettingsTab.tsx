@@ -11,10 +11,10 @@ import { FolderList } from "@/components/settings/FolderList"
 import { ScanProgressBanner } from "@/components/ScanProgressBanner"
 import { useGalleryFolders } from "@/hooks/useGalleryFolders"
 import { useScanStatus } from "@/hooks/useScanStatus"
-import { fetchTrashInfo, cleanTrash, updateSettings, fetchOCRStatus, startOcrClassification, startOcrClassificationChanges, stopOcrClassification, fetchOcrClassificationStatus, triggerScan, triggerFastScan, fetchLlmSettings, updateLlmSettings, fetchLlmModels } from "@/api/endpoints"
+import { fetchTrashInfo, cleanTrash, updateSettings, fetchOCRStatus, startOcrClassification, startOcrClassificationChanges, stopOcrClassification, fetchOcrClassificationStatus, triggerScan, triggerFastScan, fetchLlmSettings, updateLlmSettings, fetchLlmModels, fetchThumbnailCacheStats, enableThumbnailCache, disableThumbnailCache, invalidateAllThumbnails } from "@/api/endpoints"
 import { useSettings } from "@/providers/useSettings"
 import { useAuth } from "@/providers/AuthProvider"
-import { RefreshCw, Trash2, Shield, Loader2, Zap, Wand2, Play, Square } from "lucide-react"
+import { RefreshCw, Trash2, Shield, Loader2, Zap, Wand2, Play, Square, DatabaseZap, DatabaseBackup, Database } from "lucide-react"
 import { useTranslation, type TranslationKey } from "@/i18n"
 import type { OCRStatus, OcrClassificationStatusResponse, LlmSettingsDTO, LlmModelDTO } from "@/types"
 
@@ -35,6 +35,12 @@ export function AdminSettingsTab() {
   const [isOcrLoading, setIsOcrLoading] = useState(false)
   const [ocrScanning, setOcrScanning] = useState(false)
   const [ocrScanStatus, setOcrScanStatus] = useState<OcrClassificationStatusResponse | null>(null)
+
+  // Thumbnail Cache Settings state
+  const [thumbnailCacheStats, setThumbnailCacheStats] = useState<{ enabled: boolean; cacheDir: string; totalFiles: number; totalSize: number } | null>(null)
+  const [isThumbnailLoading, setIsThumbnailLoading] = useState(false)
+  const [isSavingThumbnailCache, setIsSavingThumbnailCache] = useState(false)
+  const [thumbnailCachePath, setThumbnailCachePath] = useState("")
 
   // LLM Settings state
   const [llmSettings, setLlmSettings] = useState<LlmSettingsDTO>({
@@ -64,9 +70,25 @@ export function AdminSettingsTab() {
       })
   }, [])
 
+  const loadThumbnailCacheStats = useCallback(async () => {
+    try {
+      setIsThumbnailLoading(true)
+      const stats = await fetchThumbnailCacheStats()
+      setThumbnailCacheStats(stats)
+      setThumbnailCachePath(stats.cacheDir || "")
+    } catch {
+      setThumbnailCacheStats(null)
+    } finally {
+      setIsThumbnailLoading(false)
+    }
+  }, [])
+
   useEffect(() => {
     loadTrashInfo()
-  }, [loadTrashInfo])
+    if (isAdmin) {
+      loadThumbnailCacheStats()
+    }
+  }, [loadTrashInfo, loadThumbnailCacheStats, isAdmin])
 
   const loadOCRStatus = useCallback(async () => {
     try {
@@ -183,6 +205,54 @@ export function AdminSettingsTab() {
     setLlmSettings((prev) => ({ ...prev, [field]: value }))
     setLlmFormDirty(true)
   }, [])
+
+  // Thumbnail Cache handlers
+  const handleSaveThumbnailCachePath = useCallback(async () => {
+    setIsSavingThumbnailCache(true)
+    try {
+      const result = await updateSettings({ thumbnailCachePath: thumbnailCachePath.trim() })
+      setThumbnailCachePath(result.thumbnailCachePath || "")
+      toast.success(t("adminPanel.thumbnailCache.saved"))
+      loadThumbnailCacheStats()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("adminPanel.thumbnailCache.saveFailed"))
+    } finally {
+      setIsSavingThumbnailCache(false)
+    }
+  }, [thumbnailCachePath, setThumbnailCachePath, loadThumbnailCacheStats, t])
+
+  const handleEnableThumbnailCache = useCallback(async () => {
+    try {
+      await enableThumbnailCache()
+      toast.success(t("adminPanel.thumbnailCache.enabled"))
+      loadThumbnailCacheStats()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("adminPanel.thumbnailCache.enableFailed"))
+    }
+  }, [loadThumbnailCacheStats, t])
+
+  const handleDisableThumbnailCache = useCallback(async () => {
+    try {
+      await disableThumbnailCache()
+      toast.success(t("adminPanel.thumbnailCache.disabled"))
+      loadThumbnailCacheStats()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("adminPanel.thumbnailCache.disableFailed"))
+    }
+  }, [loadThumbnailCacheStats, t])
+
+  const handleClearThumbnailCache = useCallback(async () => {
+    if (!thumbnailCacheStats?.totalFiles) return
+    if (!window.confirm(t("adminPanel.thumbnailCache.clearConfirm", { count: thumbnailCacheStats.totalFiles }))) return
+
+    try {
+      await invalidateAllThumbnails()
+      toast.success(t("adminPanel.thumbnailCache.cleared"))
+      loadThumbnailCacheStats()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("adminPanel.thumbnailCache.clearFailed"))
+    }
+  }, [thumbnailCacheStats, loadThumbnailCacheStats, t])
 
   const handleLoadModels = useCallback(async () => {
     setIsModelsLoading(true)
@@ -688,6 +758,119 @@ export function AdminSettingsTab() {
                 </div>
               </div>
             )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Thumbnail Cache Settings - Admin Only */}
+      {isAdmin && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <DatabaseZap className="h-5 w-5" />
+              {t("adminPanel.thumbnailCache.title")}
+            </CardTitle>
+            <CardDescription>{t("adminPanel.thumbnailCache.description")}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Cache Status */}
+            <div className="flex items-center justify-between rounded-lg border p-3">
+              <div className="space-y-1">
+                <div className="text-sm font-medium">{t("adminPanel.thumbnailCache.status")}</div>
+                {isThumbnailLoading ? (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    {t("common.loading")}
+                  </div>
+                ) : thumbnailCacheStats ? (
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 text-sm">
+                      <span
+                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                          thumbnailCacheStats.enabled
+                            ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                            : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
+                        }`}
+                      >
+                        {thumbnailCacheStats.enabled
+                          ? t("adminPanel.thumbnailCache.enabled")
+                          : t("adminPanel.thumbnailCache.disabled")}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {t("adminPanel.thumbnailCache.stats", {
+                        files: thumbnailCacheStats.totalFiles,
+                        size: thumbnailCacheStats.totalSize,
+                      })}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="text-sm text-muted-foreground">{t("adminPanel.thumbnailCache.notConfigured")}</div>
+                )}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={loadThumbnailCacheStats}
+                disabled={isThumbnailLoading}
+              >
+                {isThumbnailLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+              </Button>
+            </div>
+
+            {/* Cache Path */}
+            <div className="space-y-2">
+              <Label htmlFor="thumbnail-cache-path">
+                {t("adminPanel.thumbnailCache.pathLabel")}
+              </Label>
+              <div className="flex gap-2">
+                <Input
+                  id="thumbnail-cache-path"
+                  placeholder={t("adminPanel.thumbnailCache.pathPlaceholder")}
+                  value={thumbnailCachePath}
+                  onChange={(e) => setThumbnailCachePath(e.target.value)}
+                  className="flex-1"
+                />
+                <Button
+                  onClick={handleSaveThumbnailCachePath}
+                  disabled={isSavingThumbnailCache || thumbnailCachePath === (thumbnailCacheStats?.cacheDir || "")}
+                  size="default"
+                >
+                  {isSavingThumbnailCache ? t("common.saving") : t("common.save")}
+                </Button>
+              </div>
+            </div>
+
+            {/* Cache Actions */}
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleClearThumbnailCache}
+                disabled={thumbnailCacheStats?.enabled !== true || thumbnailCacheStats.totalFiles === 0}
+              >
+                <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+                {t("adminPanel.thumbnailCache.clearButton")}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleEnableThumbnailCache}
+                disabled={thumbnailCacheStats?.enabled === true}
+              >
+                <DatabaseBackup className="mr-1.5 h-3.5 w-3.5" />
+                {t("adminPanel.thumbnailCache.enableButton")}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDisableThumbnailCache}
+                disabled={thumbnailCacheStats?.enabled !== true}
+              >
+                <Database className="mr-1.5 h-3.5 w-3.5" />
+                {t("adminPanel.thumbnailCache.disableButton")}
+              </Button>
+            </div>
           </CardContent>
         </Card>
       )}

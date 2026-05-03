@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"image-toolkit/internal/application/imaging"
+	"image-toolkit/internal/application/thumbnail"
 	"image-toolkit/internal/infrastructure/config"
 	"image-toolkit/internal/infrastructure/ocr"
 	"image-toolkit/internal/interfaces/dto"
@@ -16,6 +17,7 @@ import (
 type Server struct {
 	db              *gorm.DB
 	thumbnailCache  *imaging.ThumbnailCache
+	thumbnailService *thumbnail.Service
 	scanManager     *imaging.ScanManager
 	metadataManager *imaging.MetadataManager
 	ocrManager      *imaging.OcrManager
@@ -25,20 +27,21 @@ type Server struct {
 }
 
 // NewServer creates a new server instance
-func NewServer(db *gorm.DB, scanManager *imaging.ScanManager, metadataManager *imaging.MetadataManager, ocrManager *imaging.OcrManager, llmOcrService *imaging.LlmOcrService, cfg *config.AppConfig) *Server {
+func NewServer(db *gorm.DB, scanManager *imaging.ScanManager, metadataManager *imaging.MetadataManager, ocrManager *imaging.OcrManager, llmOcrService *imaging.LlmOcrService, thumbnailService *thumbnail.Service, cfg *config.AppConfig) *Server {
 	var ocrClient ocr.Client
 	if cfg.OCREnabled {
 		ocrClient = ocr.NewClient(cfg.OCRHost, cfg.OCRPort)
 	}
 	return &Server{
-		db:              db,
-		thumbnailCache:  imaging.NewThumbnailCache(),
-		scanManager:     scanManager,
-		metadataManager: metadataManager,
-		ocrManager:      ocrManager,
-		llmOcrService:   llmOcrService,
-		config:          cfg,
-		ocrClient:       ocrClient,
+		db:               db,
+		thumbnailCache:   imaging.NewThumbnailCache(),
+		thumbnailService: thumbnailService,
+		scanManager:      scanManager,
+		metadataManager:  metadataManager,
+		ocrManager:       ocrManager,
+		llmOcrService:    llmOcrService,
+		config:           cfg,
+		ocrClient:        ocrClient,
 	}
 }
 

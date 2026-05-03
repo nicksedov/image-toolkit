@@ -19,12 +19,13 @@ type DuplicatesResponse struct {
 
 // DuplicateGroupDTO represents a duplicate group in JSON responses
 type DuplicateGroupDTO struct {
-	Index     int       `json:"index"`
-	Hash      string    `json:"hash"`
-	Size      int64     `json:"size"`
-	SizeHuman string    `json:"sizeHuman"`
-	Files     []FileDTO `json:"files"`
-	Thumbnail string    `json:"thumbnail"`
+	Index              int       `json:"index"`
+	Hash               string    `json:"hash"`
+	Size               int64     `json:"size"`
+	SizeHuman          string    `json:"sizeHuman"`
+	Files              []FileDTO `json:"files"`
+	Thumbnail          string    `json:"thumbnail"`
+	ThumbnailCachePath string    `json:"thumbnailCachePath,omitempty"`
 }
 
 // FileDTO represents a file in JSON responses
@@ -112,6 +113,34 @@ type ThumbnailResponse struct {
 	Thumbnail string `json:"thumbnail"`
 }
 
+// ThumbnailCacheStatsResponse статистика кэша миниатюр
+type ThumbnailCacheStatsResponse struct {
+	TotalSize    int64  `json:"totalSize"`
+	TotalFiles   int    `json:"totalFiles"`
+	CacheDir     string `json:"cacheDir"`
+	Enabled      bool   `json:"enabled"`
+	Initialized  bool   `json:"initialized"`
+}
+
+// InvalidateThumbnailRequest запрос на удаление миниатюры
+type InvalidateThumbnailRequest struct {
+	FilePath string `json:"filePath" binding:"required"`
+}
+
+// WarmupThumbnailsRequest запрос на предварительную генерацию миниатюр
+type WarmupThumbnailsRequest struct {
+	FilePaths []string `json:"filePaths" binding:"required"`
+}
+
+// ThumbnailCacheStatusResponse статус кэша миниатюр
+type ThumbnailCacheStatusResponse struct {
+	Enabled     bool   `json:"enabled"`
+	CacheDir    string `json:"cacheDir"`
+	FilesCount  int    `json:"filesCount"`
+	TotalSize   int64  `json:"totalSize"`
+	TotalSizeHuman string `json:"totalSizeHuman"`
+}
+
 // --- Gallery Folders API ---
 
 // GalleryFolderDTO represents a gallery folder in JSON responses
@@ -152,14 +181,15 @@ type RemoveFolderResponse struct {
 
 // GalleryImageDTO represents an image in the gallery browser
 type GalleryImageDTO struct {
-	ID        uint   `json:"id"`
-	Path      string `json:"path"`
-	FileName  string `json:"fileName"`
-	DirPath   string `json:"dirPath"`
-	Size      int64  `json:"size"`
-	SizeHuman string `json:"sizeHuman"`
-	ModTime   string `json:"modTime"`
-	Thumbnail string `json:"thumbnail,omitempty"`
+	ID                 uint   `json:"id"`
+	Path               string `json:"path"`
+	FileName           string `json:"fileName"`
+	DirPath            string `json:"dirPath"`
+	Size               int64  `json:"size"`
+	SizeHuman          string `json:"sizeHuman"`
+	ModTime            string `json:"modTime"`
+	Thumbnail          string `json:"thumbnail,omitempty"`
+	ThumbnailCachePath string `json:"thumbnailCachePath,omitempty"`
 }
 
 // GalleryImagesResponse is the JSON response for GET /api/gallery
@@ -176,9 +206,11 @@ type GalleryImagesResponse struct {
 
 // AppSettingsDTO is the JSON response for GET /api/settings
 type AppSettingsDTO struct {
-	Theme    string `json:"theme"`
-	Language string `json:"language"`
-	TrashDir string `json:"trashDir"`
+	Theme              string `json:"theme"`
+	Language           string `json:"language"`
+	TrashDir           string `json:"trashDir"`
+	ThumbnailCachePath string `json:"thumbnailCachePath,omitempty"`
+	ThumbnailCacheSize int    `json:"thumbnailCacheSize,omitempty"`
 }
 
 // UserSettingsDTO is the JSON response for user settings
@@ -190,9 +222,10 @@ type UserSettingsDTO struct {
 
 // UpdateSettingsRequest is the JSON request for PUT /api/settings
 type UpdateSettingsRequest struct {
-	Theme    string  `json:"theme"`
-	Language string  `json:"language"`
-	TrashDir *string `json:"trashDir"`
+	Theme              string  `json:"theme"`
+	Language           string  `json:"language"`
+	TrashDir           *string `json:"trashDir"`
+	ThumbnailCachePath *string `json:"thumbnailCachePath,omitempty"`
 }
 
 // --- Trash API ---
@@ -313,6 +346,7 @@ type OcrDocumentDTO struct {
 	SizeHuman          string  `json:"sizeHuman"`
 	ModTime            string  `json:"modTime"`
 	Thumbnail          string  `json:"thumbnail,omitempty"`
+	ThumbnailCachePath string  `json:"thumbnailCachePath,omitempty"`
 	MeanConfidence     float32 `json:"meanConfidence"`
 	WeightedConfidence float32 `json:"weightedConfidence"`
 	TokenCount         int     `json:"tokenCount"`

@@ -2,6 +2,7 @@ package handler
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	"image-toolkit/internal/application/imaging"
+	"image-toolkit/internal/application/thumbnail"
 	"image-toolkit/internal/domain"
 	"image-toolkit/internal/infrastructure/llm"
 	"image-toolkit/internal/interfaces/dto"
@@ -96,9 +98,21 @@ func (s *Server) handleGetDuplicates(c *gin.Context) {
 				semaphore <- struct{}{}
 				defer func() { <-semaphore }()
 
-				thumb, err := imaging.GenerateThumbnail(filePath, s.thumbnailCache)
+				var thumb string
+				var err error
+
+				// Use thumbnail service if available
+				if s.thumbnailService != nil {
+					thumb, err = s.thumbnailService.GetOrGenerate(filePath)
+				} else {
+					thumb, err = imaging.GenerateThumbnail(filePath, s.thumbnailCache)
+				}
+
 				if err == nil {
 					groupDTOs[idx].Thumbnail = thumb
+					if s.thumbnailService != nil {
+						groupDTOs[idx].ThumbnailCachePath = s.thumbnailService.GenerateThumbnailPath(filePath)
+					}
 				}
 			}(i, g.Files[0].Path)
 		}
@@ -167,7 +181,16 @@ func (s *Server) handleThumbnail(c *gin.Context) {
 		return
 	}
 
-	thumbnail, err := imaging.GenerateThumbnail(path, s.thumbnailCache)
+	var thumbnail string
+	var err error
+
+	// Use thumbnail service if available
+	if s.thumbnailService != nil {
+		thumbnail, err = s.thumbnailService.GetOrGenerate(path)
+	} else {
+		thumbnail, err = imaging.GenerateThumbnail(path, s.thumbnailCache)
+	}
+
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, i18n.ErrorResponse(i18n.MsgImageThumbnailFailed))
 		return
@@ -553,9 +576,19 @@ func (s *Server) handleGetGalleryImages(c *gin.Context) {
 				semaphore <- struct{}{}
 				defer func() { <-semaphore }()
 
-				thumb, err := imaging.GenerateThumbnail(filePath, s.thumbnailCache)
+				var thumb string
+				var err error
+
+				// Use thumbnail service if available
+				if s.thumbnailService != nil {
+					thumb, err = s.thumbnailService.GetOrGenerate(filePath)
+				} else {
+					thumb, err = imaging.GenerateThumbnail(filePath, s.thumbnailCache)
+				}
+
 				if err == nil {
 					imageDTOs[idx].Thumbnail = thumb
+					imageDTOs[idx].ThumbnailCachePath = s.thumbnailService.GetThumbnailPath(filePath)
 				}
 			}(i, f.Path)
 		}
@@ -743,13 +776,36 @@ func (s *Server) handleUpdateSettings(c *gin.Context) {
 			settings.TrashDir = ""
 		}
 	}
+	if req.ThumbnailCachePath != nil {
+		newCachePath := strings.TrimSpace(*req.ThumbnailCachePath)
+		if newCachePath != "" {
+			// Normalize the cache path
+			absCache, err := filepath.Abs(newCachePath)
+			if err != nil {
+				c.JSON(http.StatusBadRequest, i18n.ErrorResponse(i18n.MsgImageInvalidTrashPath))
+				return
+			}
+			normalizedCache := filepath.ToSlash(absCache)
+			settings.ThumbnailCachePath = normalizedCache
+
+			// Update thumbnail service if available
+			if s.thumbnailService != nil {
+				if err := s.thumbnailService.UpdateCachePath(normalizedCache); err != nil {
+					log.Printf("Failed to update thumbnail cache path: %v", err)
+				}
+			}
+		} else {
+			settings.ThumbnailCachePath = ""
+		}
+	}
 
 	s.db.Save(&settings)
 
 	c.JSON(http.StatusOK, dto.AppSettingsDTO{
-		Theme:    settings.Theme,
-		Language: settings.Language,
-		TrashDir: settings.TrashDir,
+		Theme:              settings.Theme,
+		Language:           settings.Language,
+		TrashDir:           settings.TrashDir,
+		ThumbnailCachePath: settings.ThumbnailCachePath,
 	})
 }
 
@@ -1411,7 +1467,16 @@ func (s *Server) handleGetOcrDocuments(c *gin.Context) {
 			semaphore <- struct{}{}
 			defer func() { <-semaphore }()
 
-			thumb, err := imaging.GenerateThumbnail(path, s.thumbnailCache)
+			var thumb string
+			var err error
+
+			// Use thumbnail service if available
+			if s.thumbnailService != nil {
+				thumb, err = s.thumbnailService.GetOrGenerate(path)
+			} else {
+				thumb, err = imaging.GenerateThumbnail(path, s.thumbnailCache)
+			}
+
 			if err == nil {
 				docs[idx].Thumbnail = thumb
 			}
@@ -1777,4 +1842,104 @@ func (s *Server) handleGetLlmModels(c *gin.Context) {
 		Models:   modelDTOs,
 		Provider: settings.Provider,
 	})
+}
+
+// handleThumbnailCacheStats возвращает статистику кэша миниатюр
+func (s *Server) handleThumbnailCacheStats(c *gin.Context) {
+	if s.thumbnailService == nil {
+		c.JSON(http.StatusOK, thumbnail.ThumbnailStats{})
+		return
+	}
+
+	stats := s.thumbnailService.Stats()
+	c.JSON(http.StatusOK, stats)
+}
+
+// handleThumbnailCacheInvalidate удаляет миниатюру из кэша
+func (s *Server) handleThumbnailCacheInvalidate(c *gin.Context) {
+	var req dto.InvalidateThumbnailRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, i18n.CreateValidationError(i18n.ValidationError))
+		return
+	}
+
+	if req.FilePath == "" {
+		c.JSON(http.StatusBadRequest, i18n.ErrorResponse(i18n.MsgImagePathRequired))
+		return
+	}
+
+	if s.thumbnailService == nil {
+		c.JSON(http.StatusNotFound, i18n.ErrorResponse(i18n.MsgScanDuplicateFailed))
+		return
+	}
+
+	if err := s.thumbnailService.Invalidate(req.FilePath); err != nil {
+		c.JSON(http.StatusInternalServerError, i18n.ErrorResponse(i18n.MsgImageThumbnailFailed))
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "thumbnail invalidated"})
+}
+
+// handleThumbnailCacheInvalidateAll удаляет все миниатюры из кэша
+func (s *Server) handleThumbnailCacheInvalidateAll(c *gin.Context) {
+	if s.thumbnailService == nil {
+		c.JSON(http.StatusNotFound, i18n.ErrorResponse(i18n.MsgScanDuplicateFailed))
+		return
+	}
+
+	if err := s.thumbnailService.InvalidateAll(); err != nil {
+		c.JSON(http.StatusInternalServerError, i18n.ErrorResponse(i18n.MsgImageThumbnailFailed))
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "all thumbnails invalidated"})
+}
+
+// handleThumbnailCacheWarmup предварительно генерирует миниатюры для файлов
+func (s *Server) handleThumbnailCacheWarmup(c *gin.Context) {
+	var req dto.WarmupThumbnailsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, i18n.CreateValidationError(i18n.ValidationError))
+		return
+	}
+
+	if len(req.FilePaths) == 0 {
+		c.JSON(http.StatusBadRequest, i18n.ErrorResponse(i18n.MsgScanNoFilesSelected))
+		return
+	}
+
+	if s.thumbnailService == nil {
+		c.JSON(http.StatusNotFound, i18n.ErrorResponse(i18n.MsgScanDuplicateFailed))
+		return
+	}
+
+	if err := s.thumbnailService.Warmup(req.FilePaths); err != nil {
+		c.JSON(http.StatusInternalServerError, i18n.ErrorResponse(i18n.MsgImageThumbnailFailed))
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "thumbnails warmed up"})
+}
+
+// handleThumbnailCacheEnable включает кэш миниатюр
+func (s *Server) handleThumbnailCacheEnable(c *gin.Context) {
+	if s.thumbnailService == nil {
+		c.JSON(http.StatusNotFound, i18n.ErrorResponse(i18n.MsgScanDuplicateFailed))
+		return
+	}
+
+	s.thumbnailService.Enable()
+	c.JSON(http.StatusOK, gin.H{"message": "thumbnail cache enabled"})
+}
+
+// handleThumbnailCacheDisable выключает кэш миниатюр
+func (s *Server) handleThumbnailCacheDisable(c *gin.Context) {
+	if s.thumbnailService == nil {
+		c.JSON(http.StatusNotFound, i18n.ErrorResponse(i18n.MsgScanDuplicateFailed))
+		return
+	}
+
+	s.thumbnailService.Disable()
+	c.JSON(http.StatusOK, gin.H{"message": "thumbnail cache disabled"})
 }

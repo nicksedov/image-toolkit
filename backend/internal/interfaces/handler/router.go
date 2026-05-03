@@ -46,6 +46,14 @@ func (s *Server) SetupRouter(authMiddleware *middleware.AuthMiddleware, csrfProt
 			protected.POST("/auth/change-password", authHandlers.handleChangePassword)
 			protected.PATCH("/users/me", authHandlers.handleUpdateProfile)
 
+			// Thumbnail cache endpoints
+			protected.GET("/thumbnail/cache/stats", s.handleThumbnailCacheStats)
+			protected.DELETE("/thumbnail/cache/invalidate", s.handleThumbnailCacheInvalidate)
+			protected.DELETE("/thumbnail/cache/invalidate-all", s.handleThumbnailCacheInvalidateAll)
+			protected.POST("/thumbnail/cache/warmup", s.handleThumbnailCacheWarmup)
+			protected.POST("/thumbnail/cache/enable", s.handleThumbnailCacheEnable)
+			protected.POST("/thumbnail/cache/disable", s.handleThumbnailCacheDisable)
+
 			// Existing endpoints (now protected)
 			protected.GET("/duplicates", s.handleGetDuplicates)
 			protected.POST("/scan", s.handleScan)
