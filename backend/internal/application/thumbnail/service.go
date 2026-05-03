@@ -12,37 +12,37 @@ import (
 	"sync"
 	"time"
 
-	"github.com/disintegration/imaging"
 	"github.com/deepteams/webp"
+	"github.com/disintegration/imaging"
 )
 
 // Config конфигурация ThumbnailService
 type Config struct {
-	CacheDir          string
-	MaxSize           int // Максимальный размер миниатюры в пикселях
-	Quality           int // Качество сжатия (0-100)
-	Enabled           bool
-	Format            string // "webp" или "jpeg"
-	CacheTTL          time.Duration
-	PreloadOnScan     bool
+	CacheDir      string
+	MaxSize       int // Максимальный размер миниатюры в пикселях
+	Quality       int // Качество сжатия (0-100)
+	Enabled       bool
+	Format        string // "webp" или "jpeg"
+	CacheTTL      time.Duration
+	PreloadOnScan bool
 }
 
 // Service управляет кэшированием миниатюр
 type Service struct {
-	cfg          *Config
-	storage      *ThumbnailCacheStorage
-	mu           sync.RWMutex
-	stats        ThumbnailStats
-	initialized  bool
+	cfg         *Config
+	storage     *ThumbnailCacheStorage
+	mu          sync.RWMutex
+	stats       ThumbnailStats
+	initialized bool
 }
 
 // ThumbnailStats статистика кэша миниатюр
 type ThumbnailStats struct {
-	TotalSize    int64 `json:"totalSize"`
-	TotalFiles   int   `json:"totalFiles"`
-	CacheDir     string `json:"cacheDir"`
-	Enabled      bool  `json:"enabled"`
-	Initialized  bool  `json:"initialized"`
+	TotalSize   int64  `json:"totalSize"`
+	TotalFiles  int    `json:"totalFiles"`
+	CacheDir    string `json:"cacheDir"`
+	Enabled     bool   `json:"enabled"`
+	Initialized bool   `json:"initialized"`
 }
 
 // DefaultCacheDir возвращает путь по умолчанию для кэша миниатюр (Linux XDG Compatible)
@@ -58,12 +58,12 @@ func DefaultCacheDir() string {
 func NewService(cfg *Config) (*Service, error) {
 	if cfg == nil {
 		cfg = &Config{
-			CacheDir:  DefaultCacheDir(),
-			MaxSize:   ThumbnailMaxSize,
-			Quality:   ThumbnailQuality,
-			Enabled:   true,
-			Format:    ThumbnailFormat,
-			CacheTTL:  30 * 24 * time.Hour, // 30 дней
+			CacheDir:      DefaultCacheDir(),
+			MaxSize:       ThumbnailMaxSize,
+			Quality:       ThumbnailQuality,
+			Enabled:       true,
+			Format:        ThumbnailFormat,
+			CacheTTL:      30 * 24 * time.Hour, // 30 дней
 			PreloadOnScan: true,
 		}
 	}
@@ -78,8 +78,8 @@ func NewService(cfg *Config) (*Service, error) {
 	}
 
 	s := &Service{
-		cfg:       cfg,
-		storage:   storage,
+		cfg:         cfg,
+		storage:     storage,
 		initialized: true,
 	}
 
@@ -340,10 +340,10 @@ func (s *Service) updateStats() {
 	}
 
 	s.stats = ThumbnailStats{
-		TotalFiles: count,
-		TotalSize:  size,
-		CacheDir:   s.cfg.CacheDir,
-		Enabled:    s.cfg.Enabled,
+		TotalFiles:  count,
+		TotalSize:   size,
+		CacheDir:    s.cfg.CacheDir,
+		Enabled:     s.cfg.Enabled,
 		Initialized: true,
 	}
 }
