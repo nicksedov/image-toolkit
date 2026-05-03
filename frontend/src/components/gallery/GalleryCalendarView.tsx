@@ -53,6 +53,7 @@ export function GalleryCalendarView({ onImageClick }: GalleryCalendarViewProps) 
   })
 
   const pageRef = useRef(1)
+  const prefetchedPageRef = useRef(0)
   const sentinelRef = useRef<HTMLDivElement>(null)
   const mainContentRef = useRef<HTMLDivElement>(null)
   
@@ -150,23 +151,24 @@ export function GalleryCalendarView({ onImageClick }: GalleryCalendarViewProps) 
   }, [groups, preloadImages])
 
   // Preload next page images when approaching end of current content
-  const prefetchingRef = useRef(false)
   useEffect(() => {
     if (!hasMore) return
     
     const checkAndPreloadNextPage = () => {
-      if (!mainContentRef.current || isLoading || prefetchingRef.current) return
+      if (!mainContentRef.current || isLoading) return
       
       const scrollHeight = mainContentRef.current.scrollHeight
       const scrollTop = mainContentRef.current.scrollTop || window.scrollY
       const clientHeight = window.innerHeight
       
-      // If user has scrolled past 50% of content, preload next page
+      // If user has scrolled past 50% of content, preload next page (once per page)
       if (scrollTop + clientHeight > scrollHeight * 0.5) {
         const nextPage = pageRef.current
         
-        // Preload next page images in background
-        prefetchingRef.current = true
+        // Only prefetch if this page hasn't been prefetched yet
+        if (nextPage <= prefetchedPageRef.current) return
+        
+        prefetchedPageRef.current = nextPage
         fetchGalleryCalendar(
           nextPage,
           PAGE_SIZE,
@@ -182,9 +184,7 @@ export function GalleryCalendarView({ onImageClick }: GalleryCalendarViewProps) 
           })
           .catch(() => {
             // Silently fail - next page will load normally when needed
-          })
-          .finally(() => {
-            prefetchingRef.current = false
+            prefetchedPageRef.current = nextPage - 1 // allow retry on failure
           })
       }
     }
@@ -196,6 +196,7 @@ export function GalleryCalendarView({ onImageClick }: GalleryCalendarViewProps) 
   // Initial load or reset when filter changes
   useEffect(() => {
     pageRef.current = 1
+    prefetchedPageRef.current = 0
     setGroups([])
     setInitialized(false)
     loadPage(1, true)
