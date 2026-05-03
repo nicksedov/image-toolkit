@@ -124,6 +124,16 @@ func main() {
 		}
 	}
 
+	// Create background sync manager
+	backgroundSync := imaging.NewBackgroundSyncManager(db, thumbnailService, cfg.BackgroundSyncIntervalMin)
+	if cfg.BackgroundSyncEnabled {
+		backgroundSync.Start()
+		defer backgroundSync.Stop()
+		fmt.Printf("Background sync enabled (interval: %d min)\n", cfg.BackgroundSyncIntervalMin)
+	} else {
+		fmt.Println("Background sync disabled")
+	}
+
 	// Wire scan complete callback to trigger metadata extraction and OCR classification
 	scanManager.OnScanComplete = func() {
 		if err := metadataManager.StartExtraction(); err != nil {
@@ -177,6 +187,7 @@ func main() {
 	fmt.Printf("Metadata workers: %d, interval: %d min\n", cfg.MetadataWorkers, cfg.MetadataIntervalMin)
 	fmt.Printf("CORS allowed origins: %s\n", strings.Join(cfg.CORSOrigins, ", "))
 	fmt.Printf("Thumbnail cache: enabled=%v, path=%s\n", cfg.ThumbnailCacheEnabled, cachePath)
+	fmt.Printf("Background sync: enabled=%v, interval=%d min\n", cfg.BackgroundSyncEnabled, cfg.BackgroundSyncIntervalMin)
 	fmt.Println("Configure gallery folders via the web UI Settings tab.")
 	fmt.Println("Press Ctrl+C to stop the server")
 

@@ -42,6 +42,10 @@ type AppConfig struct {
 	ThumbnailCacheMaxSize    int
 	ThumbnailCacheQuality    int
 	ThumbnailCachePreloadOnScan bool
+
+	// Background sync configuration
+	BackgroundSyncEnabled     bool
+	BackgroundSyncIntervalMin int
 }
 
 // LoadConfig reads configuration from environment variables
@@ -102,6 +106,8 @@ func LoadConfig() *AppConfig {
 		ThumbnailCacheMaxSize:    getEnvInt("THUMBNAIL_CACHE_MAX_SIZE", 320),
 		ThumbnailCacheQuality:    getEnvInt("THUMBNAIL_CACHE_QUALITY", 80),
 		ThumbnailCachePreloadOnScan: getEnv("THUMBNAIL_CACHE_PRELOAD_ON_SCAN", "true") == "true",
+		BackgroundSyncEnabled:     getEnv("BACKGROUND_SYNC_ENABLED", "true") == "true",
+		BackgroundSyncIntervalMin: getEnvInt("BACKGROUND_SYNC_INTERVAL_MIN", 60*12), // 12 hours
 	}
 }
 
