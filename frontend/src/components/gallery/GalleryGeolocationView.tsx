@@ -93,6 +93,7 @@ export function GalleryGeolocationView({ onImageClick }: GalleryGeolocationViewP
   const [mapZoom, setMapZoom] = useState(2)
   const [mapSize, setMapSize] = useState({ width: 800, height: 600 })
   const mapContainerRef = useRef<HTMLDivElement>(null)
+  const [hasAnyGeoImages, setHasAnyGeoImages] = useState(false)
 
   const { clusters, totalImages, isLoading: clustersLoading } = useGeoClusters({
     bounds: viewMode === "map" ? (mapBounds || { minLat: -90, maxLat: 90, minLng: -180, maxLng: 180 }) : null,
@@ -100,6 +101,13 @@ export function GalleryGeolocationView({ onImageClick }: GalleryGeolocationViewP
     width: mapSize.width,
     height: mapSize.height,
   })
+
+  // Track if we ever found any geo images globally
+  useEffect(() => {
+    if (totalImages > 0) {
+      setHasAnyGeoImages(true)
+    }
+  }, [totalImages])
 
   const { images, hasMore, isLoading: imagesLoading, loadMore } = useGeoImages(
     viewMode === "grid" ? selectedBounds : null
@@ -241,7 +249,7 @@ export function GalleryGeolocationView({ onImageClick }: GalleryGeolocationViewP
         </div>
       )}
 
-      {totalImages === 0 && !clustersLoading ? (
+      {totalImages === 0 && !clustersLoading && !hasAnyGeoImages ? (
         <div className="rounded-lg border border-dashed p-12 text-center">
           <ImageIcon className="mx-auto h-10 w-10 text-muted-foreground/50" />
           <p className="mt-2 text-sm font-medium text-muted-foreground">
