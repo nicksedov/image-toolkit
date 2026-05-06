@@ -93,8 +93,9 @@ export function GalleryCalendarView({ onImageClick }: GalleryCalendarViewProps) 
       // Update date range on first load
       if (page === 1) {
         setDateRange(result.dateRange)
-        // Set calendar to the month of the oldest image (minDate) if not filtered
-        if (!dateRangeFilter.start && result.dateRange.minDate) {
+        // Set calendar to the month of the oldest image (minDate) only on initial load
+        // when no calendar month has been explicitly selected by the user
+        if (!dateRangeFilter.start && !initialized && result.dateRange.minDate) {
           const minDate = new Date(result.dateRange.minDate + "T00:00:00")
           setCalendarViewDate(new Date(minDate.getFullYear(), minDate.getMonth(), 1))
         }

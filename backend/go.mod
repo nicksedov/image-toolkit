@@ -3,6 +3,7 @@ module image-toolkit
 go 1.25.0
 
 require (
+	github.com/MadAppGang/gocluster v0.0.0-20161226093512-f4629d7b12f8
 	github.com/deepteams/webp v1.2.1
 	github.com/disintegration/imaging v1.6.2
 	github.com/gin-contrib/cors v1.7.7
@@ -18,7 +19,6 @@ require (
 )
 
 require (
-	github.com/MadAppGang/gocluster v0.0.0-20161226093512-f4629d7b12f8 // indirect
 	github.com/MadAppGang/kdbush v0.0.0-20161230031607-ed6b87d35c48 // indirect
 	github.com/bytedance/gopkg v0.1.3 // indirect
 	github.com/bytedance/sonic v1.15.0 // indirect
