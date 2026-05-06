@@ -194,7 +194,7 @@ export function GalleryCalendarView({ onImageClick }: GalleryCalendarViewProps) 
     return () => window.removeEventListener("scroll", checkAndPreloadNextPage)
   }, [hasMore, isLoading, dateRangeFilter.start, dateRangeFilter.end, calendarMonthKey, preloadImages])
 
-  // Initial load or reset when filter changes
+  // Initial load on mount
   useEffect(() => {
     pageRef.current = 1
     prefetchedPageRef.current = 0
@@ -202,7 +202,7 @@ export function GalleryCalendarView({ onImageClick }: GalleryCalendarViewProps) 
     setInitialized(false)
     loadPage(1, true)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dateRangeFilter.start, dateRangeFilter.end])
+  }, []) // Only on mount
 
   // Load month info when calendar month changes (using lightweight endpoint)
   useEffect(() => {
@@ -231,10 +231,25 @@ export function GalleryCalendarView({ onImageClick }: GalleryCalendarViewProps) 
     setInitialized(false)
     setDateRangeFilter({ start: null, end: null })
     setRangeSelecting(false)
-    // Reset loadPage deps by calling with current calendarMonthKey
     loadPage(1, true)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [calendarMonthKey])
+
+  // Reload when date range filter changes (user clicking on calendar days)
+  // Only triggers when start/end are actual dates, not null resets from month changes
+  useEffect(() => {
+    // Skip if both are null (this means it was reset by month/year change, handled above)
+    if (dateRangeFilter.start === null && dateRangeFilter.end === null) return
+    // Skip if not yet initialized
+    if (!initialized) return
+    
+    pageRef.current = 1
+    prefetchedPageRef.current = 0
+    setGroups([])
+    setInitialized(false)
+    loadPage(1, true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dateRangeFilter.start, dateRangeFilter.end])
 
   // Infinite scroll
   useEffect(() => {
