@@ -3,6 +3,7 @@ package handler
 import (
 	"fmt"
 	"log"
+	"math"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -1232,10 +1233,31 @@ func (s *Server) handleGetGalleryClusters(c *gin.Context) {
 	width, _ := strconv.Atoi(c.DefaultQuery("width", "800"))
 	height, _ := strconv.Atoi(c.DefaultQuery("height", "600"))
 
-	// Validate bounds
-	if minLat < -90 || maxLat > 90 || minLng < -180 || maxLng > 180 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid bounds"})
-		return
+	// Normalize latitude: clamp to [-90, 90] (Mercator projection can produce extreme values at poles)
+	minLat = math.Max(-90, math.Min(90, minLat))
+	maxLat = math.Max(-90, math.Min(90, maxLat))
+	// Normalize longitude: wrap into [-180, 180] range (Leaflet allows dragging past date line)
+	for minLng < -180 {
+		minLng += 360
+	}
+	for minLng > 180 {
+		minLng -= 360
+	}
+	for maxLng < -180 {
+		maxLng += 360
+	}
+	for maxLng > 180 {
+		maxLng -= 360
+	}
+	// Ensure proper ordering after normalization
+	if minLng > maxLng {
+		// If normalized bounds crossed, the view covers the whole world longitudinally
+		minLng = -180
+		maxLng = 180
+	}
+	// Ensure latitude ordering
+	if minLat > maxLat {
+		minLat, maxLat = maxLat, minLat
 	}
 	if zoom < 0 || zoom > 20 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid zoom level"})
