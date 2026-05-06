@@ -61,6 +61,7 @@ frontend/dist/
 
 # Qoder
 .qoder/
+.kilo/
 .serena/
-
+.supabase/
 .service/

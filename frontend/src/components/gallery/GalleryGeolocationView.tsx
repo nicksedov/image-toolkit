@@ -95,7 +95,7 @@ export function GalleryGeolocationView({ onImageClick }: GalleryGeolocationViewP
   const mapContainerRef = useRef<HTMLDivElement>(null)
 
   const { clusters, totalImages, isLoading: clustersLoading } = useGeoClusters({
-    bounds: viewMode === "map" ? mapBounds : null,
+    bounds: viewMode === "map" ? (mapBounds || { minLat: -90, maxLat: 90, minLng: -180, maxLng: 180 }) : null,
     zoom: mapZoom,
     width: mapSize.width,
     height: mapSize.height,
@@ -266,7 +266,7 @@ export function GalleryGeolocationView({ onImageClick }: GalleryGeolocationViewP
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
             <MapZoomTracker />
-            {mapBounds && <MapEventHandler onBoundsChange={handleBoundsChange} />}
+            <MapEventHandler onBoundsChange={handleBoundsChange} />
 
             {clusters.map((cluster) => (
               <Marker

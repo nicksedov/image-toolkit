@@ -30,6 +30,7 @@ export function useGeoClusters({ bounds, zoom, width, height }: UseGeoClustersPa
     if (!bounds) {
       setClusters([])
       setTotalImages(0)
+      setIsLoading(false)
       return
     }
 

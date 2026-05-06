@@ -2,6 +2,7 @@ package geo
 
 import (
 	"fmt"
+	"log"
 	"math"
 
 	"image-toolkit/internal/interfaces/dto"
@@ -31,7 +32,10 @@ func (p *imageGeoPoint) GetCoordinates() goclusterlib.GeoCoordinates {
 // ComputeClusters performs server-side clustering using goclusterlib library.
 // It uses hierarchical grid-based clustering with KD-tree indexing for fast queries.
 func ComputeClusters(db *gorm.DB, params ClusterParams) ([]dto.GeoCluster, int, error) {
-	// Query all images with GPS coordinates within the viewport bounds
+	// If bounds are not set, fetch all GPS images
+	hasBounds := params.MinLat != 0 || params.MaxLat != 0 || params.MinLng != 0 || params.MaxLng != 0
+
+	// Query all images with GPS coordinates
 	type imageWithGPS struct {
 		Path         string
 		GPSLatitude  float64
@@ -39,18 +43,35 @@ func ComputeClusters(db *gorm.DB, params ClusterParams) ([]dto.GeoCluster, int, 
 	}
 
 	var images []imageWithGPS
-	err := db.Table("image_files").
+	query := db.Table("image_files").
 		Select("image_files.path, image_metadata.gps_latitude, image_metadata.gps_longitude").
 		Joins("INNER JOIN image_metadata ON image_metadata.image_file_id = image_files.id").
 		Where("image_metadata.gps_latitude IS NOT NULL").
-		Where("image_metadata.gps_longitude IS NOT NULL").
-		Where("image_metadata.gps_latitude BETWEEN ? AND ?", params.MinLat, params.MaxLat).
-		Where("image_metadata.gps_longitude BETWEEN ? AND ?", params.MinLng, params.MaxLng).
-		Find(&images).Error
+		Where("image_metadata.gps_longitude IS NOT NULL")
 
-	if err != nil {
+	if hasBounds {
+		minLat, maxLat := params.MinLat, params.MaxLat
+		minLng, maxLng := params.MinLng, params.MaxLng
+		if minLat > maxLat {
+			minLat, maxLat = maxLat, minLat
+		}
+		if minLng > maxLng {
+			minLng, maxLng = maxLng, minLng
+		}
+
+		query = query.Where("image_metadata.gps_latitude BETWEEN ? AND ?", minLat, maxLat).
+			Where("image_metadata.gps_longitude BETWEEN ? AND ?", minLng, maxLng)
+
+		log.Printf("[geo] Bounds: lat=[%.4f, %.4f], lng=[%.4f, %.4f]", minLat, maxLat, minLng, maxLng)
+	} else {
+		log.Printf("[geo] No bounds, querying all GPS images")
+	}
+
+	if err := query.Find(&images).Error; err != nil {
 		return nil, 0, err
 	}
+
+	log.Printf("[geo] Found %d images", len(images))
 
 	totalImages := len(images)
 	if totalImages == 0 {
@@ -68,67 +89,42 @@ func ComputeClusters(db *gorm.DB, params ClusterParams) ([]dto.GeoCluster, int, 
 		}
 	}
 
-	// Create cluster with configuration
-	cluster := goclusterlib.NewCluster()
+	// Build cluster index
+	cl := goclusterlib.NewCluster()
+	cl.PointSize = 40
+	cl.MinZoom = 0
+	cl.MaxZoom = 18
 
-	// Configure clustering parameters
-	// PointSize: cluster radius in pixels (controls how close points merge)
-	// MinZoom/MaxZoom: zoom range for clustering hierarchy
-	cluster.PointSize = 40
-	cluster.MinZoom = 0
-	cluster.MaxZoom = 18
-
-	// Build the clustering index
-	if err := cluster.ClusterPoints(points); err != nil {
+	if err := cl.ClusterPoints(points); err != nil {
 		return nil, 0, err
 	}
 
-	// Query clusters for the current viewport
-	northWest := goclusterlib.GeoPoint(&imageGeoPoint{
-		lat: params.MaxLat,
-		lng: params.MinLng,
-	})
-	southEast := goclusterlib.GeoPoint(&imageGeoPoint{
-		lat: params.MinLat,
-		lng: params.MaxLng,
-	})
+	// Use AllClusters (GetClusters has issues with world bounds)
+	clusterPoints := cl.AllClusters(params.Zoom)
+	log.Printf("[geo] AllClusters returned %d points", len(clusterPoints))
 
-	clusterPoints := cluster.GetClusters(northWest, southEast, params.Zoom)
-
-	// Convert cluster points to DTO
-	// goclusterlib returns:
-	// - Individual points with Id = original index, NumPoints = 1
-	// - Clustered groups with Id >= ClusterIdxSeed, NumPoints > 1
+	// Convert to DTO
 	clusters := make([]dto.GeoCluster, 0, len(clusterPoints))
 
 	for _, cp := range clusterPoints {
-		// Get geographic coordinates from mercator projection
-		lat, lng := cp.Coordinates()
+		// IMPORTANT: Coordinates() returns (x, y) from Mercator = (lng, lat)
+		// NOT (lat, lng)! The library's Coordinates() returns the reverse Mercator
+		// projection which gives us (longitude, latitude).
+		y, x := cp.Coordinates() // y is actually longitude, x is latitude
+		lat, lng := x, y         // swap to get correct lat/lng
 
-		// Skip individual points (NumPoints == 1) unless zoomed in very far
-		// This reduces clutter at lower zoom levels
+		// Skip individual points at low zoom levels
 		if cp.NumPoints == 1 && params.Zoom < 15 {
 			continue
 		}
 
-		clusterID := ""
-		if cp.NumPoints > 1 {
-			// This is a cluster group
-			clusterID = fmt.Sprintf("cluster_%d", cp.Id)
-		} else {
-			// Single image point
-			clusterID = fmt.Sprintf("point_%d", cp.Id)
-		}
+		clusterID := fmt.Sprintf("cluster_%d", cp.Id)
 
-		// For clusters, we need to gather image paths
-		// goclusterlib doesn't store original data in ClusterPoint, only coordinates
-		// So we'll compute a bounding area and fetch nearby images
+		// Get image paths
 		var imagePaths []string
 		if cp.NumPoints > 1 {
-			// For clusters, we'll need to query the database for images near this point
-			// Use a small radius based on the cluster size
+			// For clusters, query nearby images
 			radius := calculateClusterRadius(cp.NumPoints, params.Zoom)
-
 			var paths []string
 			db.Table("image_files").
 				Select("image_files.path").
@@ -137,8 +133,12 @@ func ComputeClusters(db *gorm.DB, params ClusterParams) ([]dto.GeoCluster, int, 
 				Where("image_metadata.gps_longitude BETWEEN ? AND ?", lng-radius, lng+radius).
 				Limit(500).
 				Pluck("path", &paths)
-
 			imagePaths = paths
+		} else {
+			// For single points, get path from original data
+			if cp.Id >= 0 && cp.Id < len(images) {
+				imagePaths = []string{images[cp.Id].Path}
+			}
 		}
 
 		clusters = append(clusters, dto.GeoCluster{
@@ -150,19 +150,15 @@ func ComputeClusters(db *gorm.DB, params ClusterParams) ([]dto.GeoCluster, int, 
 		})
 	}
 
+	log.Printf("[geo] Returning %d clusters", len(clusters))
 	return clusters, totalImages, nil
 }
 
 // calculateClusterRadius estimates the geographic radius for a cluster based on zoom level
 func calculateClusterRadius(numPoints int, zoom int) float64 {
-	// Base radius decreases with zoom level
-	// At zoom 0: ~10 degrees, at zoom 18: ~0.001 degrees
 	baseRadius := 10.0 / math.Pow(2, float64(zoom))
-
-	// Larger clusters get a slightly larger radius
 	if numPoints > 10 {
 		baseRadius *= 1.5
 	}
-
 	return baseRadius
 }
