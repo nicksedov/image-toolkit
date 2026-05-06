@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"os/exec"
 	"strings"
 	"time"
 
@@ -46,6 +47,19 @@ func main() {
 
 	fmt.Println("Database connected successfully!")
 
+	// Check for exiftool availability
+	fmt.Println("Checking for exiftool...")
+	if _, err := exec.LookPath("exiftool"); err != nil {
+		log.Fatalf("exiftool not found in PATH. Please install exiftool: https://exiftool.org/")
+	}
+	fmt.Println("exiftool found!")
+
+	// Initialize exiftool for EXIF extraction
+	if err := imaging.InitExifTool(); err != nil {
+		log.Fatalf("Failed to initialize exiftool: %v", err)
+	}
+	fmt.Println("exiftool initialized!")
+
 	// Initialize offline geocoder
 	fmt.Println("Initializing offline geocoder...")
 	geoc := geocoder.NewGeocoder()
@@ -53,15 +67,6 @@ func main() {
 		fmt.Println("Geocoder initialized successfully!")
 	} else {
 		fmt.Println("Geocoder unavailable, geolocation will be disabled.")
-	}
-
-	// Initialize exiftool for EXIF extraction
-	fmt.Println("Initializing EXIF metadata extractor...")
-	if err := imaging.InitExifTool(); err != nil {
-		log.Printf("WARNING: Failed to initialize exiftool: %v", err)
-		log.Println("Metadata extraction will use fallback methods")
-	} else {
-		fmt.Println("EXIF extractor initialized successfully!")
 	}
 
 	// Initialize OCR classifier client and health check

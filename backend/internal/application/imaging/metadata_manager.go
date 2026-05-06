@@ -22,18 +22,18 @@ type MetadataStatusResponse struct {
 
 // MetadataManager manages background EXIF metadata extraction
 type MetadataManager struct {
-	mu                      sync.RWMutex
-	isProcessing            bool
-	progress                string
-	filesProcessed          int
-	db                      *gorm.DB
-	geocoder                *geocoder.Geocoder
-	workers                 int
-	ticker                  *time.Ticker
-	stopChan                chan struct{}
-	isRepairProcessing     bool
-	repairProgress          string
-	repairFilesProcessed    int
+	mu                   sync.RWMutex
+	isProcessing         bool
+	progress             string
+	filesProcessed       int
+	db                   *gorm.DB
+	geocoder             *geocoder.Geocoder
+	workers              int
+	ticker               *time.Ticker
+	stopChan             chan struct{}
+	isRepairProcessing   bool
+	repairProgress       string
+	repairFilesProcessed int
 }
 
 // NewMetadataManager creates a new MetadataManager and starts the periodic extraction loop.
@@ -387,4 +387,3 @@ func (mm *MetadataManager) IsRepairProcessing() bool {
 	defer mm.mu.RUnlock()
 	return mm.isRepairProcessing
 }
-

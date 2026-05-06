@@ -9,6 +9,7 @@ import (
 	"log"
 	"math"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -26,14 +27,32 @@ import (
 // exifTool is the global exiftool instance
 var exifTool *exiftool.Exiftool
 
-// InitExifTool initializes the exiftool library
+// InitExifTool initializes the global exiftool instance.
+// It checks for exiftool binary availability and creates the Exiftool wrapper.
+// Returns an error if exiftool is not found or cannot be initialized.
 func InitExifTool() error {
-	var err error
-	exifTool, err = exiftool.NewExiftool()
+	// Check if exiftool binary is available
+	if _, err := exec.LookPath("exiftool"); err != nil {
+		return fmt.Errorf("exiftool binary not found in PATH: %w", err)
+	}
+
+	et, err := exiftool.NewExiftool()
 	if err != nil {
 		return fmt.Errorf("failed to initialize exiftool: %w", err)
 	}
+
+	exifTool = et
+	log.Printf("EXIF: go-exiftool initialized successfully")
 	return nil
+}
+
+// CloseExifTool closes the global exiftool instance and releases resources.
+func CloseExifTool() {
+	if exifTool != nil {
+		exifTool.Close()
+		exifTool = nil
+		log.Printf("EXIF: go-exiftool closed")
+	}
 }
 
 // extractMetadata reads EXIF metadata and image dimensions from a file.
@@ -47,8 +66,12 @@ func extractMetadata(filePath string) (*domain.ImageMetadata, error) {
 		meta.Height = h
 	}
 
-	// Attempt EXIF extraction using exiftool
-	extractExifWithExiftool(filePath, meta)
+	// Attempt EXIF extraction
+	if exifTool != nil {
+		extractExifFields(filePath, meta)
+	} else {
+		log.Printf("EXIF: exiftool not initialized, skipping EXIF extraction for %s", filepath.Base(filePath))
+	}
 
 	return meta, nil
 }
@@ -68,60 +91,51 @@ func getImageDimensions(filePath string) (int, int, error) {
 	return cfg.Width, cfg.Height, nil
 }
 
-// extractExifWithExiftool extracts metadata using the exiftool library.
-// This library handles modern smartphone formats including Huawei P30.
-func extractExifWithExiftool(filePath string, meta *domain.ImageMetadata) {
-	if exifTool == nil {
-		log.Printf("WARNING: exiftool not initialized, skipping EXIF extraction for %s", filepath.Base(filePath))
+// extractExifFields attempts to read all EXIF fields from the file using go-exiftool.
+// Each field is extracted independently; failures are logged.
+func extractExifFields(filePath string, meta *domain.ImageMetadata) {
+	fileInfos := exifTool.ExtractMetadata(filePath)
+	if len(fileInfos) == 0 {
+		log.Printf("EXIF: No metadata returned for %s", filepath.Base(filePath))
 		return
 	}
 
-	// Extract metadata from file
-	fileMeta := exifTool.ExtractMetadata(filePath)
-	if len(fileMeta) == 0 {
-		log.Printf("WARNING: No metadata extracted for %s", filepath.Base(filePath))
+	fi := fileInfos[0]
+	if fi.Err != nil {
+		log.Printf("EXIF: Error extracting metadata from %s: %v", filepath.Base(filePath), fi.Err)
 		return
 	}
 
-	exifData := fileMeta[0]
-	if exifData.Err != nil {
-		log.Printf("WARNING: Error extracting metadata for %s: %v", filepath.Base(filePath), exifData.Err)
-		return
-	}
+	baseName := filepath.Base(filePath)
 
 	// Camera model
-	if model, err := exifData.GetString("Model"); err == nil && model != "" {
-		meta.CameraModel = strings.TrimSpace(model)
+	if model, err := fi.GetString("Model"); err == nil && model != "" {
+		meta.CameraModel = cleanString(model)
+		log.Printf("EXIF %s: CameraModel=%s", baseName, meta.CameraModel)
 	}
 
 	// Lens model
-	if lens, err := exifData.GetString("LensModel"); err == nil && lens != "" {
-		meta.LensModel = strings.TrimSpace(lens)
+	if lens, err := fi.GetString("LensModel"); err == nil && lens != "" {
+		meta.LensModel = cleanString(lens)
 	}
 
 	// ISO
-	if iso, err := exifData.GetInt("ISO"); err == nil && iso > 0 {
+	if iso, err := fi.GetInt("ISO"); err == nil {
 		meta.ISO = int(iso)
 	}
 
 	// Aperture (FNumber)
-	if aperture, err := exifData.GetFloat("Aperture"); err == nil && aperture > 0 {
+	if aperture, err := fi.GetFloat("FNumber"); err == nil {
 		meta.Aperture = fmt.Sprintf("f/%.1f", aperture)
 	}
 
 	// Shutter speed (ExposureTime)
-	if shutterSpeed, err := exifData.GetFloat("ExposureTime"); err == nil && shutterSpeed > 0 {
-		if shutterSpeed >= 1 {
-			meta.ShutterSpeed = fmt.Sprintf("%.0fs", shutterSpeed)
-		} else {
-			// Convert to fraction like 1/250
-			denom := int(1.0 / shutterSpeed)
-			meta.ShutterSpeed = fmt.Sprintf("1/%ds", denom)
-		}
+	if exposureTime, err := fi.GetFloat("ExposureTime"); err == nil {
+		meta.ShutterSpeed = formatExposureTimeFloat(exposureTime)
 	}
 
 	// Focal length
-	if focalLength, err := exifData.GetFloat("FocalLength"); err == nil && focalLength > 0 {
+	if focalLength, err := fi.GetFloat("FocalLength"); err == nil {
 		if focalLength == math.Trunc(focalLength) {
 			meta.FocalLength = fmt.Sprintf("%.0fmm", focalLength)
 		} else {
@@ -129,177 +143,251 @@ func extractExifWithExiftool(filePath string, meta *domain.ImageMetadata) {
 		}
 	}
 
-	// Date taken - try multiple possible tags
-	dateTaken := extractDateTaken(exifData)
-	if dateTaken != nil {
-		meta.DateTaken = dateTaken
-	}
+	// Date taken - try multiple fields
+	extractDateTaken(fi, meta, baseName)
 
 	// Orientation
-	if orientation, err := exifData.GetInt("Orientation"); err == nil && orientation > 0 {
-		meta.Orientation = int(orientation)
+	if orientation, err := fi.GetString("Orientation"); err == nil && orientation != "" {
+		meta.Orientation = parseOrientation(orientation)
 	}
 
 	// Color space
-	if colorSpace, err := exifData.GetString("ColorSpace"); err == nil && colorSpace != "" {
-		meta.ColorSpace = colorSpace
-	} else if colorSpaceInt, err := exifData.GetInt("ColorSpace"); err == nil {
-		meta.ColorSpace = colorSpaceName(int(colorSpaceInt))
+	if colorSpace, err := fi.GetString("ColorSpace"); err == nil && colorSpace != "" {
+		meta.ColorSpace = parseColorSpace(colorSpace)
 	}
 
 	// Software
-	if software, err := exifData.GetString("Software"); err == nil && software != "" {
-		meta.Software = strings.TrimSpace(software)
+	if software, err := fi.GetString("Software"); err == nil && software != "" {
+		meta.Software = cleanString(software)
 	}
 
-	// GPS coordinates - this is where exiftool excels with Huawei/modern phones
-	extractGPS(exifData, meta)
+	// GPS coordinates - with multiple fallback methods
+	extractGPS(fi, meta, baseName)
 }
 
-// extractDateTaken tries multiple EXIF date fields to get the date taken
-func extractDateTaken(exifData exiftool.FileMetadata) *time.Time {
-	// Try DateTimeOriginal first (most common)
-	if dateTime, err := exifData.GetString("DateTimeOriginal"); err == nil && dateTime != "" {
-		if t, err := parseExifDate(dateTime); err == nil {
-			return &t
+// extractDateTaken tries multiple EXIF date fields to populate DateTaken.
+func extractDateTaken(fi exiftool.FileMetadata, meta *domain.ImageMetadata, baseName string) {
+	// Try DateTimeOriginal first (most common for photos)
+	dateFields := []string{"DateTimeOriginal", "CreateDate", "ModifyDate", "DateTime"}
+
+	for _, field := range dateFields {
+		if dateStr, err := fi.GetString(field); err == nil && dateStr != "" {
+			if t, err := parseExifDate(dateStr); err == nil {
+				meta.DateTaken = &t
+				log.Printf("EXIF %s: DateTaken=%s (from %s)", baseName, t.Format("2006-01-02 15:04:05"), field)
+				return
+			}
+		}
+	}
+}
+
+// extractGPS extracts GPS coordinates with multiple fallback methods.
+func extractGPS(fi exiftool.FileMetadata, meta *domain.ImageMetadata, baseName string) {
+	// Method 1: Try direct GPSLatitude/GPSLongitude as float
+	if lat, err := fi.GetFloat("GPSLatitude"); err == nil {
+		if lng, err := fi.GetFloat("GPSLongitude"); err == nil {
+			meta.GPSLatitude = &lat
+			meta.GPSLongitude = &lng
+			log.Printf("EXIF %s: GPS via float: lat=%.8f, lng=%.8f", baseName, lat, lng)
+			return
 		}
 	}
 
-	// Try CreateDate as fallback
-	if dateTime, err := exifData.GetString("CreateDate"); err == nil && dateTime != "" {
-		if t, err := parseExifDate(dateTime); err == nil {
-			return &t
+	// Method 2: Try GPSLatitude/GPSLongitude as string and parse
+	if latStr, err := fi.GetString("GPSLatitude"); err == nil {
+		if lngStr, err := fi.GetString("GPSLongitude"); err == nil {
+			lat, latOk := parseGPSString(latStr)
+			lng, lngOk := parseGPSString(lngStr)
+			if latOk && lngOk {
+				// Apply hemisphere reference
+				if ref, err := fi.GetString("GPSLatitudeRef"); err == nil && (ref == "S" || ref == "s") {
+					lat = -lat
+				}
+				if ref, err := fi.GetString("GPSLongitudeRef"); err == nil && (ref == "W" || ref == "w") {
+					lng = -lng
+				}
+				meta.GPSLatitude = &lat
+				meta.GPSLongitude = &lng
+				log.Printf("EXIF %s: GPS via string parse: lat=%.8f, lng=%.8f", baseName, lat, lng)
+				return
+			}
 		}
 	}
 
-	// Try DateTimeDigitized
-	if dateTime, err := exifData.GetString("DateTimeDigitized"); err == nil && dateTime != "" {
-		if t, err := parseExifDate(dateTime); err == nil {
-			return &t
+	// Method 3: Try GPSPosition if available
+	if gpsPos, err := fi.GetString("GPSPosition"); err == nil {
+		if lat, lng, ok := parseGPSPosition(gpsPos); ok {
+			meta.GPSLatitude = &lat
+			meta.GPSLongitude = &lng
+			log.Printf("EXIF %s: GPS via GPSPosition: lat=%.8f, lng=%.8f", baseName, lat, lng)
+			return
 		}
 	}
 
-	return nil
+	log.Printf("EXIF %s: No GPS data extracted", baseName)
+}
+
+// parseGPSString parses GPS coordinate strings in various formats:
+// "41 deg 24' 12.2" N", "41.40338", "41 24 12.2", etc.
+func parseGPSString(s string) (float64, bool) {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return 0, false
+	}
+
+	// Remove hemisphere reference if present
+	s = strings.TrimRight(s, "NSEWnesw ")
+
+	// Try parsing as a simple float first
+	if val, err := strconv.ParseFloat(s, 64); err == nil {
+		return val, true
+	}
+
+	// Try parsing "deg min sec" or "deg min'sec\"" format
+	// Remove common symbols
+	s = strings.ReplaceAll(s, "deg", "")
+	s = strings.ReplaceAll(s, "'", "")
+	s = strings.ReplaceAll(s, "\"", "")
+	s = strings.TrimSpace(s)
+
+	parts := strings.Fields(s)
+	if len(parts) >= 2 {
+		deg, err1 := strconv.ParseFloat(parts[0], 64)
+		min, err2 := strconv.ParseFloat(parts[1], 64)
+		if err1 == nil && err2 == nil {
+			sec := 0.0
+			if len(parts) >= 3 {
+				sec, _ = strconv.ParseFloat(parts[2], 64)
+			}
+			return deg + min/60.0 + sec/3600.0, true
+		}
+	}
+
+	return 0, false
+}
+
+// parseGPSPosition tries to parse combined GPSPosition field.
+// Format is typically "41.40338, 12.13278" or similar.
+func parseGPSPosition(s string) (float64, float64, bool) {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return 0, 0, false
+	}
+
+	// Try comma-separated
+	parts := strings.Split(s, ",")
+	if len(parts) == 2 {
+		lat, err1 := strconv.ParseFloat(strings.TrimSpace(parts[0]), 64)
+		lng, err2 := strconv.ParseFloat(strings.TrimSpace(parts[1]), 64)
+		if err1 == nil && err2 == nil {
+			return lat, lng, true
+		}
+	}
+
+	// Try space-separated
+	parts = strings.Fields(s)
+	if len(parts) == 2 {
+		lat, err1 := strconv.ParseFloat(parts[0], 64)
+		lng, err2 := strconv.ParseFloat(parts[1], 64)
+		if err1 == nil && err2 == nil {
+			return lat, lng, true
+		}
+	}
+
+	return 0, 0, false
+}
+
+// parseOrientation converts orientation string to integer value.
+func parseOrientation(s string) int {
+	s = strings.TrimSpace(s)
+
+	// Try direct integer
+	if val, err := strconv.Atoi(s); err == nil {
+		return val
+	}
+
+	// Parse text orientations
+	lower := strings.ToLower(s)
+	if strings.Contains(lower, "rotate") {
+		if strings.Contains(lower, "90") {
+			if strings.Contains(lower, "cw") || strings.Contains(lower, "normal") {
+				return 6 // 90 CW
+			}
+			return 8 // 90 CCW (or 270 CW)
+		}
+		if strings.Contains(lower, "180") {
+			return 3
+		}
+	}
+
+	if strings.Contains(lower, "mirror") || strings.Contains(lower, "flip") {
+		if strings.Contains(lower, "horizontal") {
+			return 2
+		}
+		if strings.Contains(lower, "vertical") {
+			return 4
+		}
+	}
+
+	if strings.Contains(lower, "normal") || strings.Contains(lower, "horizontal") {
+		return 1
+	}
+
+	return 0
+}
+
+// parseColorSpace converts color space string to a standardized name.
+func parseColorSpace(s string) string {
+	s = strings.TrimSpace(s)
+	lower := strings.ToLower(s)
+
+	switch {
+	case lower == "srgb", strings.Contains(lower, "srgb"):
+		return "sRGB"
+	case lower == "adobe rgb", strings.Contains(lower, "adobe"):
+		return "Adobe RGB"
+	case strings.Contains(lower, "uncalibrat"):
+		return "Uncalibrated"
+	default:
+		return s
+	}
 }
 
 // parseExifDate parses EXIF date format "YYYY:MM:DD HH:MM:SS"
 func parseExifDate(dateStr string) (time.Time, error) {
-	// EXIF format: "2024:01:15 14:30:45"
 	dateStr = strings.TrimSpace(dateStr)
 	if len(dateStr) < 19 {
 		return time.Time{}, fmt.Errorf("invalid date format: %s", dateStr)
 	}
-	
-	// Replace colon with dash for date part
+
+	// EXIF format: "2024:01:15 14:30:45"
+	// Convert to: "2024-01-15 14:30:45"
 	dateStr = dateStr[:4] + "-" + dateStr[5:7] + "-" + dateStr[8:]
-	
+
 	return time.Parse("2006-01-02 15:04:05", dateStr)
 }
 
-// extractGPS extracts GPS coordinates from EXIF data
-func extractGPS(exifData exiftool.FileMetadata, meta *domain.ImageMetadata) {
-	// Try GPS latitude and longitude
-	latStr, latErr := exifData.GetString("GPSLatitude")
-	lngStr, lngErr := exifData.GetString("GPSLongitude")
-	
-	if latErr == nil && lngErr == nil && latStr != "" && lngStr != "" {
-		lat, latConvErr := convertGPSCoordinate(latStr)
-		lng, lngConvErr := convertGPSCoordinate(lngStr)
-		
-		if latConvErr == nil && lngConvErr == nil {
-			// Handle GPS reference (N/S for latitude, E/W for longitude)
-			if latRef, err := exifData.GetString("GPSLatitudeRef"); err == nil && strings.ToUpper(latRef) == "S" {
-				lat = -lat
-			}
-			if lngRef, err := exifData.GetString("GPSLongitudeRef"); err == nil && strings.ToUpper(lngRef) == "W" {
-				lng = -lng
-			}
-			
-			meta.GPSLatitude = &lat
-			meta.GPSLongitude = &lng
-			return
-		}
-	}
-	
-	// Fallback: try composite GPSLatitude/GPSLongitude (decimal degrees)
-	if lat, err := exifData.GetFloat("GPSLatitude"); err == nil {
-		if lng, err := exifData.GetFloat("GPSLongitude"); err == nil {
-			meta.GPSLatitude = &lat
-			meta.GPSLongitude = &lng
-		}
-	}
+// cleanString removes trailing whitespace and null characters from strings
+func cleanString(s string) string {
+	s = strings.TrimSpace(s)
+	s = strings.TrimRight(s, "\x00")
+	return s
 }
 
-// convertGPSCoordinate converts GPS coordinate string to decimal degrees
-// Format can be: "52 deg 22' 11.12"" or "52.369756" or "52, 22, 11.12"
-func convertGPSCoordinate(coordStr string) (float64, error) {
-	coordStr = strings.TrimSpace(coordStr)
-	
-	// Try parsing as decimal first
-	if val, err := strconv.ParseFloat(coordStr, 64); err == nil {
-		return val, nil
-	}
-	
-	// Try parsing DMS format: "52 deg 22' 11.12""
-	// Remove degree, minute, second symbols
-	coordStr = strings.ReplaceAll(coordStr, "deg", ",")
-	coordStr = strings.ReplaceAll(coordStr, "'", ",")
-	coordStr = strings.ReplaceAll(coordStr, "\"", "")
-	coordStr = strings.ReplaceAll(coordStr, "，", ",") // Handle Chinese comma
-	
-	parts := strings.Split(coordStr, ",")
-	if len(parts) >= 2 {
-		degrees, err := strconv.ParseFloat(strings.TrimSpace(parts[0]), 64)
-		if err != nil {
-			return 0, err
-		}
-		
-		minutes, err := strconv.ParseFloat(strings.TrimSpace(parts[1]), 64)
-		if err != nil {
-			minutes = 0
-		}
-		
-		seconds := 0.0
-		if len(parts) >= 3 {
-			seconds, err = strconv.ParseFloat(strings.TrimSpace(parts[2]), 64)
-			if err != nil {
-				seconds = 0
-			}
-		}
-		
-		return degrees + minutes/60 + seconds/3600, nil
-	}
-	
-	return 0, fmt.Errorf("unable to parse GPS coordinate: %s", coordStr)
-}
-
-// formatExposureTime formats a rational exposure time value.
-func formatExposureTime(num, denom int64) string {
-	if num == 0 {
+// formatExposureTimeFloat formats a float exposure time value.
+func formatExposureTimeFloat(val float64) string {
+	if val <= 0 {
 		return "0s"
 	}
-	if num >= denom {
-		val := float64(num) / float64(denom)
+	if val >= 1 {
 		if val == math.Trunc(val) {
 			return fmt.Sprintf("%.0fs", val)
 		}
 		return fmt.Sprintf("%.1fs", val)
 	}
 	// Show as fraction, e.g. "1/250s"
-	simplified := denom / num
-	return fmt.Sprintf("1/%ds", simplified)
-}
-
-// colorSpaceName maps EXIF ColorSpace integer to a human-readable name.
-func colorSpaceName(v int) string {
-	switch v {
-	case 1:
-		return "sRGB"
-	case 65535:
-		return "Uncalibrated"
-	default:
-		return fmt.Sprintf("Unknown (%d)", v)
-	}
+	denom := int(1.0 / val)
+	return fmt.Sprintf("1/%ds", denom)
 }
 
 // HasExifData returns true if any meaningful EXIF field is populated.

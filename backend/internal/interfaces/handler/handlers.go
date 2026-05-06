@@ -1274,13 +1274,13 @@ func (s *Server) handleGetGalleryClusters(c *gin.Context) {
 	}
 
 	params := geo.ClusterParams{
-		MinLat:          minLat,
-		MaxLat:          maxLat,
-		MinLng:          minLng,
-		MaxLng:          maxLng,
-		Zoom:            zoom,
-		ViewportWidth:   width,
-		ViewportHeight:  height,
+		MinLat:         minLat,
+		MaxLat:         maxLat,
+		MinLng:         minLng,
+		MaxLng:         maxLng,
+		Zoom:           zoom,
+		ViewportWidth:  width,
+		ViewportHeight: height,
 	}
 
 	clusters, totalImages, err := geo.ComputeClusters(s.db, params)
