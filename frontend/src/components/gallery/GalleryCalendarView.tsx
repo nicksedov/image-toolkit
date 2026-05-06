@@ -342,6 +342,17 @@ export function GalleryCalendarView({ onImageClick }: GalleryCalendarViewProps) 
     setRangeSelecting(false)
   }
 
+  const selectFullMonth = () => {
+    const year = calendarViewDate.getFullYear()
+    const month = calendarViewDate.getMonth()
+    const firstDay = `${year}-${String(month + 1).padStart(2, "0")}-01`
+    const lastDayDate = new Date(year, month + 1, 0)
+    const lastDay = `${year}-${String(month + 1).padStart(2, "0")}-${String(lastDayDate.getDate()).padStart(2, "0")}`
+    
+    setDateRangeFilter({ start: firstDay, end: lastDay })
+    setRangeSelecting(false)
+  }
+
   // Visible date range for timeline
   const visibleDateRange = useMemo(() => {
     if (groups.length === 0) return { start: null, end: null }
@@ -460,23 +471,32 @@ export function GalleryCalendarView({ onImageClick }: GalleryCalendarViewProps) 
         </div>
 
         {/* Date filter controls */}
-        {(dateRangeFilter.start || dateRangeFilter.end) && (
-          <div className="mt-2 pt-2 border-t flex items-center justify-between">
-            <span className="text-xs text-muted-foreground">
-              {rangeSelecting
-                ? `Selecting: ${dateRangeFilter.start}${dateRangeFilter.end ? ` — ${dateRangeFilter.end}` : " (click end date)"}`
-                : dateRangeFilter.start === dateRangeFilter.end
-                  ? dateRangeFilter.start
-                  : `${dateRangeFilter.start} \u2014 ${dateRangeFilter.end}`}
-            </span>
-            <button
-              onClick={clearDateRangeFilter}
-              className="text-xs text-primary hover:underline"
-            >
-              {t("gallery.calendar.clearFilter")}
-            </button>
-          </div>
-        )}
+        <div className="mt-2 pt-2 border-t flex items-center justify-between">
+          <button
+            onClick={selectFullMonth}
+            className="text-xs px-2 py-1 bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors"
+          >
+            {t("gallery.calendar.fullMonth")}
+          </button>
+          
+          {(dateRangeFilter.start || dateRangeFilter.end) && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">
+                {rangeSelecting
+                  ? `Selecting: ${dateRangeFilter.start}${dateRangeFilter.end ? ` — ${dateRangeFilter.end}` : " (click end date)"}`
+                  : dateRangeFilter.start === dateRangeFilter.end
+                    ? dateRangeFilter.start
+                    : `${dateRangeFilter.start} \u2014 ${dateRangeFilter.end}`}
+              </span>
+              <button
+                onClick={clearDateRangeFilter}
+                className="text-xs text-primary hover:underline"
+              >
+                {t("gallery.calendar.clearFilter")}
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Main content area with images and timeline */}

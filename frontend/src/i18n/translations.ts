@@ -118,6 +118,7 @@ export const translations = {
     "gallery.calendar.timeline": "Timeline",
     "gallery.calendar.noImagesForDate": "No images for the selected date",
     "gallery.calendar.clearFilterHint": "Clear the filter to see all images.",
+    "gallery.calendar.fullMonth": "Full Month",
 
     // Geolocation
     "geolocation.backToMap": "Back to Map",
@@ -653,6 +654,7 @@ export const translations = {
     "gallery.calendar.timeline": "Хронология",
     "gallery.calendar.noImagesForDate": "Нет изображений за выбранную дату",
     "gallery.calendar.clearFilterHint": "Очистите фильтр, чтобы увидеть все изображения.",
+    "gallery.calendar.fullMonth": "Весь месяц",
 
     // Geolocation
     "geolocation.backToMap": "Вернуться к карте",
