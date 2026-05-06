@@ -109,7 +109,7 @@ export function GalleryGeolocationView({ onImageClick }: GalleryGeolocationViewP
     }
   }, [totalImages])
 
-  const { images, hasMore, isLoading: imagesLoading, loadMore } = useGeoImages(
+  const { images, hasMore, isLoading: imagesLoading, loadMore, reset: resetImages } = useGeoImages(
     viewMode === "grid" ? selectedBounds : null
   )
 
@@ -130,12 +130,18 @@ export function GalleryGeolocationView({ onImageClick }: GalleryGeolocationViewP
     return () => observer.disconnect()
   }, [])
 
-  // Reset to map view when component unmounts or mode changes
+  // Reset images when switching to grid view or changing cluster selection
+  const prevSelectedBoundsRef = useRef<GeoBounds | null>(null)
   useEffect(() => {
-    if (viewMode === "grid") {
-      loadMore()
+    if (viewMode === "grid" && selectedBounds) {
+      if (prevSelectedBoundsRef.current !== selectedBounds) {
+        prevSelectedBoundsRef.current = selectedBounds
+        resetImages()
+        // Trigger initial load after reset
+        setTimeout(() => loadMore(), 0)
+      }
     }
-  }, [viewMode, selectedBounds, loadMore])
+  }, [viewMode, selectedBounds, resetImages, loadMore])
 
   const handleBoundsChange = useCallback((bounds: GeoBounds) => {
     setMapBounds(bounds)
