@@ -439,7 +439,7 @@ export function GalleryCalendarView({ onImageClick }: GalleryCalendarViewProps) 
         </div>
 
         {/* Horizontal scrollable day strip */}
-        <div className="flex gap-1 overflow-x-auto pb-1 pt-2 scrollbar-thin" style={{ scrollbarWidth: "thin" }}>
+        <div className="flex gap-0.75 overflow-x-auto pb-1 pt-2 px-1 calendar-days-no-scrollbar">
           {calendarDays.map((day) => {
             const isSelected = isInSelectedRange(day.date)
             const isRangeStart = day.date === dateRangeFilter.start

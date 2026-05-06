@@ -432,3 +432,13 @@ body {
 .dark-contrast {
   color: var(--color-card-foreground);
 }
+
+/* Hide scrollbar for calendar days strip but keep scroll functionality */
+.calendar-days-no-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+.calendar-days-no-scrollbar::-webkit-scrollbar {
+  display: none;  /* Chrome, Safari and Opera */
+}
