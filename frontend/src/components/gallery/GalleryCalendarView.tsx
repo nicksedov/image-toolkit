@@ -265,11 +265,55 @@ export function GalleryCalendarView({ onImageClick }: GalleryCalendarViewProps) 
   }, [calendarViewDate, monthInfo, dayCounts])
 
   const prevMonth = () => {
-    setCalendarViewDate(new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth() - 1, 1))
+    const newDate = new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth() - 1, 1)
+    setCalendarViewDate(newDate)
+    // Reset and load thumbnails for the new month
+    pageRef.current = 1
+    prefetchedPageRef.current = 0
+    setGroups([])
+    setInitialized(false)
+    setDateRangeFilter({ start: null, end: null })
+    setRangeSelecting(false)
+    loadPage(1, true)
   }
 
   const nextMonth = () => {
-    setCalendarViewDate(new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth() + 1, 1))
+    const newDate = new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth() + 1, 1)
+    setCalendarViewDate(newDate)
+    // Reset and load thumbnails for the new month
+    pageRef.current = 1
+    prefetchedPageRef.current = 0
+    setGroups([])
+    setInitialized(false)
+    setDateRangeFilter({ start: null, end: null })
+    setRangeSelecting(false)
+    loadPage(1, true)
+  }
+
+  const handleMonthChange = (newMonth: number) => {
+    const newDate = new Date(calendarViewDate.getFullYear(), newMonth, 1)
+    setCalendarViewDate(newDate)
+    // Reset and load thumbnails for the new month
+    pageRef.current = 1
+    prefetchedPageRef.current = 0
+    setGroups([])
+    setInitialized(false)
+    setDateRangeFilter({ start: null, end: null })
+    setRangeSelecting(false)
+    loadPage(1, true)
+  }
+
+  const handleYearChange = (newYear: number) => {
+    const newDate = new Date(newYear, calendarViewDate.getMonth(), 1)
+    setCalendarViewDate(newDate)
+    // Reset and load thumbnails for the new month/year
+    pageRef.current = 1
+    prefetchedPageRef.current = 0
+    setGroups([])
+    setInitialized(false)
+    setDateRangeFilter({ start: null, end: null })
+    setRangeSelecting(false)
+    loadPage(1, true)
   }
 
   const selectDate = (date: string) => {
@@ -341,10 +385,7 @@ export function GalleryCalendarView({ onImageClick }: GalleryCalendarViewProps) 
             {/* Month dropdown */}
             <select
               value={calendarViewDate.getMonth()}
-              onChange={(e) => {
-                const newMonth = parseInt(e.target.value)
-                setCalendarViewDate(new Date(calendarViewDate.getFullYear(), newMonth, 1))
-              }}
+              onChange={(e) => handleMonthChange(parseInt(e.target.value))}
               className="text-sm font-medium bg-background dark:bg-zinc-800 text-foreground dark:text-zinc-100 border border-border rounded px-2 py-1 outline-none cursor-pointer"
             >
               {MONTHS.map((m) => (
@@ -357,10 +398,7 @@ export function GalleryCalendarView({ onImageClick }: GalleryCalendarViewProps) 
             {/* Year dropdown */}
             <select
               value={calendarViewDate.getFullYear()}
-              onChange={(e) => {
-                const newYear = parseInt(e.target.value)
-                setCalendarViewDate(new Date(newYear, calendarViewDate.getMonth(), 1))
-              }}
+              onChange={(e) => handleYearChange(parseInt(e.target.value))}
               className="text-sm font-medium bg-background dark:bg-zinc-800 text-foreground dark:text-zinc-100 border border-border rounded px-2 py-1 outline-none cursor-pointer"
             >
               {(() => {
@@ -413,8 +451,8 @@ export function GalleryCalendarView({ onImageClick }: GalleryCalendarViewProps) 
                   ${isSelected
                     ? "bg-primary text-primary-foreground hover:bg-primary/90 font-medium cursor-pointer"
                     : day.hasImages 
-                      ? "bg-emerald-100 dark:bg-emerald-900/30 hover:bg-emerald-200 dark:hover:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 font-medium cursor-pointer"
-                      : "bg-red-50 dark:bg-red-900/20 text-muted-foreground/40 hover:bg-red-100 dark:hover:bg-red-900/30"
+                      ? "bg-emerald-100 dark:bg-emerald-900/30 hover:bg-emerald-200 dark:hover:bg-emerald-900/50 text-emerald-700 dark:text-emerald-200 font-medium cursor-pointer"
+                      : "bg-red-50 dark:bg-red-900/20 text-muted-foreground/70 dark:text-muted-foreground/80 hover:bg-red-100 dark:hover:bg-red-900/30"
                   }
                   ${isRangeStart || isRangeEnd ? "ring-2 ring-primary ring-offset-2" : ""}
                   ${isSelected && !isRangeStart && !isRangeEnd ? "opacity-80" : ""}
