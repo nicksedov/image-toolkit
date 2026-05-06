@@ -222,6 +222,19 @@ export function GalleryCalendarView({ onImageClick }: GalleryCalendarViewProps) 
       })
   }, [calendarMonthKey])
 
+  // Reload calendar data with thumbnails when month/year changes
+  useEffect(() => {
+    pageRef.current = 1
+    prefetchedPageRef.current = 0
+    setGroups([])
+    setInitialized(false)
+    setDateRangeFilter({ start: null, end: null })
+    setRangeSelecting(false)
+    // Reset loadPage deps by calling with current calendarMonthKey
+    loadPage(1, true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [calendarMonthKey])
+
   // Infinite scroll
   useEffect(() => {
     const sentinel = sentinelRef.current
@@ -265,55 +278,19 @@ export function GalleryCalendarView({ onImageClick }: GalleryCalendarViewProps) 
   }, [calendarViewDate, monthInfo, dayCounts])
 
   const prevMonth = () => {
-    const newDate = new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth() - 1, 1)
-    setCalendarViewDate(newDate)
-    // Reset and load thumbnails for the new month
-    pageRef.current = 1
-    prefetchedPageRef.current = 0
-    setGroups([])
-    setInitialized(false)
-    setDateRangeFilter({ start: null, end: null })
-    setRangeSelecting(false)
-    loadPage(1, true)
+    setCalendarViewDate(new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth() - 1, 1))
   }
 
   const nextMonth = () => {
-    const newDate = new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth() + 1, 1)
-    setCalendarViewDate(newDate)
-    // Reset and load thumbnails for the new month
-    pageRef.current = 1
-    prefetchedPageRef.current = 0
-    setGroups([])
-    setInitialized(false)
-    setDateRangeFilter({ start: null, end: null })
-    setRangeSelecting(false)
-    loadPage(1, true)
+    setCalendarViewDate(new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth() + 1, 1))
   }
 
   const handleMonthChange = (newMonth: number) => {
-    const newDate = new Date(calendarViewDate.getFullYear(), newMonth, 1)
-    setCalendarViewDate(newDate)
-    // Reset and load thumbnails for the new month
-    pageRef.current = 1
-    prefetchedPageRef.current = 0
-    setGroups([])
-    setInitialized(false)
-    setDateRangeFilter({ start: null, end: null })
-    setRangeSelecting(false)
-    loadPage(1, true)
+    setCalendarViewDate(new Date(calendarViewDate.getFullYear(), newMonth, 1))
   }
 
   const handleYearChange = (newYear: number) => {
-    const newDate = new Date(newYear, calendarViewDate.getMonth(), 1)
-    setCalendarViewDate(newDate)
-    // Reset and load thumbnails for the new month/year
-    pageRef.current = 1
-    prefetchedPageRef.current = 0
-    setGroups([])
-    setInitialized(false)
-    setDateRangeFilter({ start: null, end: null })
-    setRangeSelecting(false)
-    loadPage(1, true)
+    setCalendarViewDate(new Date(newYear, calendarViewDate.getMonth(), 1))
   }
 
   const selectDate = (date: string) => {
