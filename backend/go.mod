@@ -4,12 +4,12 @@ go 1.25.0
 
 require (
 	github.com/MadAppGang/gocluster v0.0.0-20161226093512-f4629d7b12f8
+	github.com/barasher/go-exiftool v1.3.0
 	github.com/deepteams/webp v1.2.1
 	github.com/disintegration/imaging v1.6.2
 	github.com/gin-contrib/cors v1.7.7
 	github.com/gin-gonic/gin v1.12.0
 	github.com/joho/godotenv v1.5.1
-	github.com/rwcarlsen/goexif v0.0.0-20190401172101-9e8deecbddbd
 	github.com/sams96/rgeo v1.3.0
 	github.com/twpayne/go-geom v1.6.0
 	golang.org/x/crypto v0.50.0

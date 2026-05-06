@@ -55,6 +55,15 @@ func main() {
 		fmt.Println("Geocoder unavailable, geolocation will be disabled.")
 	}
 
+	// Initialize exiftool for EXIF extraction
+	fmt.Println("Initializing EXIF metadata extractor...")
+	if err := imaging.InitExifTool(); err != nil {
+		log.Printf("WARNING: Failed to initialize exiftool: %v", err)
+		log.Println("Metadata extraction will use fallback methods")
+	} else {
+		fmt.Println("EXIF extractor initialized successfully!")
+	}
+
 	// Initialize OCR classifier client and health check
 	var ocrCheckInterval int
 	if cfg.OCREnabled {

@@ -22,15 +22,18 @@ type MetadataStatusResponse struct {
 
 // MetadataManager manages background EXIF metadata extraction
 type MetadataManager struct {
-	mu             sync.RWMutex
-	isProcessing   bool
-	progress       string
-	filesProcessed int
-	db             *gorm.DB
-	geocoder       *geocoder.Geocoder
-	workers        int
-	ticker         *time.Ticker
-	stopChan       chan struct{}
+	mu                      sync.RWMutex
+	isProcessing            bool
+	progress                string
+	filesProcessed          int
+	db                      *gorm.DB
+	geocoder                *geocoder.Geocoder
+	workers                 int
+	ticker                  *time.Ticker
+	stopChan                chan struct{}
+	isRepairProcessing     bool
+	repairProgress          string
+	repairFilesProcessed    int
 }
 
 // NewMetadataManager creates a new MetadataManager and starts the periodic extraction loop.
@@ -41,6 +44,15 @@ func NewMetadataManager(db *gorm.DB, geo *geocoder.Geocoder, workers int, interv
 		workers:  workers,
 		stopChan: make(chan struct{}),
 	}
+
+	// Start background repair task for incomplete metadata
+	go func() {
+		// Wait a bit for the server to fully start
+		time.Sleep(5 * time.Second)
+		if err := mm.StartRepairIncomplete(); err != nil {
+			log.Printf("Metadata repair not started: %v", err)
+		}
+	}()
 
 	if intervalMinutes > 0 {
 		mm.ticker = time.NewTicker(time.Duration(intervalMinutes) * time.Minute)
@@ -226,3 +238,153 @@ func (mm *MetadataManager) IsProcessing() bool {
 	defer mm.mu.RUnlock()
 	return mm.isProcessing
 }
+
+// RepairStatusResponse is the JSON response for GET /api/metadata-repair-status
+type RepairStatusResponse struct {
+	Processing     bool   `json:"processing"`
+	Progress       string `json:"progress"`
+	FilesProcessed int    `json:"filesProcessed"`
+}
+
+// StartRepairIncomplete launches an asynchronous repair pass for images with missing metadata fields.
+func (mm *MetadataManager) StartRepairIncomplete() error {
+	mm.mu.Lock()
+	if mm.isRepairProcessing {
+		mm.mu.Unlock()
+		return fmt.Errorf("metadata repair already in progress")
+	}
+	mm.isRepairProcessing = true
+	mm.repairProgress = "Starting metadata repair..."
+	mm.repairFilesProcessed = 0
+	mm.mu.Unlock()
+
+	go func() {
+		mm.processIncompleteMetadata()
+
+		mm.mu.Lock()
+		mm.isRepairProcessing = false
+		mm.repairProgress = "Metadata repair complete"
+		mm.mu.Unlock()
+	}()
+
+	return nil
+}
+
+// processIncompleteMetadata finds images with empty camera_model or null date_taken and re-extracts metadata.
+func (mm *MetadataManager) processIncompleteMetadata() {
+	// Find images with incomplete metadata
+	var images []domain.ImageFile
+	mm.db.Raw(`
+		SELECT image_files.* FROM image_files
+		INNER JOIN image_metadata ON image_metadata.image_file_id = image_files.id
+		WHERE image_metadata.camera_model = '' 
+		   OR image_metadata.date_taken IS NULL
+		ORDER BY image_files.id
+	`).Scan(&images)
+
+	total := len(images)
+	if total == 0 {
+		mm.mu.Lock()
+		mm.repairProgress = "No images need metadata repair"
+		mm.mu.Unlock()
+		return
+	}
+
+	mm.mu.Lock()
+	mm.repairProgress = fmt.Sprintf("Repairing metadata: 0/%d", total)
+	mm.mu.Unlock()
+
+	log.Printf("Metadata repair: %d images to process", total)
+
+	type metadataResult struct {
+		imageFileID uint
+		metadata    *domain.ImageMetadata
+	}
+
+	jobs := make(chan domain.ImageFile, total)
+	results := make(chan metadataResult, total)
+
+	// Start worker pool
+	var wg sync.WaitGroup
+	for w := 0; w < mm.workers; w++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for img := range jobs {
+				meta, err := extractMetadata(img.Path)
+				if err != nil {
+					log.Printf("Metadata repair failed for %s: %v", img.Path, err)
+					continue
+				}
+				meta.ImageFileID = img.ID
+
+				// Reverse geocode if GPS data is present
+				if meta.GPSLatitude != nil && meta.GPSLongitude != nil {
+					country, city := mm.geocoder.ReverseGeocode(*meta.GPSLatitude, *meta.GPSLongitude)
+					meta.GeoCountry = country
+					meta.GeoCity = city
+				}
+
+				results <- metadataResult{imageFileID: img.ID, metadata: meta}
+			}
+		}()
+	}
+
+	// Send jobs
+	go func() {
+		for _, img := range images {
+			jobs <- img
+		}
+		close(jobs)
+	}()
+
+	// Collect results in background
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+
+	// Batch upsert results
+	batch := make([]*domain.ImageMetadata, 0, 50)
+	count := 0
+	for r := range results {
+		batch = append(batch, r.metadata)
+		count++
+
+		mm.mu.Lock()
+		mm.repairFilesProcessed = count
+		mm.repairProgress = fmt.Sprintf("Repairing metadata: %d/%d", count, total)
+		mm.mu.Unlock()
+
+		if len(batch) >= 50 {
+			mm.upsertBatch(batch)
+			batch = batch[:0]
+		}
+	}
+
+	// Flush remaining
+	if len(batch) > 0 {
+		mm.upsertBatch(batch)
+	}
+
+	log.Printf("Metadata repair complete: %d images processed", count)
+}
+
+// GetRepairStatus returns the current metadata repair status.
+func (mm *MetadataManager) GetRepairStatus() RepairStatusResponse {
+	mm.mu.RLock()
+	defer mm.mu.RUnlock()
+	return RepairStatusResponse{
+		Processing:     mm.isRepairProcessing,
+		Progress:       mm.repairProgress,
+		FilesProcessed: mm.repairFilesProcessed,
+	}
+}
+
+// IsRepairProcessing returns whether metadata repair is currently running.
+func (mm *MetadataManager) IsRepairProcessing() bool {
+	mm.mu.RLock()
+	defer mm.mu.RUnlock()
+	return mm.isRepairProcessing
+}
+
