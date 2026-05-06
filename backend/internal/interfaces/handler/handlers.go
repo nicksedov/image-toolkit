@@ -1038,14 +1038,6 @@ func (s *Server) handleGetGalleryCalendar(c *gin.Context) {
 		}
 	}
 
-	// Apply month/year filter
-	if monthYear != "" {
-		if t, err := time.Parse("2006-01", monthYear); err == nil {
-			nextMonth := t.AddDate(0, 1, 0)
-			query = query.Where("image_metadata.date_taken >= ? AND image_metadata.date_taken < ?", t, nextMonth)
-		}
-	}
-
 	// Count total
 	var totalImages int64
 	query.Count(&totalImages)
