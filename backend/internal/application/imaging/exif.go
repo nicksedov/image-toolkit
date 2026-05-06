@@ -15,8 +15,8 @@ import (
 	"strings"
 	"time"
 
-	_ "github.com/disintegration/imaging"
 	"github.com/barasher/go-exiftool"
+	_ "github.com/disintegration/imaging"
 	_ "golang.org/x/image/bmp"
 	_ "golang.org/x/image/tiff"
 	_ "golang.org/x/image/webp"
