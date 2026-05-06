@@ -1,3 +1,7 @@
+github.com/MadAppGang/gocluster v0.0.0-20161226093512-f4629d7b12f8 h1:QcqWvIVqY+ZqNzfqxMiEDgbqosV0Lw3uxEqztbIllhY=
+github.com/MadAppGang/gocluster v0.0.0-20161226093512-f4629d7b12f8/go.mod h1:auVHIqgE0comPmTsgFOWdSbSZ3TvohaLGUT4+cHkah0=
+github.com/MadAppGang/kdbush v0.0.0-20161230031607-ed6b87d35c48 h1:4aHJeBZvH0cZXJaP42W0wmu25OUrVVHzKeu2Yf2YwBU=
+github.com/MadAppGang/kdbush v0.0.0-20161230031607-ed6b87d35c48/go.mod h1:IPJZyWFdzR4j9BjN+3UQyUjRKTTiJ/aHBHFV0E2D/0c=
 github.com/alecthomas/assert/v2 v2.10.0 h1:jjRCHsj6hBJhkmhznrCzoNpbA3zqy0fYiUcYZP/GkPY=
 github.com/alecthomas/assert/v2 v2.10.0/go.mod h1:Bze95FyfUr7x34QZrjL+XP+0qgp/zg8yS+TtBj1WA3k=
 github.com/alecthomas/repr v0.4.0 h1:GhI2A8MACjfegCPVq9f1FLvIBS+DrQ2KQBFZP1iFzXc=

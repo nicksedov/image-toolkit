@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react"
 import { useTranslation } from "@/i18n"
-import { Settings, ImageIcon, FileScan, Shield, Users, ChevronDown, ChevronRight, Folder, Calendar, FileText } from "lucide-react"
+import { Settings, ImageIcon, FileScan, Shield, Users, ChevronDown, ChevronRight, Folder, Calendar, FileText, MapPin } from "lucide-react"
 import { useAuth } from "@/providers/AuthProvider"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -28,6 +28,7 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
   const gallerySubModes = [
     { value: "gallery-folders", icon: Folder, label: t("gallery.subModes.folders") },
     { value: "gallery-calendar", icon: Calendar, label: t("gallery.subModes.calendar") },
+    { value: "gallery-geolocation", icon: MapPin, label: t("gallery.subModes.geolocation") },
   ]
 
   const toolsSubModes = [

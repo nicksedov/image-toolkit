@@ -308,6 +308,33 @@ type GalleryCalendarResponse struct {
 	Months []CalendarMonthInfo `json:"months"`
 }
 
+// --- Gallery Geolocation / Map Clustering API ---
+
+// GeoCluster represents a single cluster in the map view response
+type GeoCluster struct {
+	ID         string   `json:"id"`
+	Latitude   float64  `json:"latitude"`
+	Longitude  float64  `json:"longitude"`
+	Count      int      `json:"count"`
+	ImagePaths []string `json:"imagePaths"`
+}
+
+// GeoClustersResponse is the JSON response for GET /api/gallery/clusters
+type GeoClustersResponse struct {
+	Clusters    []GeoCluster `json:"clusters"`
+	TotalImages int          `json:"totalImages"`
+}
+
+// GeoImagesResponse is the JSON response for GET /api/gallery/geo-images
+type GeoImagesResponse struct {
+	Images      []GalleryImageDTO `json:"images"`
+	TotalImages int               `json:"totalImages"`
+	CurrentPage int               `json:"currentPage"`
+	PageSize    int               `json:"pageSize"`
+	TotalPages  int               `json:"totalPages"`
+	HasNextPage bool              `json:"hasNextPage"`
+}
+
 // --- OCR Status API ---
 
 // OCRStatus represents the current status of OCR classifier service

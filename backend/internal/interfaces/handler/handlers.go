@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"image-toolkit/internal/application/geo"
 	"image-toolkit/internal/application/imaging"
 	"image-toolkit/internal/application/thumbnail"
 	"image-toolkit/internal/domain"
@@ -1218,6 +1219,153 @@ func (s *Server) handleGetCalendarMonthInfo(c *gin.Context) {
 		"days":      days,
 		"dayCounts": dayCounts,
 		"total":     totalInMonth,
+	})
+}
+
+// handleGetGalleryClusters returns clustered image markers for map view
+func (s *Server) handleGetGalleryClusters(c *gin.Context) {
+	minLat, _ := strconv.ParseFloat(c.Query("minLat"), 64)
+	maxLat, _ := strconv.ParseFloat(c.Query("maxLat"), 64)
+	minLng, _ := strconv.ParseFloat(c.Query("minLng"), 64)
+	maxLng, _ := strconv.ParseFloat(c.Query("maxLng"), 64)
+	zoom, _ := strconv.Atoi(c.DefaultQuery("zoom", "2"))
+	width, _ := strconv.Atoi(c.DefaultQuery("width", "800"))
+	height, _ := strconv.Atoi(c.DefaultQuery("height", "600"))
+
+	// Validate bounds
+	if minLat < -90 || maxLat > 90 || minLng < -180 || maxLng > 180 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid bounds"})
+		return
+	}
+	if zoom < 0 || zoom > 20 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid zoom level"})
+		return
+	}
+	if width <= 0 || height <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid viewport dimensions"})
+		return
+	}
+
+	params := geo.ClusterParams{
+		MinLat:          minLat,
+		MaxLat:          maxLat,
+		MinLng:          minLng,
+		MaxLng:          maxLng,
+		Zoom:            zoom,
+		ViewportWidth:   width,
+		ViewportHeight:  height,
+	}
+
+	clusters, totalImages, err := geo.ComputeClusters(s.db, params)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to compute clusters"})
+		return
+	}
+
+	c.JSON(http.StatusOK, dto.GeoClustersResponse{
+		Clusters:    clusters,
+		TotalImages: totalImages,
+	})
+}
+
+// handleGetGeoImages returns paginated images within geographic bounds
+func (s *Server) handleGetGeoImages(c *gin.Context) {
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("pageSize", "50"))
+	minLat, _ := strconv.ParseFloat(c.Query("minLat"), 64)
+	maxLat, _ := strconv.ParseFloat(c.Query("maxLat"), 64)
+	minLng, _ := strconv.ParseFloat(c.Query("minLng"), 64)
+	maxLng, _ := strconv.ParseFloat(c.Query("maxLng"), 64)
+
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 200 {
+		pageSize = 50
+	}
+
+	var totalImages int64
+	s.db.Table("image_files").
+		Joins("INNER JOIN image_metadata ON image_metadata.image_file_id = image_files.id").
+		Where("image_metadata.gps_latitude IS NOT NULL").
+		Where("image_metadata.gps_longitude IS NOT NULL").
+		Where("image_metadata.gps_latitude BETWEEN ? AND ?", minLat, maxLat).
+		Where("image_metadata.gps_longitude BETWEEN ? AND ?", minLng, maxLng).
+		Count(&totalImages)
+
+	totalPages := (int(totalImages) + pageSize - 1) / pageSize
+	if totalPages < 1 {
+		totalPages = 1
+	}
+	if page > totalPages {
+		page = totalPages
+	}
+
+	offset := (page - 1) * pageSize
+
+	var files []domain.ImageFile
+	s.db.Table("image_files").
+		Select("image_files.*").
+		Joins("INNER JOIN image_metadata ON image_metadata.image_file_id = image_files.id").
+		Where("image_metadata.gps_latitude IS NOT NULL").
+		Where("image_metadata.gps_longitude IS NOT NULL").
+		Where("image_metadata.gps_latitude BETWEEN ? AND ?", minLat, maxLat).
+		Where("image_metadata.gps_longitude BETWEEN ? AND ?", minLng, maxLng).
+		Order("image_files.path").
+		Offset(offset).
+		Limit(pageSize).
+		Find(&files)
+
+	imageDTOs := make([]dto.GalleryImageDTO, len(files))
+	for i, f := range files {
+		imageDTOs[i] = dto.GalleryImageDTO{
+			ID:        f.ID,
+			Path:      f.Path,
+			FileName:  filepath.Base(f.Path),
+			DirPath:   filepath.Dir(f.Path),
+			Size:      f.Size,
+			SizeHuman: formatSize(f.Size),
+			ModTime:   f.ModTime.Format("2006-01-02 15:04:05"),
+		}
+	}
+
+	// Generate thumbnails in parallel
+	if len(files) > 0 {
+		const maxWorkers = 16
+		var wg sync.WaitGroup
+		semaphore := make(chan struct{}, maxWorkers)
+
+		for i, f := range files {
+			wg.Add(1)
+			go func(idx int, filePath string) {
+				defer wg.Done()
+				semaphore <- struct{}{}
+				defer func() { <-semaphore }()
+
+				var thumb string
+				var err error
+
+				if s.thumbnailService != nil {
+					thumb, err = s.thumbnailService.GetOrGenerate(filePath)
+				} else {
+					thumb, err = imaging.GenerateThumbnail(filePath, s.thumbnailCache)
+				}
+
+				if err == nil {
+					imageDTOs[idx].Thumbnail = thumb
+				}
+			}(i, f.Path)
+		}
+		wg.Wait()
+	}
+
+	c.JSON(http.StatusOK, dto.GeoImagesResponse{
+		Images:      imageDTOs,
+		TotalImages: int(totalImages),
+		CurrentPage: page,
+		PageSize:    pageSize,
+		TotalPages:  totalPages,
+		HasNextPage: page < totalPages,
 	})
 }
 

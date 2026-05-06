@@ -111,12 +111,21 @@ export const translations = {
     "gallery.folderImageCount": "({count})",
     "gallery.subModes.folders": "Folders",
     "gallery.subModes.calendar": "Calendar",
+    "gallery.subModes.geolocation": "Map",
     "gallery.calendar.noDateInfo": "No date information available",
     "gallery.calendar.noDateInfoHint": "Images without EXIF date metadata are not shown.",
     "gallery.calendar.clearFilter": "Clear filter",
     "gallery.calendar.timeline": "Timeline",
     "gallery.calendar.noImagesForDate": "No images for the selected date",
     "gallery.calendar.clearFilterHint": "Clear the filter to see all images.",
+
+    // Geolocation
+    "geolocation.backToMap": "Back to Map",
+    "geolocation.noGpsData": "No images with geolocation data",
+    "geolocation.noGpsDataHint": "Images must have GPS EXIF metadata to appear on the map.",
+    "geolocation.loadingClusters": "Loading clusters...",
+    "geolocation.totalGeoImages": "{count} image(s) with geolocation",
+    "geolocation.totalGeoImagesOne": "{count} image with geolocation",
 
     // Gallery image list table
     "galleryList.fileName": "File Name",
@@ -637,12 +646,21 @@ export const translations = {
     "gallery.folderImageCount": "({count})",
     "gallery.subModes.folders": "Папки",
     "gallery.subModes.calendar": "Календарь",
+    "gallery.subModes.geolocation": "Карта",
     "gallery.calendar.noDateInfo": "Информация о дате отсутствует",
     "gallery.calendar.noDateInfoHint": "Изображения без метаданных даты EXIF не отображаются.",
     "gallery.calendar.clearFilter": "Очистить фильтр",
     "gallery.calendar.timeline": "Хронология",
     "gallery.calendar.noImagesForDate": "Нет изображений за выбранную дату",
     "gallery.calendar.clearFilterHint": "Очистите фильтр, чтобы увидеть все изображения.",
+
+    // Geolocation
+    "geolocation.backToMap": "Вернуться к карте",
+    "geolocation.noGpsData": "Нет изображений с геоданными",
+    "geolocation.noGpsDataHint": "Изображения должны иметь GPS EXIF метаданные для отображения на карте.",
+    "geolocation.loadingClusters": "Загрузка кластеров...",
+    "geolocation.totalGeoImages": "{count} изображений с геоданными",
+    "geolocation.totalGeoImagesOne": "{count} изображение с геоданными",
 
     // Gallery image list table
     "galleryList.fileName": "Имя файла",

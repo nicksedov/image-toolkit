@@ -17,7 +17,7 @@ import { BootstrapSetupScreen } from "@/components/auth/BootstrapSetupScreen"
 import { UserProfile } from "@/components/auth/UserProfile"
 import { AdminPanel } from "@/components/auth/AdminPanel"
 
-type TabValue = "settings" | "gallery-folders" | "gallery-calendar" | "deduplication" | "ocr" | "profile" | "admin-settings" | "admin-users"
+type TabValue = "settings" | "gallery-folders" | "gallery-calendar" | "gallery-geolocation" | "deduplication" | "ocr" | "profile" | "admin-settings" | "admin-users"
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabValue>("gallery-folders")
@@ -116,6 +116,10 @@ export default function App() {
 
               <TabsContent value="gallery-calendar">
                 <GalleryTab galleryMode="calendar" />
+              </TabsContent>
+
+              <TabsContent value="gallery-geolocation">
+                <GalleryTab galleryMode="geolocation" />
               </TabsContent>
 
               <TabsContent value="deduplication">

@@ -16,6 +16,9 @@ import type {
   RemoveFolderResponse,
   GalleryImagesResponse,
   GalleryCalendarResponse,
+  GeoClustersResponse,
+  GeoClusterRequest,
+  GeoImagesResponse,
   AppSettingsDTO,
   UserSettingsDTO,
   UpdateSettingsRequest,
@@ -148,6 +151,44 @@ export interface CalendarMonthData {
 
 export function fetchCalendarMonthInfo(monthYear: string): Promise<CalendarMonthData> {
   return apiGet<CalendarMonthData>("/api/gallery/calendar/month", { monthYear })
+}
+
+// --- Gallery Geolocation ---
+
+export interface GeoBounds {
+  minLat: number
+  maxLat: number
+  minLng: number
+  maxLng: number
+}
+
+export function fetchGalleryClusters(
+  params: GeoClusterRequest
+): Promise<GeoClustersResponse> {
+  return apiGet<GeoClustersResponse>("/api/gallery/clusters", {
+    minLat: String(params.minLat),
+    maxLat: String(params.maxLat),
+    minLng: String(params.minLng),
+    maxLng: String(params.maxLng),
+    zoom: String(params.zoom),
+    width: String(params.width),
+    height: String(params.height),
+  })
+}
+
+export function fetchGeoImages(
+  page: number,
+  pageSize: number,
+  bounds: GeoBounds
+): Promise<GeoImagesResponse> {
+  return apiGet<GeoImagesResponse>("/api/gallery/geo-images", {
+    page: String(page),
+    pageSize: String(pageSize),
+    minLat: String(bounds.minLat),
+    maxLat: String(bounds.maxLat),
+    minLng: String(bounds.minLng),
+    maxLng: String(bounds.maxLng),
+  })
 }
 
 // --- App Settings ---

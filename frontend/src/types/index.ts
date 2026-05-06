@@ -251,6 +251,40 @@ export interface GalleryCalendarResponse {
   months: CalendarMonthInfo[]
 }
 
+// --- Gallery Geolocation Types ---
+
+export interface GeoClusterRequest {
+  minLat: number
+  maxLat: number
+  minLng: number
+  maxLng: number
+  zoom: number
+  width: number
+  height: number
+}
+
+export interface GeoCluster {
+  id: string
+  latitude: number
+  longitude: number
+  count: number
+  imagePaths: string[]
+}
+
+export interface GeoClustersResponse {
+  clusters: GeoCluster[]
+  totalImages: number
+}
+
+export interface GeoImagesResponse {
+  images: GalleryImageDTO[]
+  totalImages: number
+  currentPage: number
+  pageSize: number
+  totalPages: number
+  hasNextPage: boolean
+}
+
 // --- Auth & User Types ---
 
 export type UserRole = "admin" | "user"

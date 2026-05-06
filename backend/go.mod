@@ -18,6 +18,8 @@ require (
 )
 
 require (
+	github.com/MadAppGang/gocluster v0.0.0-20161226093512-f4629d7b12f8 // indirect
+	github.com/MadAppGang/kdbush v0.0.0-20161230031607-ed6b87d35c48 // indirect
 	github.com/bytedance/gopkg v0.1.3 // indirect
 	github.com/bytedance/sonic v1.15.0 // indirect
 	github.com/bytedance/sonic/loader v0.5.0 // indirect
