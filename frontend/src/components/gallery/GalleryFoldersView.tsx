@@ -8,9 +8,12 @@ import type { GalleryImageDTO } from "@/types"
 
 interface GalleryFoldersViewProps {
   onImageClick: (image: GalleryImageDTO) => void
+  onImageView?: (image: GalleryImageDTO) => void
+  onImageOcr?: (image: GalleryImageDTO) => void
+  onImageDownload?: (image: GalleryImageDTO) => void
 }
 
-export function GalleryFoldersView({ onImageClick }: GalleryFoldersViewProps) {
+export function GalleryFoldersView({ onImageClick, onImageView, onImageOcr, onImageDownload }: GalleryFoldersViewProps) {
   const { images, totalImages, hasMore, isLoading, error, initialized, loadMore } =
     useGalleryImages("folders")
   const { t } = useTranslation()
@@ -75,7 +78,13 @@ export function GalleryFoldersView({ onImageClick }: GalleryFoldersViewProps) {
         </div>
       ) : (
         <>
-          <GalleryImageGrid images={images} onImageClick={onImageClick} />
+          <GalleryImageGrid
+            images={images}
+            onImageClick={onImageClick}
+            onImageView={onImageView}
+            onImageOcr={onImageOcr}
+            onImageDownload={onImageDownload}
+          />
 
           <div ref={sentinelRef} className="h-4" />
 

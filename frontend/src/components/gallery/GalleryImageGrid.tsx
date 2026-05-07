@@ -1,11 +1,14 @@
 import { useMemo } from "react"
 import { useTranslation } from "@/i18n"
-import { Folder } from "lucide-react"
+import { Folder, Download, Image as ImageIcon, ScanText } from "lucide-react"
 import type { GalleryImageDTO } from "@/types"
 
 interface GalleryImageGridProps {
   images: GalleryImageDTO[]
   onImageClick: (image: GalleryImageDTO) => void
+  onImageView?: (image: GalleryImageDTO) => void
+  onImageOcr?: (image: GalleryImageDTO) => void
+  onImageDownload?: (image: GalleryImageDTO) => void
 }
 
 function getFolderName(dirPath: string): string {
@@ -14,7 +17,7 @@ function getFolderName(dirPath: string): string {
   return lastSlash >= 0 ? normalized.substring(lastSlash + 1) : normalized
 }
 
-export function GalleryImageGrid({ images, onImageClick }: GalleryImageGridProps) {
+export function GalleryImageGrid({ images, onImageClick, onImageView, onImageOcr, onImageDownload }: GalleryImageGridProps) {
   const { t } = useTranslation()
 
   const groupedByFolder = useMemo(() => {
@@ -75,8 +78,50 @@ export function GalleryImageGrid({ images, onImageClick }: GalleryImageGridProps
                       {t("gallery.noPreview")}
                     </div>
                   )}
-                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <div className="text-xs text-white/70">{image.sizeHuman}</div>
+                  {/* Overlay with action buttons */}
+                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 p-2">
+                    {onImageDownload && (
+                      <button
+                        type="button"
+                        className="flex flex-col items-center gap-1 p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onImageDownload(image)
+                        }}
+                        title={t("gallery.overlay.download")}
+                      >
+                        <Download className="h-4 w-4" />
+                        <span className="text-[10px]">{t("gallery.overlay.download")}</span>
+                      </button>
+                    )}
+                    {onImageView && (
+                      <button
+                        type="button"
+                        className="flex flex-col items-center gap-1 p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onImageView(image)
+                        }}
+                        title={t("gallery.overlay.view")}
+                      >
+                        <ImageIcon className="h-4 w-4" />
+                        <span className="text-[10px]">{t("gallery.overlay.view")}</span>
+                      </button>
+                    )}
+                    {onImageOcr && (
+                      <button
+                        type="button"
+                        className="flex flex-col items-center gap-1 p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onImageOcr(image)
+                        }}
+                        title={t("gallery.overlay.ocr")}
+                      >
+                        <ScanText className="h-4 w-4" />
+                        <span className="text-[10px]">{t("gallery.overlay.ocr")}</span>
+                      </button>
+                    )}
                   </div>
                 </div>
                 <p className="text-[11px] text-muted-foreground truncate mt-1 px-0.5 w-full text-center" title={image.fileName}>

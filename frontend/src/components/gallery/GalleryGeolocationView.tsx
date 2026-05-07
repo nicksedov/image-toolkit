@@ -11,6 +11,9 @@ import "@/lib/leaflet-icon-fix"
 
 interface GalleryGeolocationViewProps {
   onImageClick: (image: GalleryImageDTO) => void
+  onImageView?: (image: GalleryImageDTO) => void
+  onImageOcr?: (image: GalleryImageDTO) => void
+  onImageDownload?: (image: GalleryImageDTO) => void
 }
 
 type GeoViewMode = "map" | "grid"
@@ -85,7 +88,7 @@ function MapEventHandler({ onBoundsChange }: { onBoundsChange: (bounds: GeoBound
   return null
 }
 
-export function GalleryGeolocationView({ onImageClick }: GalleryGeolocationViewProps) {
+export function GalleryGeolocationView({ onImageClick, onImageView, onImageOcr, onImageDownload }: GalleryGeolocationViewProps) {
   const { t } = useTranslation()
   const [viewMode, setViewMode] = useState<GeoViewMode>("map")
   const [selectedClusterId, setSelectedClusterId] = useState<string | null>(null)
@@ -218,7 +221,13 @@ export function GalleryGeolocationView({ onImageClick }: GalleryGeolocationViewP
           </div>
         ) : (
           <>
-            <GalleryImageGrid images={images} onImageClick={onImageClick} />
+            <GalleryImageGrid
+              images={images}
+              onImageClick={onImageClick}
+              onImageView={onImageView}
+              onImageOcr={onImageOcr}
+              onImageDownload={onImageDownload}
+            />
             <div ref={sentinelRef} className="h-4" />
             {imagesLoading && (
               <div className="flex justify-center py-4">

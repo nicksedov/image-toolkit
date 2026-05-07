@@ -120,6 +120,11 @@ export const translations = {
     "gallery.calendar.clearFilterHint": "Clear the filter to see all images.",
     "gallery.calendar.fullMonth": "Full Month",
 
+    // Gallery image overlay
+    "gallery.overlay.download": "Download",
+    "gallery.overlay.view": "View",
+    "gallery.overlay.ocr": "OCR",
+
     // Geolocation
     "geolocation.backToMap": "Back to Map",
     "geolocation.noGpsData": "No images with geolocation data",
@@ -655,6 +660,11 @@ export const translations = {
     "gallery.calendar.noImagesForDate": "Нет изображений за выбранную дату",
     "gallery.calendar.clearFilterHint": "Очистите фильтр, чтобы увидеть все изображения.",
     "gallery.calendar.fullMonth": "Весь месяц",
+
+    // Gallery image overlay
+    "gallery.overlay.download": "Скачать",
+    "gallery.overlay.view": "Просмотр",
+    "gallery.overlay.ocr": "OCR",
 
     // Geolocation
     "geolocation.backToMap": "Вернуться к карте",
