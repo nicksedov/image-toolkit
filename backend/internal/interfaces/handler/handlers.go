@@ -970,7 +970,7 @@ func (s *Server) handleListTrashFiles(c *gin.Context) {
 		return
 	}
 
-	var files []TrashFileInfo
+	files := make([]TrashFileInfo, 0)
 	for _, entry := range entries {
 		if entry.IsDir() {
 			continue
