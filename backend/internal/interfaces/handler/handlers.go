@@ -271,12 +271,20 @@ func (s *Server) handleGetFolderPatterns(c *gin.Context) {
 	}
 
 	patternMap := make(map[string]*dto.FolderPattern)
+	singleFolderDuplicateCount := 0
 
 	for _, group := range groups {
 		folderSet := make(map[string]bool)
 		for _, file := range group.Files {
 			dir := filepath.Dir(file.Path)
 			folderSet[dir] = true
+		}
+
+		// Skip groups where all duplicates are in a single folder
+		// These can't be handled by batch dedup (no cross-folder choice to make)
+		if len(folderSet) <= 1 {
+			singleFolderDuplicateCount += len(group.Files)
+			continue
 		}
 
 		folders := make([]string, 0, len(folderSet))
@@ -308,7 +316,10 @@ func (s *Server) handleGetFolderPatterns(c *gin.Context) {
 
 	sortPatternsByCount(patterns)
 
-	c.JSON(http.StatusOK, dto.FolderPatternsResponse{Patterns: patterns})
+	c.JSON(http.StatusOK, dto.FolderPatternsResponse{
+		Patterns:                   patterns,
+		SingleFolderDuplicateCount: singleFolderDuplicateCount,
+	})
 }
 
 // handleBatchDelete applies batch deletion rules to all matching duplicates
@@ -335,7 +346,7 @@ func (s *Server) handleBatchDelete(c *gin.Context) {
 		return
 	}
 
-	var successCount, failedCount int
+	var rulesApplied, filesDeleted, failedCount int
 	var failedFiles []string
 
 	if req.TrashDir != "" {
@@ -364,6 +375,8 @@ func (s *Server) handleBatchDelete(c *gin.Context) {
 		if !hasRule {
 			continue
 		}
+
+		rulesApplied++
 
 		for _, file := range group.Files {
 			fileDir := filepath.Dir(file.Path)
@@ -395,14 +408,15 @@ func (s *Server) handleBatchDelete(c *gin.Context) {
 			}
 
 			s.db.Where("path = ?", filepath.ToSlash(file.Path)).Delete(&domain.ImageFile{})
-			successCount++
+			filesDeleted++
 		}
 	}
 
 	c.JSON(http.StatusOK, dto.BatchDeleteResponse{
-		Success:     successCount,
-		Failed:      failedCount,
-		FailedFiles: failedFiles,
+		RulesApplied: rulesApplied,
+		FilesDeleted: filesDeleted,
+		Failed:       failedCount,
+		FailedFiles:  failedFiles,
 	})
 }
 

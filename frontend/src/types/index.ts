@@ -73,6 +73,7 @@ export interface FolderPattern {
 
 export interface FolderPatternsResponse {
   patterns: FolderPattern[]
+  singleFolderDuplicateCount: number
 }
 
 export interface BatchDeleteRule {
@@ -86,7 +87,8 @@ export interface BatchDeleteRequest {
 }
 
 export interface BatchDeleteResponse {
-  success: number
+  rulesApplied: number
+  filesDeleted: number
   failed: number
   failedFiles?: string[]
 }

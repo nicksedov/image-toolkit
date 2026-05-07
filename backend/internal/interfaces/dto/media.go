@@ -81,7 +81,8 @@ type FolderPattern struct {
 
 // FolderPatternsResponse represents the response for folder patterns
 type FolderPatternsResponse struct {
-	Patterns []FolderPattern `json:"patterns"`
+	Patterns                   []FolderPattern `json:"patterns"`
+	SingleFolderDuplicateCount int             `json:"singleFolderDuplicateCount"` // Duplicates all in one folder (not suitable for batch dedup)
 }
 
 // --- Batch Delete API ---
@@ -100,9 +101,10 @@ type BatchDeleteRule struct {
 
 // BatchDeleteResponse represents the response from batch deletion
 type BatchDeleteResponse struct {
-	Success     int      `json:"success"`
-	Failed      int      `json:"failed"`
-	FailedFiles []string `json:"failedFiles,omitempty"`
+	RulesApplied int      `json:"rulesApplied"`
+	FilesDeleted int      `json:"filesDeleted"`
+	Failed       int      `json:"failed"`
+	FailedFiles  []string `json:"failedFiles,omitempty"`
 }
 
 // --- Thumbnail API ---

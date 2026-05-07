@@ -29,12 +29,13 @@ export function BatchDeduplicationModal({
   onError,
   onComplete,
 }: BatchDeduplicationModalProps) {
-  const { patterns, isLoading, error, load } = useFolderPatterns()
+  const { patterns, singleFolderDuplicateCount: sfdc, isLoading, error, load } = useFolderPatterns()
   const [currentStep, setCurrentStep] = useState(0)
   const [selectedFolders, setSelectedFolders] = useState<Record<string, string>>({})
   const [useTrash, setUseTrash] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isCompleted, setIsCompleted] = useState(false)
+  const [lastResult, setLastResult] = useState<{ rulesApplied: number; filesDeleted: number } | null>(null)
   const { trashDir } = useSettings()
   const { t } = useTranslation()
 
@@ -51,6 +52,7 @@ export function BatchDeduplicationModal({
       setSelectedFolders({})
       setUseTrash(true)
       setIsCompleted(false)
+      setLastResult(null)
     }
   }, [open, load])
 
@@ -113,10 +115,11 @@ export function BatchDeduplicationModal({
       })
       let message: string
       if (result.failed > 0) {
-        message = t("batchDedup.successWithFailed", { count: result.success, failed: result.failed })
+        message = t("batchDedup.successWithFailed", { rules: result.rulesApplied, files: result.filesDeleted, failed: result.failed })
       } else {
-        message = t("batchDedup.success", { count: result.success })
+        message = t("batchDedup.success", { rules: result.rulesApplied, files: result.filesDeleted })
       }
+      setLastResult({ rulesApplied: result.rulesApplied, filesDeleted: result.filesDeleted })
       onSuccess(message)
       setIsCompleted(true)
       onComplete()
@@ -161,10 +164,15 @@ export function BatchDeduplicationModal({
           ) : error ? (
             <p className="text-sm text-destructive">{error}</p>
           ) : isCompleted ? (
-            <div className="py-8 text-center space-y-2">
+            <div className="py-8 text-center space-y-3">
               <p className="text-muted-foreground">
-                {t("batchDedup.success", { count: Object.keys(selectedFolders).filter(k => selectedFolders[k]).length })}
+                {t("batchDedup.success", { rules: lastResult?.rulesApplied ?? 0, files: lastResult?.filesDeleted ?? 0 })}
               </p>
+              {sfdc > 0 && (
+                <p className="text-sm text-muted-foreground">
+                  {t("batchDedup.remainingDuplicates", { count: sfdc })}
+                </p>
+              )}
             </div>
           ) : patterns.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-4">{t("batchDedup.noPatterns")}</p>

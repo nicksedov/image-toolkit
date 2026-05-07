@@ -4,6 +4,7 @@ import type { FolderPattern } from "@/types"
 
 export function useFolderPatterns() {
   const [patterns, setPatterns] = useState<FolderPattern[]>([])
+  const [singleFolderDuplicateCount, setSingleFolderDuplicateCount] = useState(0)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -13,6 +14,7 @@ export function useFolderPatterns() {
     try {
       const result = await fetchFolderPatterns()
       setPatterns(result.patterns)
+      setSingleFolderDuplicateCount(result.singleFolderDuplicateCount)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load folder patterns")
     } finally {
@@ -20,5 +22,5 @@ export function useFolderPatterns() {
     }
   }, [])
 
-  return { patterns, isLoading, error, load }
+  return { patterns, singleFolderDuplicateCount, isLoading, error, load }
 }
