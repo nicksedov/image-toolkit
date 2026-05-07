@@ -16,16 +16,16 @@ import (
 
 // Server holds the application state
 type Server struct {
-	db              *gorm.DB
-	thumbnailCache  *imaging.ThumbnailCache
+	db               *gorm.DB
+	thumbnailCache   *imaging.ThumbnailCache
 	thumbnailService *thumbnail.Service
-	scanManager     *imaging.ScanManager
-	metadataManager *imaging.MetadataManager
-	ocrManager      *imaging.OcrManager
-	llmOcrService   *imaging.LlmOcrService
-	config          *config.AppConfig
-	ocrClient       ocr.Client
-	clusterStorage  *geo.ClusterStorage
+	scanManager      *imaging.ScanManager
+	metadataManager  *imaging.MetadataManager
+	ocrManager       *imaging.OcrManager
+	llmOcrService    *imaging.LlmOcrService
+	config           *config.AppConfig
+	ocrClient        ocr.Client
+	clusterStorage   *geo.ClusterStorage
 }
 
 // NewServer creates a new server instance

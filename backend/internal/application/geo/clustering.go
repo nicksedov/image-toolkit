@@ -14,7 +14,7 @@ import (
 
 // ClusterStorage stores cluster image paths in memory for later retrieval
 type ClusterStorage struct {
-	mu      sync.RWMutex
+	mu       sync.RWMutex
 	clusters map[string][]string // clusterID -> imagePaths
 }
 
@@ -29,16 +29,16 @@ func NewClusterStorage() *ClusterStorage {
 func (s *ClusterStorage) StoreClusters(clusters []dto.GeoCluster) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	
+
 	// Clear old data
 	s.clusters = make(map[string][]string)
-	
+
 	for _, c := range clusters {
 		if len(c.ImagePaths) > 0 {
 			s.clusters[c.ID] = c.ImagePaths
 		}
 	}
-	
+
 	log.Printf("[geo] Stored %d clusters in memory", len(s.clusters))
 }
 
@@ -46,7 +46,7 @@ func (s *ClusterStorage) StoreClusters(clusters []dto.GeoCluster) {
 func (s *ClusterStorage) GetClusterImagePaths(clusterID string) ([]string, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	
+
 	paths, ok := s.clusters[clusterID]
 	return paths, ok
 }
