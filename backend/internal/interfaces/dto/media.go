@@ -206,9 +206,10 @@ type GalleryImagesResponse struct {
 
 // AppSettingsDTO is the JSON response for GET /api/settings
 type AppSettingsDTO struct {
-	TrashDir           string `json:"trashDir"`
-	ThumbnailCachePath string `json:"thumbnailCachePath,omitempty"`
-	ThumbnailCacheSize int    `json:"thumbnailCacheSize,omitempty"`
+	TrashDir              string `json:"trashDir"`
+	ThumbnailCachePath    string `json:"thumbnailCachePath,omitempty"`
+	ThumbnailCacheSize    int    `json:"thumbnailCacheSize,omitempty"`
+	OcrConcurrentRequests int    `json:"ocrConcurrentRequests,omitempty"`
 }
 
 // UserSettingsDTO is the JSON response for user settings
@@ -219,8 +220,9 @@ type UserSettingsDTO struct {
 
 // UpdateSettingsRequest is the JSON request for PUT /api/settings
 type UpdateSettingsRequest struct {
-	TrashDir           *string `json:"trashDir"`
-	ThumbnailCachePath *string `json:"thumbnailCachePath,omitempty"`
+	TrashDir              *string `json:"trashDir"`
+	ThumbnailCachePath    *string `json:"thumbnailCachePath,omitempty"`
+	OcrConcurrentRequests *int    `json:"ocrConcurrentRequests,omitempty"`
 }
 
 // UpdateUserSettingsRequest is the JSON request for PUT /api/user-settings

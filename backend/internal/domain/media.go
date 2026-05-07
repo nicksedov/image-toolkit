@@ -77,11 +77,12 @@ type GalleryFolder struct {
 // AppSettings stores global application settings (singleton, ID=1)
 // Contains application-level settings: trash directory and thumbnail cache configuration
 type AppSettings struct {
-	ID                 uint      `gorm:"primaryKey" json:"id"`
-	TrashDir           string    `gorm:"default:''" json:"trashDir"`
-	ThumbnailCachePath string    `gorm:"default:''" json:"thumbnailCachePath"`
-	ThumbnailCacheSize int       `gorm:"default:0" json:"thumbnailCacheSize"`
-	UpdatedAt          time.Time `json:"updatedAt"`
+	ID                   uint      `gorm:"primaryKey" json:"id"`
+	TrashDir             string    `gorm:"default:''" json:"trashDir"`
+	ThumbnailCachePath   string    `gorm:"default:''" json:"thumbnailCachePath"`
+	ThumbnailCacheSize   int       `gorm:"default:0" json:"thumbnailCacheSize"`
+	OcrConcurrentRequests int      `gorm:"default:4" json:"ocrConcurrentRequests"`
+	UpdatedAt            time.Time `json:"updatedAt"`
 }
 
 // OcrClassification stores OCR classification results for an image

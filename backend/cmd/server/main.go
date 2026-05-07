@@ -78,8 +78,16 @@ func main() {
 	var ocrManager *imaging.OcrManager
 	if cfg.OCREnabled {
 		ocrClient := ocr.NewClient(cfg.OCRHost, cfg.OCRPort)
-		ocrManager = imaging.NewOcrManager(db, ocrClient, cfg.OCRConcurrentRequests)
-		fmt.Printf("OCR manager initialized: max concurrent requests=%d\n", cfg.OCRConcurrentRequests)
+
+		// Read OCR concurrent requests from DB, fallback to env var (default: 4)
+		ocrWorkers := cfg.OCRConcurrentRequests
+		var appSettings domain.AppSettings
+		if result := db.First(&appSettings, 1); result.Error == nil && appSettings.OcrConcurrentRequests > 0 {
+			ocrWorkers = appSettings.OcrConcurrentRequests
+		}
+
+		ocrManager = imaging.NewOcrManager(db, ocrClient, ocrWorkers)
+		fmt.Printf("OCR manager initialized: max concurrent requests=%d\n", ocrWorkers)
 	}
 
 	// Initialize thumbnail cache service

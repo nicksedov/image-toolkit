@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"runtime"
 	"sync"
 	"time"
 
@@ -25,7 +26,7 @@ type OcrManager struct {
 	totalFiles     int
 	db             *gorm.DB
 	ocrClient      ocr.Client
-	maxWorkers     int // Max concurrent OCR requests
+	maxWorkers     int // Max concurrent OCR requests (0 = auto = runtime.NumCPU())
 }
 
 // OcrStatusResponse represents the OCR processing status
@@ -101,6 +102,29 @@ func (om *OcrManager) StopClassification() {
 	}
 }
 
+// SetMaxWorkers updates the maximum number of concurrent OCR workers.
+// This takes effect immediately for ongoing classification as well.
+func (om *OcrManager) SetMaxWorkers(workers int) {
+	om.mu.Lock()
+	defer om.mu.Unlock()
+	om.maxWorkers = workers
+}
+
+// GetEffectiveWorkers returns the effective number of workers.
+// If maxWorkers is 0, returns runtime.NumCPU() (capped at NumCPU).
+func (om *OcrManager) GetEffectiveWorkers() int {
+	om.mu.RLock()
+	defer om.mu.RUnlock()
+	if om.maxWorkers <= 0 {
+		return runtime.NumCPU()
+	}
+	// Cap at NumCPU if exceeding
+	if om.maxWorkers > runtime.NumCPU() {
+		return runtime.NumCPU()
+	}
+	return om.maxWorkers
+}
+
 // processUnclassified finds images without OCR classification and processes them
 func (om *OcrManager) processUnclassified(incremental bool) {
 	defer func() {
@@ -163,7 +187,7 @@ func (om *OcrManager) processUnclassified(incremental bool) {
 	}
 
 	// Create semaphore to limit concurrent OCR requests
-	sem := make(chan struct{}, om.maxWorkers)
+	sem := make(chan struct{}, om.GetEffectiveWorkers())
 
 	results := make(chan ocrResult, len(images))
 

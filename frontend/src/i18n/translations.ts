@@ -366,6 +366,10 @@ export const translations = {
     "adminPanel.ocr.statusHealthy": "Healthy",
     "adminPanel.ocr.statusError": "Error",
     "adminPanel.ocr.statusDisabled": "Disabled",
+    "adminPanel.ocr.concurrentWorkers": "Concurrent Workers",
+    "adminPanel.ocr.concurrentWorkersDescription": "Number of parallel OCR classification requests (0 = auto = CPU cores)",
+    "adminPanel.ocr.concurrentWorkersSaved": "Concurrent workers updated",
+    "adminPanel.ocr.concurrentWorkersSaveFailed": "Failed to update concurrent workers",
 
     // Thumbnail Cache
     "adminPanel.thumbnailCache.title": "Thumbnail Cache",
@@ -561,6 +565,10 @@ export const translations = {
     "adminPanel.ocr.statusHealthy": "Работает",
     "adminPanel.ocr.statusError": "Ошибка",
     "adminPanel.ocr.statusDisabled": "Отключен",
+    "adminPanel.ocr.concurrentWorkers": "Параллельные потоки",
+    "adminPanel.ocr.concurrentWorkersDescription": "Количество параллельных OCR-запросов (0 = авто = ядра CPU)",
+    "adminPanel.ocr.concurrentWorkersSaved": "Количество потоков обновлено",
+    "adminPanel.ocr.concurrentWorkersSaveFailed": "Не удалось обновить количество потоков",
     // Header
     "header.title": "Image Toolkit",
     "header.subtitle": "Универсальный набор инструментов для работы с изображениями",

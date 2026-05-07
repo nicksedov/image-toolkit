@@ -35,6 +35,8 @@ export function AdminSettingsTab() {
   const [isOcrLoading, setIsOcrLoading] = useState(false)
   const [ocrScanning, setOcrScanning] = useState(false)
   const [ocrScanStatus, setOcrScanStatus] = useState<OcrClassificationStatusResponse | null>(null)
+  const [ocrConcurrentWorkers, setOcrConcurrentWorkers] = useState(4)
+  const [isSavingWorkers, setIsSavingWorkers] = useState(false)
 
   // Thumbnail Cache Settings state
   const [thumbnailCacheStats, setThumbnailCacheStats] = useState<{ enabled: boolean; cacheDir: string; totalFiles: number; totalSize: number } | null>(null)
@@ -91,6 +93,7 @@ export function AdminSettingsTab() {
       setTrashInput(settings.trashDir || "")
       setTrashDir(settings.trashDir || "")
       setThumbnailCachePath(settings.thumbnailCachePath || "")
+      setOcrConcurrentWorkers(settings.ocrConcurrentRequests ?? 4)
     }).catch(() => {
       // Use local state values
     })
@@ -173,6 +176,27 @@ export function AdminSettingsTab() {
       toast.error(err instanceof Error ? err.message : t("api.ocr.failed"))
     }
   }, [t])
+
+  const handleSaveOcrWorkers = useCallback(async () => {
+    setIsSavingWorkers(true)
+    try {
+      await updateSettings({ ocrConcurrentRequests: ocrConcurrentWorkers })
+      toast.success(t("adminPanel.ocr.concurrentWorkersSaved"))
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("adminPanel.ocr.concurrentWorkersSaveFailed"))
+    } finally {
+      setIsSavingWorkers(false)
+    }
+  }, [ocrConcurrentWorkers, t])
+
+  const handleWorkersInputChange = useCallback((value: string) => {
+    const num = parseInt(value, 10)
+    if (!isNaN(num) && num >= 0) {
+      setOcrConcurrentWorkers(num)
+    } else if (value === "") {
+      setOcrConcurrentWorkers(0)
+    }
+  }, [])
 
   const loadLlmSettings = useCallback(async () => {
     try {
@@ -556,6 +580,29 @@ export function AdminSettingsTab() {
               <Button variant="outline" size="sm" onClick={loadOCRStatus} disabled={isOcrLoading}>
                 {isOcrLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
               </Button>
+            </div>
+
+            {/* Concurrent Workers */}
+            <div className="space-y-2">
+              <Label htmlFor="ocr-workers-input">{t("adminPanel.ocr.concurrentWorkers")}</Label>
+              <p className="text-xs text-muted-foreground">{t("adminPanel.ocr.concurrentWorkersDescription")}</p>
+              <div className="flex gap-2">
+                <Input
+                  id="ocr-workers-input"
+                  type="number"
+                  min={0}
+                  value={ocrConcurrentWorkers}
+                  onChange={(e) => handleWorkersInputChange(e.target.value)}
+                  className="w-24"
+                />
+                <Button
+                  onClick={handleSaveOcrWorkers}
+                  disabled={isSavingWorkers}
+                  size="default"
+                >
+                  {isSavingWorkers ? t("common.saving") : t("common.save")}
+                </Button>
+              </div>
             </div>
 
             {/* OCR Scan Progress */}

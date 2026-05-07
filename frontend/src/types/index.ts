@@ -155,6 +155,7 @@ export interface AppSettingsDTO {
   trashDir: string
   thumbnailCachePath?: string
   thumbnailCacheSize?: number
+  ocrConcurrentRequests?: number
 }
 
 export interface UserSettingsDTO {
@@ -174,6 +175,7 @@ export interface UserSettingsDTO {
 export interface UpdateSettingsRequest {
   trashDir?: string
   thumbnailCachePath?: string
+  ocrConcurrentRequests?: number
 }
 
 export interface UpdateUserSettingsRequest {

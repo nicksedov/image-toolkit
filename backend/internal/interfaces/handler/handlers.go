@@ -713,13 +713,14 @@ func (s *Server) handleServeOcrImage(c *gin.Context) {
 func (s *Server) handleGetSettings(c *gin.Context) {
 	var settings domain.AppSettings
 	if result := s.db.First(&settings, 1); result.Error != nil {
-		c.JSON(http.StatusOK, dto.AppSettingsDTO{TrashDir: ""})
+		c.JSON(http.StatusOK, dto.AppSettingsDTO{TrashDir: "", OcrConcurrentRequests: 4})
 		return
 	}
 	c.JSON(http.StatusOK, dto.AppSettingsDTO{
-		TrashDir:           settings.TrashDir,
-		ThumbnailCachePath: settings.ThumbnailCachePath,
-		ThumbnailCacheSize: settings.ThumbnailCacheSize,
+		TrashDir:              settings.TrashDir,
+		ThumbnailCachePath:    settings.ThumbnailCachePath,
+		ThumbnailCacheSize:    settings.ThumbnailCacheSize,
+		OcrConcurrentRequests: settings.OcrConcurrentRequests,
 	})
 }
 
@@ -789,12 +790,26 @@ func (s *Server) handleUpdateSettings(c *gin.Context) {
 		}
 	}
 
+	if req.OcrConcurrentRequests != nil {
+		val := *req.OcrConcurrentRequests
+		if val < 0 {
+			val = 0
+		}
+		settings.OcrConcurrentRequests = val
+
+		// Update OcrManager in real-time if it exists
+		if s.ocrManager != nil {
+			s.ocrManager.SetMaxWorkers(val)
+		}
+	}
+
 	s.db.Save(&settings)
 
 	c.JSON(http.StatusOK, dto.AppSettingsDTO{
-		TrashDir:           settings.TrashDir,
-		ThumbnailCachePath: settings.ThumbnailCachePath,
-		ThumbnailCacheSize: settings.ThumbnailCacheSize,
+		TrashDir:              settings.TrashDir,
+		ThumbnailCachePath:    settings.ThumbnailCachePath,
+		ThumbnailCacheSize:    settings.ThumbnailCacheSize,
+		OcrConcurrentRequests: settings.OcrConcurrentRequests,
 	})
 }
 
