@@ -943,10 +943,10 @@ func (s *Server) handleCleanTrash(c *gin.Context) {
 
 // TrashFileInfo represents a single file in trash
 type TrashFileInfo struct {
-	FileName    string `json:"fileName"`
-	Size        int64  `json:"size"`
-	SizeHuman   string `json:"sizeHuman"`
-	ModTime     string `json:"modTime"`
+	FileName  string `json:"fileName"`
+	Size      int64  `json:"size"`
+	SizeHuman string `json:"sizeHuman"`
+	ModTime   string `json:"modTime"`
 }
 
 // handleListTrashFiles returns a list of all files in the trash directory
