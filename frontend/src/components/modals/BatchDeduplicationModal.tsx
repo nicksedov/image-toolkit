@@ -256,6 +256,8 @@ export function BatchDeduplicationModal({
                 {skippedPatterns.length > 0 || currentStep < totalSteps - 2 ? t("batchDedup.forward") : t("batchDedup.finish")}
               </Button>
             </>
+          ) : patterns.length === 0 ? (
+            <Button variant="outline" onClick={handleCompleteClose}>{t("common.close")}</Button>
           ) : (
             <div className="flex items-center gap-2 w-full">
               {canGoBack ? (
