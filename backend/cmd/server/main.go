@@ -60,15 +60,6 @@ func main() {
 	}
 	fmt.Println("exiftool initialized!")
 
-	// Initialize offline geocoder
-	fmt.Println("Initializing offline geocoder...")
-	geoc := geocoder.NewGeocoder()
-	if geoc != nil {
-		fmt.Println("Geocoder initialized successfully!")
-	} else {
-		fmt.Println("Geocoder unavailable, geolocation will be disabled.")
-	}
-
 	// Initialize OCR classifier client and health check
 	var ocrCheckInterval int
 	if cfg.OCREnabled {
@@ -82,10 +73,6 @@ func main() {
 
 	// Create scan manager (reads gallery folders from DB dynamically)
 	scanManager := imaging.NewScanManager(db, cfg.ScanWorkers)
-
-	// Create metadata manager (background EXIF extraction)
-	metadataManager := imaging.NewMetadataManager(db, geoc, cfg.MetadataWorkers, cfg.MetadataIntervalMin)
-	defer metadataManager.Stop()
 
 	// Create OCR manager (background classification)
 	var ocrManager *imaging.OcrManager
@@ -138,8 +125,16 @@ func main() {
 		}
 	}
 
+	// Initialize offline geocoder (used by background sync for EXIF geo-enrichment)
+	geo := geocoder.NewGeocoder()
+	if geo != nil {
+		fmt.Println("Geocoder initialized successfully!")
+	} else {
+		fmt.Println("Geocoder unavailable, geo-enrichment will be disabled")
+	}
+
 	// Create background sync manager
-	backgroundSync := imaging.NewBackgroundSyncManager(db, thumbnailService, cfg.BackgroundSyncIntervalMin)
+	backgroundSync := imaging.NewBackgroundSyncManager(db, thumbnailService, geo, cfg.BackgroundSyncIntervalMin)
 	if cfg.BackgroundSyncEnabled {
 		backgroundSync.Start()
 		defer backgroundSync.Stop()
@@ -148,11 +143,8 @@ func main() {
 		fmt.Println("Background sync disabled")
 	}
 
-	// Wire scan complete callback to trigger metadata extraction and OCR classification
+	// Wire scan complete callback to trigger OCR classification
 	scanManager.OnScanComplete = func() {
-		if err := metadataManager.StartExtraction(); err != nil {
-			log.Printf("Metadata extraction not started: %v", err)
-		}
 		if cfg.OCREnabled && ocrManager != nil {
 			if err := ocrManager.StartClassification(false); err != nil {
 				log.Printf("OCR classification not started: %v", err)
@@ -189,7 +181,7 @@ func main() {
 	fmt.Println("LLM OCR service initialized")
 
 	// Start web server
-	server := handler.NewServer(db, scanManager, metadataManager, ocrManager, llmOcrService, thumbnailService, cfg)
+	server := handler.NewServer(db, scanManager, ocrManager, llmOcrService, thumbnailService, cfg)
 	router := server.SetupRouter(authMiddleware, csrfProtection, authHandlers)
 
 	// Start OCR health check if enabled
@@ -198,7 +190,6 @@ func main() {
 
 	fmt.Printf("\nStarting API server on http://%s:%s\n", cfg.ServerHost, cfg.ServerPort)
 	fmt.Printf("Scan workers: %d\n", cfg.ScanWorkers)
-	fmt.Printf("Metadata workers: %d, interval: %d min\n", cfg.MetadataWorkers, cfg.MetadataIntervalMin)
 	fmt.Printf("CORS allowed origins: %s\n", strings.Join(cfg.CORSOrigins, ", "))
 	fmt.Printf("Thumbnail cache: enabled=%v, path=%s\n", cfg.ThumbnailCacheEnabled, cachePath)
 	fmt.Printf("Background sync: enabled=%v, interval=%d min\n", cfg.BackgroundSyncEnabled, cfg.BackgroundSyncIntervalMin)

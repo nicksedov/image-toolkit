@@ -9,6 +9,7 @@ import (
 
 	"image-toolkit/internal/application/thumbnail"
 	"image-toolkit/internal/domain"
+	"image-toolkit/internal/infrastructure/geocoder"
 
 	"gorm.io/gorm"
 )
@@ -21,19 +22,21 @@ type BackgroundSyncManager struct {
 	stopCh           chan struct{}
 	db               *gorm.DB
 	thumbnailService *thumbnail.Service
+	geocoder         *geocoder.Geocoder
 	syncInterval     time.Duration
 }
 
 // NewBackgroundSyncManager creates a new background sync manager
-func NewBackgroundSyncManager(db *gorm.DB, thumbnailService *thumbnail.Service, syncIntervalMinutes int) *BackgroundSyncManager {
+func NewBackgroundSyncManager(db *gorm.DB, thumbnailService *thumbnail.Service, geo *geocoder.Geocoder, syncIntervalMinutes int) *BackgroundSyncManager {
 	interval := time.Duration(syncIntervalMinutes) * time.Minute
 	if interval <= 0 {
-		interval = 12 * 60 * time.Minute // Default: 30 minutes
+		interval = 12 * 60 * time.Minute
 	}
 
 	return &BackgroundSyncManager{
 		db:               db,
 		thumbnailService: thumbnailService,
+		geocoder:         geo,
 		syncInterval:     interval,
 		stopCh:           make(chan struct{}),
 	}
@@ -213,6 +216,9 @@ func (bsm *BackgroundSyncManager) syncFolder(folderPath string, thumbnailEnabled
 			newCount++
 			log.Printf("Background sync: added new file %s", diskPath)
 
+			// Extract EXIF/geo metadata for new file
+			bsm.extractAndSaveMetadata(diskPath, newFile.ID)
+
 			// Generate thumbnail for new file
 			if thumbnailEnabled {
 				if bsm.ensureThumbnail(diskPath) {
@@ -245,6 +251,12 @@ func (bsm *BackgroundSyncManager) syncFolder(folderPath string, thumbnailEnabled
 
 				updatedCount++
 				log.Printf("Background sync: updated file %s", diskPath)
+
+				// Re-extract EXIF/geo metadata for modified file
+				bsm.extractAndSaveMetadata(diskPath, dbFile.ID)
+
+				// Invalidate existing OCR classification so it gets re-classified on next pass
+				bsm.invalidateOCRClassification(dbFile.ID)
 
 				// Regenerate thumbnail for modified file (invalidate old one)
 				if thumbnailEnabled {
@@ -329,6 +341,42 @@ func (bsm *BackgroundSyncManager) isRunning() bool {
 	bsm.mu.Lock()
 	defer bsm.mu.Unlock()
 	return bsm.running
+}
+
+// extractAndSaveMetadata extracts EXIF and geo metadata for a file and saves to the database.
+func (bsm *BackgroundSyncManager) extractAndSaveMetadata(filePath string, imageFileID uint) {
+	meta, err := extractMetadata(filePath)
+	if err != nil {
+		log.Printf("Background sync: failed to extract metadata for %s: %v", filePath, err)
+		return
+	}
+
+	meta.ImageFileID = imageFileID
+
+	// Enrich with geo data from geocoder if GPS coordinates are present
+	if bsm.geocoder != nil && meta.GPSLatitude != nil && meta.GPSLongitude != nil {
+		country, city := bsm.geocoder.ReverseGeocode(*meta.GPSLatitude, *meta.GPSLongitude)
+		meta.GeoCountry = country
+		meta.GeoCity = city
+	}
+
+	// Upsert: insert or update
+	if err := bsm.db.Where("image_file_id = ?", imageFileID).Assign(meta).FirstOrCreate(&domain.ImageMetadata{}).Error; err != nil {
+		log.Printf("Background sync: failed to save metadata for %s: %v", filePath, err)
+	} else {
+		log.Printf("Background sync: saved EXIF/geo metadata for %s", filePath)
+	}
+}
+
+// invalidateOCRClassification deletes existing OCR classification for a file
+// so it gets re-classified on the next OCR pass.
+func (bsm *BackgroundSyncManager) invalidateOCRClassification(imageFileID uint) {
+	// Delete bounding boxes first (foreign key dependency)
+	bsm.db.Where("classification_id IN (SELECT id FROM ocr_classifications WHERE image_file_id = ?)", imageFileID).Delete(&domain.OcrBoundingBox{})
+	// Delete the classification
+	if result := bsm.db.Where("image_file_id = ?", imageFileID).Delete(&domain.OcrClassification{}); result.Error == nil && result.RowsAffected > 0 {
+		log.Printf("Background sync: invalidated OCR classification for image %d", imageFileID)
+	}
 }
 
 // SyncStatus returns the current status of background sync

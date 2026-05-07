@@ -992,16 +992,6 @@ func (s *Server) handleGetImageMetadata(c *gin.Context) {
 	c.JSON(http.StatusOK, dto.ImageMetadataResponse{Found: true, Metadata: metaDTO})
 }
 
-// handleGetMetadataStatus returns the current metadata extraction status
-func (s *Server) handleGetMetadataStatus(c *gin.Context) {
-	c.JSON(http.StatusOK, s.metadataManager.GetStatus())
-}
-
-// handleGetMetadataRepairStatus returns the current metadata repair status
-func (s *Server) handleGetMetadataRepairStatus(c *gin.Context) {
-	c.JSON(http.StatusOK, s.metadataManager.GetRepairStatus())
-}
-
 // handleGetGalleryCalendar returns paginated gallery images grouped by date taken
 func (s *Server) handleGetGalleryCalendar(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
