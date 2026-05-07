@@ -233,6 +233,18 @@ export function cleanTrash(): Promise<CleanTrashResponse> {
   return apiPost<CleanTrashResponse>("/api/trash-clean")
 }
 
+export function fetchTrashList(): Promise<TrashFileDTO[]> {
+  return apiGet<TrashFileDTO[]>("/api/trash-list")
+}
+
+export function restoreTrashFile(req: RestoreTrashFileRequest): Promise<{ success: boolean; restoredPath: string }> {
+  return apiPost<{ success: boolean; restoredPath: string }>("/api/trash-restore", req)
+}
+
+export function deleteTrashFile(req: DeleteTrashFileRequest): Promise<{ success: boolean }> {
+  return apiPost<{ success: boolean }>("/api/trash-delete", req)
+}
+
 // --- Image Metadata ---
 
 export function fetchImageMetadata(path: string): Promise<ImageMetadataResponse> {

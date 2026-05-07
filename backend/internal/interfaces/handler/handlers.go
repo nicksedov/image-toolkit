@@ -941,6 +941,127 @@ func (s *Server) handleCleanTrash(c *gin.Context) {
 	})
 }
 
+// TrashFileInfo represents a single file in trash
+type TrashFileInfo struct {
+	FileName    string `json:"fileName"`
+	Size        int64  `json:"size"`
+	SizeHuman   string `json:"sizeHuman"`
+	ModTime     string `json:"modTime"`
+}
+
+// handleListTrashFiles returns a list of all files in the trash directory
+func (s *Server) handleListTrashFiles(c *gin.Context) {
+	var settings domain.AppSettings
+	if result := s.db.First(&settings, 1); result.Error != nil || settings.TrashDir == "" {
+		c.JSON(http.StatusOK, []TrashFileInfo{})
+		return
+	}
+
+	info, err := os.Stat(settings.TrashDir)
+	if err != nil || !info.IsDir() {
+		c.JSON(http.StatusOK, []TrashFileInfo{})
+		return
+	}
+
+	entries, err := os.ReadDir(settings.TrashDir)
+	if err != nil {
+		c.JSON(http.StatusOK, []TrashFileInfo{})
+		return
+	}
+
+	var files []TrashFileInfo
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		if fi, err := entry.Info(); err == nil {
+			files = append(files, TrashFileInfo{
+				FileName:  entry.Name(),
+				Size:      fi.Size(),
+				SizeHuman: formatSize(fi.Size()),
+				ModTime:   fi.ModTime().Format("2006-01-02T15:04:05Z07:00"),
+			})
+		}
+	}
+
+	c.JSON(http.StatusOK, files)
+}
+
+// handleRestoreTrashFile moves a file from trash back to the gallery
+// The client must provide the original path (stored in fileName or separately)
+func (s *Server) handleRestoreTrashFile(c *gin.Context) {
+	var req struct {
+		FileName   string `json:"fileName"`
+		TargetPath string `json:"targetPath"` // Where to restore the file
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || req.FileName == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "fileName required"})
+		return
+	}
+
+	var settings domain.AppSettings
+	if result := s.db.First(&settings, 1); result.Error != nil || settings.TrashDir == "" {
+		c.JSON(http.StatusBadRequest, i18n.ErrorResponse(i18n.MsgTrashNotConfigured))
+		return
+	}
+
+	trashPath := filepath.Join(settings.TrashDir, req.FileName)
+	if _, err := os.Stat(trashPath); err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "File not found in trash"})
+		return
+	}
+
+	// If targetPath not provided, restore to current working directory
+	targetPath := req.TargetPath
+	if targetPath == "" {
+		targetPath = filepath.Join(".", req.FileName)
+	}
+
+	// Handle duplicates
+	if _, err := os.Stat(targetPath); err == nil {
+		ext := filepath.Ext(req.FileName)
+		nameWithoutExt := strings.TrimSuffix(req.FileName, ext)
+		targetPath = nameWithoutExt + "_restored_" + time.Now().Format("20060102_150405") + ext
+	}
+
+	if err := os.Rename(trashPath, targetPath); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to restore file: " + err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true, "restoredPath": targetPath})
+}
+
+// handleDeleteTrashFile permanently deletes a single file from trash
+func (s *Server) handleDeleteTrashFile(c *gin.Context) {
+	var req struct {
+		FileName string `json:"fileName"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || req.FileName == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "fileName required"})
+		return
+	}
+
+	var settings domain.AppSettings
+	if result := s.db.First(&settings, 1); result.Error != nil || settings.TrashDir == "" {
+		c.JSON(http.StatusBadRequest, i18n.ErrorResponse(i18n.MsgTrashNotConfigured))
+		return
+	}
+
+	filePath := filepath.Join(settings.TrashDir, req.FileName)
+	if _, err := os.Stat(filePath); err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "File not found in trash"})
+		return
+	}
+
+	if err := os.Remove(filePath); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete file: " + err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true})
+}
+
 // handleGetImageMetadata returns EXIF metadata for a single image
 func (s *Server) handleGetImageMetadata(c *gin.Context) {
 	path := c.Query("path")

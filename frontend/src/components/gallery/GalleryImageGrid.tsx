@@ -1,6 +1,6 @@
 import { useMemo } from "react"
 import { useTranslation } from "@/i18n"
-import { Folder, Download, Image as ImageIcon, ScanText } from "lucide-react"
+import { Folder, Download, Image as ImageIcon, ScanText, Trash2 } from "lucide-react"
 import type { GalleryImageDTO } from "@/types"
 
 interface GalleryImageGridProps {
@@ -9,6 +9,7 @@ interface GalleryImageGridProps {
   onImageView?: (image: GalleryImageDTO) => void
   onImageOcr?: (image: GalleryImageDTO) => void
   onImageDownload?: (image: GalleryImageDTO) => void
+  onImageDelete?: (image: GalleryImageDTO) => void
 }
 
 function getFolderName(dirPath: string): string {
@@ -17,7 +18,7 @@ function getFolderName(dirPath: string): string {
   return lastSlash >= 0 ? normalized.substring(lastSlash + 1) : normalized
 }
 
-export function GalleryImageGrid({ images, onImageClick, onImageView, onImageOcr, onImageDownload }: GalleryImageGridProps) {
+export function GalleryImageGrid({ images, onImageClick, onImageView, onImageOcr, onImageDownload, onImageDelete }: GalleryImageGridProps) {
   const { t } = useTranslation()
 
   const groupedByFolder = useMemo(() => {
@@ -117,6 +118,19 @@ export function GalleryImageGrid({ images, onImageClick, onImageView, onImageOcr
                         title={t("gallery.overlay.ocr")}
                       >
                         <ScanText className="h-5 w-5" />
+                      </button>
+                    )}
+                    {onImageDelete && (
+                      <button
+                        type="button"
+                        className="p-2 rounded-lg bg-red-500/20 hover:bg-red-500/40 text-white transition-colors"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onImageDelete(image)
+                        }}
+                        title={t("gallery.overlay.delete")}
+                      >
+                        <Trash2 className="h-5 w-5" />
                       </button>
                     )}
                   </div>

@@ -192,6 +192,22 @@ export interface CleanTrashResponse {
   failed: number
 }
 
+export interface TrashFileDTO {
+  fileName: string
+  size: number
+  sizeHuman: string
+  modTime: string
+}
+
+export interface RestoreTrashFileRequest {
+  fileName: string
+  targetPath?: string
+}
+
+export interface DeleteTrashFileRequest {
+  fileName: string
+}
+
 // --- Image Metadata Types ---
 
 export interface ImageMetadataDTO {

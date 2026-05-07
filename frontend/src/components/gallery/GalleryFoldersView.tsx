@@ -11,9 +11,10 @@ interface GalleryFoldersViewProps {
   onImageView?: (image: GalleryImageDTO) => void
   onImageOcr?: (image: GalleryImageDTO) => void
   onImageDownload?: (image: GalleryImageDTO) => void
+  onImageDelete?: (image: GalleryImageDTO) => void
 }
 
-export function GalleryFoldersView({ onImageClick, onImageView, onImageOcr, onImageDownload }: GalleryFoldersViewProps) {
+export function GalleryFoldersView({ onImageClick, onImageView, onImageOcr, onImageDownload, onImageDelete }: GalleryFoldersViewProps) {
   const { images, totalImages, hasMore, isLoading, error, initialized, loadMore } =
     useGalleryImages("folders")
   const { t } = useTranslation()
@@ -84,6 +85,7 @@ export function GalleryFoldersView({ onImageClick, onImageView, onImageOcr, onIm
             onImageView={onImageView}
             onImageOcr={onImageOcr}
             onImageDownload={onImageDownload}
+            onImageDelete={onImageDelete}
           />
 
           <div ref={sentinelRef} className="h-4" />

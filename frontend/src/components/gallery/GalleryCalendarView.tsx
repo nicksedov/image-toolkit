@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { fetchGalleryCalendar, fetchCalendarMonthInfo } from "@/api/endpoints"
 import { Skeleton } from "@/components/ui/skeleton"
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Download, Image as ImageIcon, ScanText } from "lucide-react"
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Download, Image as ImageIcon, ScanText, Trash2 } from "lucide-react"
 import { useTranslation } from "@/i18n"
 import type { GalleryImageDTO, CalendarDateGroup, CalendarDateRange, CalendarMonthInfo } from "@/types"
 
@@ -10,6 +10,7 @@ interface GalleryCalendarViewProps {
   onImageView?: (image: GalleryImageDTO) => void
   onImageOcr?: (image: GalleryImageDTO) => void
   onImageDownload?: (image: GalleryImageDTO) => void
+  onImageDelete?: (image: GalleryImageDTO) => void
 }
 
 const PAGE_SIZE = 50
@@ -30,7 +31,7 @@ const MONTHS = [
   { value: 11, label: "Dec" },
 ]
 
-export function GalleryCalendarView({ onImageClick, onImageView, onImageOcr, onImageDownload }: GalleryCalendarViewProps) {
+export function GalleryCalendarView({ onImageClick, onImageView, onImageOcr, onImageDownload, onImageDelete }: GalleryCalendarViewProps) {
   const { t } = useTranslation()
 
   const [groups, setGroups] = useState<CalendarDateGroup[]>([])
@@ -560,44 +561,57 @@ export function GalleryCalendarView({ onImageClick, onImageView, onImageOcr, onI
                             </div>
                           )}
                           {/* Overlay with action buttons */}
-                          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5 p-2">
+                          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-2 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                             {onImageDownload && (
                               <button
                                 type="button"
-                                className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors"
+                                className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors"
                                 onClick={(e) => {
                                   e.stopPropagation()
                                   onImageDownload(image)
                                 }}
                                 title={t("gallery.overlay.download")}
                               >
-                                <Download className="h-4 w-4" />
+                                <Download className="h-5 w-5" />
                               </button>
                             )}
                             {onImageView && (
                               <button
                                 type="button"
-                                className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors"
+                                className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors"
                                 onClick={(e) => {
                                   e.stopPropagation()
                                   onImageView(image)
                                 }}
                                 title={t("gallery.overlay.view")}
                               >
-                                <ImageIcon className="h-4 w-4" />
+                                <ImageIcon className="h-5 w-5" />
                               </button>
                             )}
                             {onImageOcr && (
                               <button
                                 type="button"
-                                className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors"
+                                className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors"
                                 onClick={(e) => {
                                   e.stopPropagation()
                                   onImageOcr(image)
                                 }}
                                 title={t("gallery.overlay.ocr")}
                               >
-                                <ScanText className="h-4 w-4" />
+                                <ScanText className="h-5 w-5" />
+                              </button>
+                            )}
+                            {onImageDelete && (
+                              <button
+                                type="button"
+                                className="p-2 rounded-lg bg-red-500/20 hover:bg-red-500/40 text-white transition-colors"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  onImageDelete(image)
+                                }}
+                                title={t("gallery.overlay.delete")}
+                              >
+                                <Trash2 className="h-5 w-5" />
                               </button>
                             )}
                           </div>

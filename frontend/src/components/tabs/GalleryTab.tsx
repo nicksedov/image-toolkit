@@ -4,6 +4,8 @@ import { GalleryCalendarView } from "@/components/gallery/GalleryCalendarView"
 import { GalleryGeolocationView } from "@/components/gallery/GalleryGeolocationView"
 import { ImageLightbox } from "@/components/gallery/ImageLightbox"
 import { OcrLightbox } from "@/components/gallery/OcrLightbox"
+import { deleteFiles } from "@/api/endpoints"
+import { useSettings } from "@/providers/useSettings"
 import type { GalleryImageDTO } from "@/types"
 
 interface GalleryTabProps {
@@ -13,6 +15,7 @@ interface GalleryTabProps {
 const API_BASE_URL = import.meta.env.VITE_API_URL || ""
 
 export function GalleryTab({ galleryMode }: GalleryTabProps) {
+  const { trashDir } = useSettings()
   const [selectedImage, setSelectedImage] = useState<string | null>(null)
   const [ocrImage, setOcrImage] = useState<string | null>(null)
 
@@ -36,6 +39,20 @@ export function GalleryTab({ galleryMode }: GalleryTabProps) {
     a.click()
   }, [])
 
+  const handleImageDelete = useCallback(async (image: GalleryImageDTO) => {
+    if (!confirm(`Delete "${image.fileName}" to trash?`)) return
+
+    try {
+      await deleteFiles({
+        filePaths: [image.path],
+        trashDir: trashDir || "",
+      })
+    } catch (err) {
+      console.error("Failed to delete file:", err)
+      alert("Failed to delete file")
+    }
+  }, [trashDir])
+
   return (
     <div className="space-y-4">
       {galleryMode === "folders" ? (
@@ -44,6 +61,7 @@ export function GalleryTab({ galleryMode }: GalleryTabProps) {
           onImageView={handleImageView}
           onImageOcr={handleImageOcr}
           onImageDownload={handleImageDownload}
+          onImageDelete={handleImageDelete}
         />
       ) : galleryMode === "calendar" ? (
         <GalleryCalendarView
@@ -51,6 +69,7 @@ export function GalleryTab({ galleryMode }: GalleryTabProps) {
           onImageView={handleImageView}
           onImageOcr={handleImageOcr}
           onImageDownload={handleImageDownload}
+          onImageDelete={handleImageDelete}
         />
       ) : (
         <GalleryGeolocationView
@@ -58,6 +77,7 @@ export function GalleryTab({ galleryMode }: GalleryTabProps) {
           onImageView={handleImageView}
           onImageOcr={handleImageOcr}
           onImageDownload={handleImageDownload}
+          onImageDelete={handleImageDelete}
         />
       )}
 

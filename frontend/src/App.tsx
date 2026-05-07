@@ -5,6 +5,7 @@ import { Sidebar } from "@/components/layout/Sidebar"
 import { Header } from "@/components/layout/Header"
 import { SettingsTab } from "@/components/tabs/SettingsTab"
 import { GalleryTab } from "@/components/tabs/GalleryTab"
+import { TrashTab } from "@/components/tabs/TrashTab"
 import { DeduplicationTab } from "@/components/tabs/DeduplicationTab"
 import { OcrTab } from "@/components/tabs/OcrTab"
 import { AdminSettingsTab } from "@/components/tabs/AdminSettingsTab"
@@ -17,7 +18,7 @@ import { BootstrapSetupScreen } from "@/components/auth/BootstrapSetupScreen"
 import { UserProfile } from "@/components/auth/UserProfile"
 import { AdminPanel } from "@/components/auth/AdminPanel"
 
-type TabValue = "settings" | "gallery-folders" | "gallery-calendar" | "gallery-geolocation" | "deduplication" | "ocr" | "profile" | "admin-settings" | "admin-users"
+type TabValue = "settings" | "gallery-folders" | "gallery-calendar" | "gallery-geolocation" | "gallery-trash" | "deduplication" | "ocr" | "profile" | "admin-settings" | "admin-users"
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabValue>("gallery-folders")
@@ -120,6 +121,10 @@ export default function App() {
 
               <TabsContent value="gallery-geolocation">
                 <GalleryTab galleryMode="geolocation" />
+              </TabsContent>
+
+              <TabsContent value="gallery-trash">
+                <TrashTab />
               </TabsContent>
 
               <TabsContent value="deduplication">

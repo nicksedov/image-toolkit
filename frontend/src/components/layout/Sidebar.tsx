@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react"
 import { useTranslation } from "@/i18n"
-import { Settings, ImageIcon, FileScan, Shield, Users, ChevronDown, ChevronRight, Folder, Calendar, FileText, MapPin } from "lucide-react"
+import { Settings, ImageIcon, FileScan, Shield, Users, ChevronDown, ChevronRight, Folder, Calendar, FileText, MapPin, Trash2 } from "lucide-react"
 import { useAuth } from "@/providers/AuthProvider"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -48,6 +48,7 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
 
   const isGalleryActive = activeTab.startsWith("gallery")
   const isToolsActive = activeTab === "deduplication" || activeTab === "ocr"
+  const isTrashActive = activeTab === "gallery-trash"
   const isAccountActive = activeTab === "settings" || activeTab === "profile"
   const isAdminActive = activeTab === "admin-users" || activeTab === "admin-settings"
 
@@ -171,6 +172,18 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
               })}
             </div>
           )}
+        </div>
+
+        {/* Trash */}
+        <div className="space-y-1 mt-4">
+          <Button
+            variant={isTrashActive ? "default" : "ghost"}
+            className={cn("w-full justify-start gap-3 h-9", isTrashActive && "bg-primary text-primary-foreground hover:bg-primary/90")}
+            onClick={() => handleTabChange("gallery-trash")}
+          >
+            <Trash2 className="h-4 w-4 flex-shrink-0" />
+            <span className="flex-1 font-medium text-left">{t("tabs.trash")}</span>
+          </Button>
         </div>
 
         {/* Account group with sub-items */}

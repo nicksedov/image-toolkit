@@ -12,6 +12,22 @@ export const translations = {
     "tabs.tools": "Tools",
     "tabs.deduplication": "Deduplication",
     "tabs.ocr": "OCR",
+    "tabs.trash": "Trash",
+
+    // Trash tab
+    "trashTab.title": "Trash",
+    "trashTab.description": "View and manage deleted files in the trash.",
+    "trashTab.empty": "Trash is empty",
+    "trashTab.emptyHint": "Deleted files will appear here when trash is enabled.",
+    "trashTab.restore": "Restore",
+    "trashTab.deletePermanently": "Delete",
+    "trashTab.restoreSuccess": "File restored successfully",
+    "trashTab.deleteSuccess": "File permanently deleted",
+    "trashTab.deleteFailed": "Failed to delete file",
+    "trashTab.cleanAll": "Empty Trash",
+    "trashTab.cleanAllConfirm": "This will permanently delete all files in trash. Continue?",
+    "trashTab.fileCount": "{count} file(s)",
+    "trashTab.fileCountOne": "{count} file",
 
     // Loading
     "common.loading": "Loading...",
@@ -19,6 +35,7 @@ export const translations = {
     "common.close": "Close",
     "common.save": "Save",
     "common.saving": "Saving...",
+    "common.actions": "Actions",
 
     // Settings tab
     "settings.title": "Gallery",
@@ -124,6 +141,7 @@ export const translations = {
     "gallery.overlay.download": "Download",
     "gallery.overlay.view": "View",
     "gallery.overlay.ocr": "OCR",
+    "gallery.overlay.delete": "Delete",
 
     // Geolocation
     "geolocation.backToMap": "Back to Map",
@@ -553,6 +571,22 @@ export const translations = {
     "tabs.tools": "Инструменты",
     "tabs.deduplication": "Дедупликация",
     "tabs.ocr": "OCR",
+    "tabs.trash": "Корзина",
+
+    // Trash tab
+    "trashTab.title": "Корзина",
+    "trashTab.description": "Просмотр и управление удаленными файлами в корзине.",
+    "trashTab.empty": "Корзина пуста",
+    "trashTab.emptyHint": "Удаленные файлы появятся здесь, когда корзина включена.",
+    "trashTab.restore": "Восстановить",
+    "trashTab.deletePermanently": "Удалить",
+    "trashTab.restoreSuccess": "Файл восстановлен",
+    "trashTab.deleteSuccess": "Файл удален навсегда",
+    "trashTab.deleteFailed": "Не удалось удалить файл",
+    "trashTab.cleanAll": "Очистить корзину",
+    "trashTab.cleanAllConfirm": "Это навсегда удалит все файлы из корзины. Продолжить?",
+    "trashTab.fileCount": "{count} файлов",
+    "trashTab.fileCountOne": "{count} файл",
 
     // Loading
     "common.loading": "Загрузка...",
@@ -560,6 +594,7 @@ export const translations = {
     "common.close": "Закрыть",
     "common.save": "Сохранить",
     "common.saving": "Сохранение...",
+    "common.actions": "Действия",
 
     // Settings tab
     "settings.title": "Галерея",
@@ -665,6 +700,7 @@ export const translations = {
     "gallery.overlay.download": "Скачать",
     "gallery.overlay.view": "Просмотр",
     "gallery.overlay.ocr": "OCR",
+    "gallery.overlay.delete": "Удалить",
 
     // Geolocation
     "geolocation.backToMap": "Вернуться к карте",

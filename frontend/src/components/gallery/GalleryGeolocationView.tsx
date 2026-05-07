@@ -14,6 +14,7 @@ interface GalleryGeolocationViewProps {
   onImageView?: (image: GalleryImageDTO) => void
   onImageOcr?: (image: GalleryImageDTO) => void
   onImageDownload?: (image: GalleryImageDTO) => void
+  onImageDelete?: (image: GalleryImageDTO) => void
 }
 
 type GeoViewMode = "map" | "grid"
@@ -88,7 +89,7 @@ function MapEventHandler({ onBoundsChange }: { onBoundsChange: (bounds: GeoBound
   return null
 }
 
-export function GalleryGeolocationView({ onImageClick, onImageView, onImageOcr, onImageDownload }: GalleryGeolocationViewProps) {
+export function GalleryGeolocationView({ onImageClick, onImageView, onImageOcr, onImageDownload, onImageDelete }: GalleryGeolocationViewProps) {
   const { t } = useTranslation()
   const [viewMode, setViewMode] = useState<GeoViewMode>("map")
   const [selectedClusterId, setSelectedClusterId] = useState<string | null>(null)
@@ -227,6 +228,7 @@ export function GalleryGeolocationView({ onImageClick, onImageView, onImageOcr, 
               onImageView={onImageView}
               onImageOcr={onImageOcr}
               onImageDownload={onImageDownload}
+              onImageDelete={onImageDelete}
             />
             <div ref={sentinelRef} className="h-4" />
             {imagesLoading && (
