@@ -79,44 +79,44 @@ export function GalleryImageGrid({ images, onImageClick, onImageView, onImageOcr
                     </div>
                   )}
                   {/* Overlay with action buttons */}
-                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5 p-2">
+                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-2 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                     {onImageDownload && (
                       <button
                         type="button"
-                        className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors"
+                        className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors"
                         onClick={(e) => {
                           e.stopPropagation()
                           onImageDownload(image)
                         }}
                         title={t("gallery.overlay.download")}
                       >
-                        <Download className="h-4 w-4" />
+                        <Download className="h-5 w-5" />
                       </button>
                     )}
                     {onImageView && (
                       <button
                         type="button"
-                        className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors"
+                        className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors"
                         onClick={(e) => {
                           e.stopPropagation()
                           onImageView(image)
                         }}
                         title={t("gallery.overlay.view")}
                       >
-                        <ImageIcon className="h-4 w-4" />
+                        <ImageIcon className="h-5 w-5" />
                       </button>
                     )}
                     {onImageOcr && (
                       <button
                         type="button"
-                        className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors"
+                        className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors"
                         onClick={(e) => {
                           e.stopPropagation()
                           onImageOcr(image)
                         }}
                         title={t("gallery.overlay.ocr")}
                       >
-                        <ScanText className="h-4 w-4" />
+                        <ScanText className="h-5 w-5" />
                       </button>
                     )}
                   </div>
