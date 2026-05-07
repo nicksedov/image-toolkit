@@ -34,7 +34,7 @@ export function TrashTab() {
       setFiles((prev) => prev.filter((f) => f.fileName !== file.fileName))
     } catch (err) {
       console.error("Failed to restore:", err)
-      alert(t("trashTab.deleteFailed"))
+      alert(t("trashTab.restoreFailed"))
     }
   }, [t])
 

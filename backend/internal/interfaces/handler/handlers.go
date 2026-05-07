@@ -2,6 +2,7 @@ package handler
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"math"
 	"net/http"
@@ -987,8 +988,8 @@ func (s *Server) handleListTrashFiles(c *gin.Context) {
 	c.JSON(http.StatusOK, files)
 }
 
-// handleRestoreTrashFile moves a file from trash back to the gallery
-// The client must provide the original path (stored in fileName or separately)
+// handleRestoreTrashFile moves a file from trash back to the original location
+// If targetPath is not provided, restores to current working directory
 func (s *Server) handleRestoreTrashFile(c *gin.Context) {
 	var req struct {
 		FileName   string `json:"fileName"`
@@ -1014,7 +1015,19 @@ func (s *Server) handleRestoreTrashFile(c *gin.Context) {
 	// If targetPath not provided, restore to current working directory
 	targetPath := req.TargetPath
 	if targetPath == "" {
-		targetPath = filepath.Join(".", req.FileName)
+		cwd, err := os.Getwd()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Cannot determine current directory"})
+			return
+		}
+		targetPath = filepath.Join(cwd, req.FileName)
+	}
+
+	// Ensure target directory exists
+	targetDir := filepath.Dir(targetPath)
+	if err := os.MkdirAll(targetDir, 0755); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Cannot create target directory: " + err.Error()})
+		return
 	}
 
 	// Handle duplicates
@@ -1024,9 +1037,35 @@ func (s *Server) handleRestoreTrashFile(c *gin.Context) {
 		targetPath = nameWithoutExt + "_restored_" + time.Now().Format("20060102_150405") + ext
 	}
 
-	if err := os.Rename(trashPath, targetPath); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to restore file: " + err.Error()})
-		return
+	// Try to rename first (fast, same filesystem)
+	err := os.Rename(trashPath, targetPath)
+	if err != nil {
+		// Rename failed (possibly cross-device), try copy + delete
+		srcFile, openErr := os.Open(trashPath)
+		if openErr != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Cannot open file: " + openErr.Error()})
+			return
+		}
+		defer srcFile.Close()
+
+		dstFile, createErr := os.Create(targetPath)
+		if createErr != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Cannot create file: " + createErr.Error()})
+			return
+		}
+		defer dstFile.Close()
+
+		if _, copyErr := io.Copy(dstFile, srcFile); copyErr != nil {
+			dstFile.Close()
+			os.Remove(targetPath) // Clean up partial copy
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Cannot copy file: " + copyErr.Error()})
+			return
+		}
+
+		// Copy succeeded, remove from trash
+		if removeErr := os.Remove(trashPath); removeErr != nil {
+			log.Printf("Warning: file copied but failed to remove from trash: %v", removeErr)
+		}
 	}
 
 	c.JSON(http.StatusOK, gin.H{"success": true, "restoredPath": targetPath})
