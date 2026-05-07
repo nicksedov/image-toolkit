@@ -88,7 +88,7 @@ function MapEventHandler({ onBoundsChange }: { onBoundsChange: (bounds: GeoBound
 export function GalleryGeolocationView({ onImageClick }: GalleryGeolocationViewProps) {
   const { t } = useTranslation()
   const [viewMode, setViewMode] = useState<GeoViewMode>("map")
-  const [selectedBounds, setSelectedBounds] = useState<GeoBounds | null>(null)
+  const [selectedClusterId, setSelectedClusterId] = useState<string | null>(null)
   const [mapBounds, setMapBounds] = useState<GeoBounds | null>(null)
   const [mapZoom, setMapZoom] = useState(2)
   const [mapSize, setMapSize] = useState({ width: 800, height: 600 })
@@ -110,7 +110,7 @@ export function GalleryGeolocationView({ onImageClick }: GalleryGeolocationViewP
   }, [totalImages])
 
   const { images, hasMore, isLoading: imagesLoading, loadMore, reset: resetImages } = useGeoImages(
-    viewMode === "grid" ? selectedBounds : null
+    viewMode === "grid" ? selectedClusterId : null
   )
 
   // Update map size from container
@@ -131,37 +131,30 @@ export function GalleryGeolocationView({ onImageClick }: GalleryGeolocationViewP
   }, [])
 
   // Reset images when switching to grid view or changing cluster selection
-  const prevSelectedBoundsRef = useRef<GeoBounds | null>(null)
+  const prevSelectedClusterIdRef = useRef<string | null>(null)
   useEffect(() => {
-    if (viewMode === "grid" && selectedBounds) {
-      if (prevSelectedBoundsRef.current !== selectedBounds) {
-        prevSelectedBoundsRef.current = selectedBounds
+    if (viewMode === "grid" && selectedClusterId) {
+      if (prevSelectedClusterIdRef.current !== selectedClusterId) {
+        prevSelectedClusterIdRef.current = selectedClusterId
         resetImages()
         // Trigger initial load after reset
         setTimeout(() => loadMore(), 0)
       }
     }
-  }, [viewMode, selectedBounds, resetImages, loadMore])
+  }, [viewMode, selectedClusterId, resetImages, loadMore])
 
   const handleBoundsChange = useCallback((bounds: GeoBounds) => {
     setMapBounds(bounds)
   }, [])
 
   const handleClusterClick = useCallback((cluster: GeoCluster) => {
-    // Create a small bounding box around the cluster center
-    const delta = 0.01
-    setSelectedBounds({
-      minLat: cluster.latitude - delta,
-      maxLat: cluster.latitude + delta,
-      minLng: cluster.longitude - delta,
-      maxLng: cluster.longitude + delta,
-    })
+    setSelectedClusterId(cluster.id)
     setViewMode("grid")
   }, [])
 
   const handleBackToMap = useCallback(() => {
     setViewMode("map")
-    setSelectedBounds(null)
+    setSelectedClusterId(null)
   }, [])
 
   // Infinite scroll for grid view
@@ -195,7 +188,7 @@ export function GalleryGeolocationView({ onImageClick }: GalleryGeolocationViewP
     return null
   }
 
-  if (viewMode === "grid" && selectedBounds) {
+  if (viewMode === "grid" && selectedClusterId) {
     return (
       <div className="space-y-4">
         <button

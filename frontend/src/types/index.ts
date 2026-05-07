@@ -268,7 +268,6 @@ export interface GeoCluster {
   latitude: number
   longitude: number
   count: number
-  imagePaths: string[]
 }
 
 export interface GeoClustersResponse {

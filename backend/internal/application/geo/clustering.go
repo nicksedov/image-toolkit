@@ -4,12 +4,59 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"sync"
 
 	"image-toolkit/internal/interfaces/dto"
 
 	goclusterlib "github.com/MadAppGang/gocluster"
 	"gorm.io/gorm"
 )
+
+// ClusterStorage stores cluster image paths in memory for later retrieval
+type ClusterStorage struct {
+	mu      sync.RWMutex
+	clusters map[string][]string // clusterID -> imagePaths
+}
+
+// NewClusterStorage creates a new cluster storage
+func NewClusterStorage() *ClusterStorage {
+	return &ClusterStorage{
+		clusters: make(map[string][]string),
+	}
+}
+
+// StoreClusters saves cluster image paths to memory
+func (s *ClusterStorage) StoreClusters(clusters []dto.GeoCluster) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	
+	// Clear old data
+	s.clusters = make(map[string][]string)
+	
+	for _, c := range clusters {
+		if len(c.ImagePaths) > 0 {
+			s.clusters[c.ID] = c.ImagePaths
+		}
+	}
+	
+	log.Printf("[geo] Stored %d clusters in memory", len(s.clusters))
+}
+
+// GetClusterImagePaths retrieves image paths for a specific cluster
+func (s *ClusterStorage) GetClusterImagePaths(clusterID string) ([]string, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	
+	paths, ok := s.clusters[clusterID]
+	return paths, ok
+}
+
+// Clear removes all stored cluster data
+func (s *ClusterStorage) Clear() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.clusters = make(map[string][]string)
+}
 
 // ClusterParams holds the viewport parameters for clustering
 type ClusterParams struct {
@@ -120,7 +167,7 @@ func ComputeClusters(db *gorm.DB, params ClusterParams) ([]dto.GeoCluster, int, 
 
 		clusterID := fmt.Sprintf("cluster_%d", cp.Id)
 
-		// Get image paths
+		// Get image paths for storage (not returned to frontend)
 		var imagePaths []string
 		if cp.NumPoints > 1 {
 			// For clusters, query nearby images
@@ -134,6 +181,7 @@ func ComputeClusters(db *gorm.DB, params ClusterParams) ([]dto.GeoCluster, int, 
 				Limit(500).
 				Pluck("path", &paths)
 			imagePaths = paths
+			log.Printf("[geo] Cluster %s: %d images within %.4f° radius", clusterID, len(paths), radius)
 		} else {
 			// For single points, get path from original data
 			if cp.Id >= 0 && cp.Id < len(images) {
@@ -146,7 +194,7 @@ func ComputeClusters(db *gorm.DB, params ClusterParams) ([]dto.GeoCluster, int, 
 			Latitude:   lat,
 			Longitude:  lng,
 			Count:      cp.NumPoints,
-			ImagePaths: imagePaths,
+			ImagePaths: imagePaths, // Will be cleared before sending to frontend
 		})
 	}
 

@@ -1289,16 +1289,146 @@ func (s *Server) handleGetGalleryClusters(c *gin.Context) {
 		return
 	}
 
+	// Store clusters in memory for later retrieval by clusterId
+	s.clusterStorage.StoreClusters(clusters)
+
+	// Clear ImagePaths from response (frontend will use clusterId to fetch images)
+	for i := range clusters {
+		clusters[i].ImagePaths = nil
+	}
+
 	c.JSON(http.StatusOK, dto.GeoClustersResponse{
 		Clusters:    clusters,
 		TotalImages: totalImages,
 	})
 }
 
-// handleGetGeoImages returns paginated images within geographic bounds
+// handleGetGeoImages returns paginated images within geographic bounds or by cluster ID
 func (s *Server) handleGetGeoImages(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("pageSize", "50"))
+	clusterID := c.Query("clusterId")
+
+	// Check if clusterId is provided
+	if clusterID != "" {
+		s.handleGetGeoImagesByCluster(c, clusterID, page, pageSize)
+		return
+	}
+
+	// Fallback to bounds-based query (for backward compatibility)
+	s.handleGetGeoImagesByBounds(c, page, pageSize)
+}
+
+// handleGetGeoImagesByCluster returns images for a specific cluster
+func (s *Server) handleGetGeoImagesByCluster(c *gin.Context, clusterID string, page, pageSize int) {
+	// Get image paths from cluster storage
+	imagePaths, found := s.clusterStorage.GetClusterImagePaths(clusterID)
+	if !found {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Cluster not found"})
+		return
+	}
+
+	// Calculate pagination
+	totalImages := len(imagePaths)
+	totalPages := (totalImages + pageSize - 1) / pageSize
+	if totalPages < 1 {
+		totalPages = 1
+	}
+	if page < 1 {
+		page = 1
+	}
+	if page > totalPages {
+		page = totalPages
+	}
+
+	offset := (page - 1) * pageSize
+	end := offset + pageSize
+	if end > totalImages {
+		end = totalImages
+	}
+
+	// Get paginated paths
+	paginatedPaths := imagePaths[offset:end]
+
+	// Fetch files from database
+	var files []domain.ImageFile
+	s.db.Table("image_files").
+		Select("image_files.*").
+		Where("image_files.path IN ?", paginatedPaths).
+		Order("image_files.path").
+		Find(&files)
+
+	// Create DTOs
+	pathToDTO := make(map[string]int)
+	for i, path := range paginatedPaths {
+		pathToDTO[path] = i
+	}
+	imageDTOs := make([]dto.GalleryImageDTO, len(files))
+	for _, f := range files {
+		if idx, ok := pathToDTO[f.Path]; ok {
+			imageDTOs[idx] = dto.GalleryImageDTO{
+				ID:        f.ID,
+				Path:      f.Path,
+				FileName:  filepath.Base(f.Path),
+				DirPath:   filepath.Dir(f.Path),
+				Size:      f.Size,
+				SizeHuman: formatSize(f.Size),
+				ModTime:   f.ModTime.Format("2006-01-02 15:04:05"),
+			}
+		}
+	}
+
+	// Filter out any nil entries (paths not found in DB)
+	validDTOs := make([]dto.GalleryImageDTO, 0, len(imageDTOs))
+	for _, dto := range imageDTOs {
+		if dto.Path != "" {
+			validDTOs = append(validDTOs, dto)
+		}
+	}
+	imageDTOs = validDTOs
+
+	// Generate thumbnails in parallel
+	if len(imageDTOs) > 0 {
+		const maxWorkers = 16
+		var wg sync.WaitGroup
+		semaphore := make(chan struct{}, maxWorkers)
+
+		for i, imgDTO := range imageDTOs {
+			wg.Add(1)
+			go func(idx int, filePath string) {
+				defer wg.Done()
+				semaphore <- struct{}{}
+				defer func() { <-semaphore }()
+
+				var thumb string
+				var err error
+
+				if s.thumbnailService != nil {
+					thumb, err = s.thumbnailService.GetOrGenerate(filePath)
+				} else {
+					thumb, err = imaging.GenerateThumbnail(filePath, s.thumbnailCache)
+				}
+
+				if err == nil {
+					imageDTOs[idx].Thumbnail = thumb
+				}
+			}(i, imgDTO.Path)
+		}
+		wg.Wait()
+	}
+
+	c.JSON(http.StatusOK, dto.GeoImagesResponse{
+		Images:      imageDTOs,
+		TotalImages: totalImages,
+		CurrentPage: page,
+		PageSize:    pageSize,
+		TotalPages:  totalPages,
+		HasNextPage: page < totalPages,
+	})
+}
+
+// handleGetGeoImagesByBounds returns paginated images within geographic bounds
+func (s *Server) handleGetGeoImagesByBounds(c *gin.Context, page, pageSize int) {
 	minLat, _ := strconv.ParseFloat(c.Query("minLat"), 64)
 	maxLat, _ := strconv.ParseFloat(c.Query("maxLat"), 64)
 	minLng, _ := strconv.ParseFloat(c.Query("minLng"), 64)

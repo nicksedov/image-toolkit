@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"image-toolkit/internal/application/geo"
 	"image-toolkit/internal/application/imaging"
 	"image-toolkit/internal/application/thumbnail"
 	"image-toolkit/internal/infrastructure/config"
@@ -24,6 +25,7 @@ type Server struct {
 	llmOcrService   *imaging.LlmOcrService
 	config          *config.AppConfig
 	ocrClient       ocr.Client
+	clusterStorage  *geo.ClusterStorage
 }
 
 // NewServer creates a new server instance
@@ -42,6 +44,7 @@ func NewServer(db *gorm.DB, scanManager *imaging.ScanManager, metadataManager *i
 		llmOcrService:    llmOcrService,
 		config:           cfg,
 		ocrClient:        ocrClient,
+		clusterStorage:   geo.NewClusterStorage(),
 	}
 }
 

@@ -5,25 +5,18 @@ import { useInfiniteScroll } from "./useInfiniteScroll"
 
 const PAGE_SIZE = 50
 
-interface GeoBounds {
-  minLat: number
-  maxLat: number
-  minLng: number
-  maxLng: number
-}
+export function useGeoImages(clusterId: string | null) {
+  const clusterIdRef = useRef(clusterId)
 
-export function useGeoImages(bounds: GeoBounds | null) {
-  const boundsRef = useRef(bounds)
-
-  // Keep boundsRef in sync
-  if (boundsRef.current !== bounds) {
-    boundsRef.current = bounds
+  // Keep clusterIdRef in sync
+  if (clusterIdRef.current !== clusterId) {
+    clusterIdRef.current = clusterId
   }
 
   const { items, total, hasMore, isLoading, error, initialized, loadMore, reset } =
     useInfiniteScroll<GalleryImageDTO, GeoImagesResponse>({
       fetchFn: (page, pageSize) => {
-        if (!boundsRef.current) {
+        if (!clusterIdRef.current) {
           return Promise.resolve({
             images: [],
             totalImages: 0,
@@ -33,7 +26,7 @@ export function useGeoImages(bounds: GeoBounds | null) {
             hasNextPage: false,
           })
         }
-        return fetchGeoImages(page, pageSize, boundsRef.current)
+        return fetchGeoImages(page, pageSize, { clusterId: clusterIdRef.current })
       },
       pageSize: PAGE_SIZE,
       transform: (response) => response.images,
@@ -41,10 +34,10 @@ export function useGeoImages(bounds: GeoBounds | null) {
       responseHasNext: (response) => response.hasNextPage,
     })
 
-  const resetWithBounds = useCallback(
-    (newBounds?: GeoBounds | null) => {
-      if (newBounds !== undefined) {
-        boundsRef.current = newBounds
+  const resetWithClusterId = useCallback(
+    (newClusterId?: string | null) => {
+      if (newClusterId !== undefined) {
+        clusterIdRef.current = newClusterId
       }
       reset()
     },
@@ -59,6 +52,6 @@ export function useGeoImages(bounds: GeoBounds | null) {
     error,
     initialized,
     loadMore,
-    reset: resetWithBounds,
+    reset: resetWithClusterId,
   }
 }

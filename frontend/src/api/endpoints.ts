@@ -162,6 +162,11 @@ export interface GeoBounds {
   maxLng: number
 }
 
+export interface GeoImagesRequest {
+  clusterId?: string
+  bounds?: GeoBounds
+}
+
 export function fetchGalleryClusters(
   params: GeoClusterRequest
 ): Promise<GeoClustersResponse> {
@@ -179,16 +184,23 @@ export function fetchGalleryClusters(
 export function fetchGeoImages(
   page: number,
   pageSize: number,
-  bounds: GeoBounds
+  request: GeoImagesRequest
 ): Promise<GeoImagesResponse> {
-  return apiGet<GeoImagesResponse>("/api/gallery/geo-images", {
+  const params: Record<string, string> = {
     page: String(page),
     pageSize: String(pageSize),
-    minLat: String(bounds.minLat),
-    maxLat: String(bounds.maxLat),
-    minLng: String(bounds.minLng),
-    maxLng: String(bounds.maxLng),
-  })
+  }
+
+  if (request.clusterId) {
+    params.clusterId = request.clusterId
+  } else if (request.bounds) {
+    params.minLat = String(request.bounds.minLat)
+    params.maxLat = String(request.bounds.maxLat)
+    params.minLng = String(request.bounds.minLng)
+    params.maxLng = String(request.bounds.maxLng)
+  }
+
+  return apiGet<GeoImagesResponse>("/api/gallery/geo-images", params)
 }
 
 // --- App Settings ---

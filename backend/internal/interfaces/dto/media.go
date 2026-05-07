@@ -316,7 +316,7 @@ type GeoCluster struct {
 	Latitude   float64  `json:"latitude"`
 	Longitude  float64  `json:"longitude"`
 	Count      int      `json:"count"`
-	ImagePaths []string `json:"imagePaths"`
+	ImagePaths []string `json:"imagePaths,omitempty"` // Only used internally, not sent to frontend
 }
 
 // GeoClustersResponse is the JSON response for GET /api/gallery/clusters
