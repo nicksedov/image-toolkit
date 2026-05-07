@@ -227,19 +227,17 @@ func (bsm *BackgroundSyncManager) syncFolder(folderPath string, thumbnailEnabled
 			}
 		} else {
 			// File exists in DB - check if modified
-			needsUpdate := false
+			sizeChanged := dbFile.Size != diskInfo.Size()
+			modTimeChanged := !dbFile.ModTime.Equal(diskInfo.ModTime())
 
-			if dbFile.Size != diskInfo.Size() || !dbFile.ModTime.Equal(diskInfo.ModTime()) {
-				needsUpdate = true
-			}
-
-			if needsUpdate {
+			if sizeChanged || modTimeChanged {
 				hash, err := calculateFileHash(diskPath)
 				if err != nil {
 					log.Printf("Background sync: failed to hash modified file %s: %v", diskPath, err)
 					continue
 				}
 
+				hashChanged := dbFile.Hash != hash
 				dbFile.Size = diskInfo.Size()
 				dbFile.Hash = hash
 				dbFile.ModTime = diskInfo.ModTime()
@@ -250,16 +248,19 @@ func (bsm *BackgroundSyncManager) syncFolder(folderPath string, thumbnailEnabled
 				}
 
 				updatedCount++
-				log.Printf("Background sync: updated file %s", diskPath)
+				log.Printf("Background sync: updated file %s (size:%v, modtime:%v, hash:%v)", diskPath, sizeChanged, modTimeChanged, hashChanged)
 
 				// Re-extract EXIF/geo metadata for modified file
 				bsm.extractAndSaveMetadata(diskPath, dbFile.ID)
 
-				// Invalidate existing OCR classification so it gets re-classified on next pass
-				bsm.invalidateOCRClassification(dbFile.ID)
+				// Invalidate OCR classification only if file content actually changed
+				// Size change = definite content change; ModTime change alone requires hash comparison
+				if sizeChanged || hashChanged {
+					bsm.invalidateOCRClassification(dbFile.ID)
+				}
 
 				// Regenerate thumbnail for modified file (invalidate old one)
-				if thumbnailEnabled {
+				if thumbnailEnabled && (sizeChanged || hashChanged) {
 					bsm.thumbnailService.Invalidate(diskPath)
 					if bsm.ensureThumbnail(diskPath) {
 						thumbCount++
