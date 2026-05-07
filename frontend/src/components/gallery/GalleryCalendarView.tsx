@@ -282,6 +282,12 @@ export function GalleryCalendarView({ onImageClick, onImageView, onImageOcr, onI
     }
   }
 
+  const handleDateRangeSelect = (start: string, end: string) => {
+    // Directly set the complete date range
+    setDateRangeFilter({ start, end })
+    setRangeSelecting(false)
+  }
+
   const clearDateRangeFilter = () => {
     setDateRangeFilter({ start: null, end: null })
     setRangeSelecting(false)
@@ -321,6 +327,7 @@ export function GalleryCalendarView({ onImageClick, onImageView, onImageOcr, onI
         rangeSelecting={rangeSelecting}
         onMonthChange={setCalendarViewDate}
         onDateSelect={handleDateSelect}
+        onDateRangeSelect={handleDateRangeSelect}
         onClearFilter={clearDateRangeFilter}
       />
 

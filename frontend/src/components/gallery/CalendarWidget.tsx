@@ -27,6 +27,7 @@ interface CalendarWidgetProps {
   rangeSelecting: boolean
   onMonthChange: (date: Date) => void
   onDateSelect: (date: string) => void
+  onDateRangeSelect: (start: string, end: string) => void
   onClearFilter: () => void
 }
 
@@ -39,6 +40,7 @@ export function CalendarWidget({
   rangeSelecting,
   onMonthChange,
   onDateSelect,
+  onDateRangeSelect,
   onClearFilter,
 }: CalendarWidgetProps) {
   const { t } = useTranslation()
@@ -72,10 +74,7 @@ export function CalendarWidget({
     const lastDayDate = new Date(year, month + 1, 0)
     const lastDay = `${year}-${String(month + 1).padStart(2, "0")}-${String(lastDayDate.getDate()).padStart(2, "0")}`
     
-    onDateSelect(firstDay)
-    if (firstDay !== lastDay) {
-      onDateSelect(lastDay)
-    }
+    onDateRangeSelect(firstDay, lastDay)
   }
 
   // Generate all days of the month as a scrollable strip
