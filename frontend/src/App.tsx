@@ -1,14 +1,8 @@
-import { useEffect, useState } from "react"
+import { useEffect, useState, lazy, Suspense } from "react"
 import { Toaster } from "sonner"
 import { Tabs, TabsContent } from "@/components/ui/tabs"
 import { Sidebar } from "@/components/layout/Sidebar"
 import { Header } from "@/components/layout/Header"
-import { SettingsTab } from "@/components/tabs/SettingsTab"
-import { GalleryTab } from "@/components/tabs/GalleryTab"
-import { TrashTab } from "@/components/tabs/TrashTab"
-import { DeduplicationTab } from "@/components/tabs/DeduplicationTab"
-import { OcrTab } from "@/components/tabs/OcrTab"
-import { AdminSettingsTab } from "@/components/tabs/AdminSettingsTab"
 import { fetchFolders } from "@/api/endpoints"
 import { useTranslation } from "@/i18n"
 import { useSettings } from "@/providers/useSettings"
@@ -16,7 +10,15 @@ import { useAuth } from "@/providers/AuthProvider"
 import { LoginScreen } from "@/components/auth/LoginScreen"
 import { BootstrapSetupScreen } from "@/components/auth/BootstrapSetupScreen"
 import { UserProfile } from "@/components/auth/UserProfile"
-import { AdminPanel } from "@/components/auth/AdminPanel"
+
+// Lazy load tab components for code splitting
+const SettingsTab = lazy(() => import("@/components/tabs/SettingsTab").then(module => ({ default: module.SettingsTab })))
+const GalleryTab = lazy(() => import("@/components/tabs/GalleryTab").then(module => ({ default: module.GalleryTab })))
+const TrashTab = lazy(() => import("@/components/tabs/TrashTab").then(module => ({ default: module.TrashTab })))
+const DeduplicationTab = lazy(() => import("@/components/tabs/DeduplicationTab").then(module => ({ default: module.DeduplicationTab })))
+const OcrTab = lazy(() => import("@/components/tabs/OcrTab").then(module => ({ default: module.OcrTab })))
+const AdminSettingsTab = lazy(() => import("@/components/tabs/AdminSettingsTab").then(module => ({ default: module.AdminSettingsTab })))
+const AdminPanel = lazy(() => import("@/components/auth/AdminPanel").then(module => ({ default: module.AdminPanel })))
 
 type TabValue = "settings" | "gallery-folders" | "gallery-calendar" | "gallery-geolocation" | "gallery-trash" | "deduplication" | "ocr" | "profile" | "admin-settings" | "admin-users"
 
@@ -108,47 +110,65 @@ export default function App() {
           <div className="mx-auto max-w-7xl">
             <Tabs value={activeTab} onValueChange={(v) => handleTabChange(v)}>
               <TabsContent value="settings">
-                <SettingsTab />
+                <Suspense fallback={<div className="flex items-center justify-center py-20"><div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" /></div>}>
+                  <SettingsTab />
+                </Suspense>
               </TabsContent>
 
               <TabsContent value="gallery-folders">
-                <GalleryTab galleryMode="folders" />
+                <Suspense fallback={<div className="flex items-center justify-center py-20"><div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" /></div>}>
+                  <GalleryTab galleryMode="folders" />
+                </Suspense>
               </TabsContent>
 
               <TabsContent value="gallery-calendar">
-                <GalleryTab galleryMode="calendar" />
+                <Suspense fallback={<div className="flex items-center justify-center py-20"><div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" /></div>}>
+                  <GalleryTab galleryMode="calendar" />
+                </Suspense>
               </TabsContent>
 
               <TabsContent value="gallery-geolocation">
-                <GalleryTab galleryMode="geolocation" />
+                <Suspense fallback={<div className="flex items-center justify-center py-20"><div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" /></div>}>
+                  <GalleryTab galleryMode="geolocation" />
+                </Suspense>
               </TabsContent>
 
               <TabsContent value="gallery-trash">
-                <TrashTab />
+                <Suspense fallback={<div className="flex items-center justify-center py-20"><div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" /></div>}>
+                  <TrashTab />
+                </Suspense>
               </TabsContent>
 
               <TabsContent value="deduplication">
-                <DeduplicationTab />
+                <Suspense fallback={<div className="flex items-center justify-center py-20"><div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" /></div>}>
+                  <DeduplicationTab />
+                </Suspense>
               </TabsContent>
 
               <TabsContent value="ocr">
-                <OcrTab />
+                <Suspense fallback={<div className="flex items-center justify-center py-20"><div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" /></div>}>
+                  <OcrTab />
+                </Suspense>
               </TabsContent>
 
               <TabsContent value="admin-users">
-                {user?.role === "admin" ? <AdminPanel /> : (
-                  <div className="flex items-center justify-center py-20">
-                    <p className="text-muted-foreground">{t("adminPanel.accessDenied")}</p>
-                  </div>
-                )}
+                <Suspense fallback={<div className="flex items-center justify-center py-20"><div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" /></div>}>
+                  {user?.role === "admin" ? <AdminPanel /> : (
+                    <div className="flex items-center justify-center py-20">
+                      <p className="text-muted-foreground">{t("adminPanel.accessDenied")}</p>
+                    </div>
+                  )}
+                </Suspense>
               </TabsContent>
 
               <TabsContent value="admin-settings">
-                {user?.role === "admin" ? <AdminSettingsTab /> : (
-                  <div className="flex items-center justify-center py-20">
-                    <p className="text-muted-foreground">{t("adminPanel.accessDenied")}</p>
-                  </div>
-                )}
+                <Suspense fallback={<div className="flex items-center justify-center py-20"><div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" /></div>}>
+                  {user?.role === "admin" ? <AdminSettingsTab /> : (
+                    <div className="flex items-center justify-center py-20">
+                      <p className="text-muted-foreground">{t("adminPanel.accessDenied")}</p>
+                    </div>
+                  )}
+                </Suspense>
               </TabsContent>
 
               <TabsContent value="profile">
