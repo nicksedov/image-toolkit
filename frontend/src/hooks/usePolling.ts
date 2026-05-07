@@ -50,8 +50,10 @@ export function usePolling<T>(options: UsePollingOptions<T>): UsePollingResult<T
       setError(null)
 
       if (onCompleteCheck && onCompleteCheck(result)) {
-        wasCompleteRef.current = true
-        onCompleteRef.current?.(result)
+        if (!wasCompleteRef.current) {
+          wasCompleteRef.current = true
+          onCompleteRef.current?.(result)
+        }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Polling failed")
