@@ -338,11 +338,18 @@ loop:
 	var toCreate []domain.OcrClassification
 	// Map to track boxes by image file ID
 	boxesByImage := make(map[uint][]domain.OcrBoundingBox)
-	count := 0
 
 	// Start results consumer in a separate goroutine
+	log.Printf("[OCR] Starting results consumer goroutine")
 	go func() {
+		log.Printf("[OCR] Results consumer goroutine STARTED")
+		count := 0
 		for result := range results {
+			count++
+			if count <= 3 || count%20 == 0 {
+				log.Printf("[OCR] Results consumer received result #%d, image ID=%d", count, result.image.ID)
+			}
+
 			// Check for graceful stop request
 			om.mu.RLock()
 			stop := om.stopRequested
@@ -352,8 +359,7 @@ loop:
 				break
 			}
 
-			count++
-			if count%50 == 1 || count <= 5 {
+			if count%20 == 1 || count <= 5 {
 				log.Printf("[OCR] Processing result %d/%d, image ID=%d", count, om.totalFiles, result.image.ID)
 			}
 
@@ -381,11 +387,13 @@ loop:
 
 			// Batch write classifications
 			if len(toCreate) >= batchSize {
-				log.Printf("[OCR] Saving batch of %d classifications", len(toCreate))
+				log.Printf("[OCR] Saving batch of %d classifications (count=%d)", len(toCreate), count)
 				om.saveClassificationBatch(&toCreate, boxesByImage)
 				boxesByImage = make(map[uint][]domain.OcrBoundingBox)
 			}
 		}
+
+		log.Printf("[OCR] Results consumer goroutine EXITED after processing %d results", count)
 
 		// Flush remaining
 		if len(toCreate) > 0 {
