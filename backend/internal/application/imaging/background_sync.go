@@ -116,16 +116,14 @@ func (bsm *BackgroundSyncManager) scheduleLoop() {
 		bsm.mu.Unlock()
 
 		if enabled {
-			// Run immediately on first start
-			bsm.syncOnce()
-
 			// Calculate time until next run
 			nextRun := bsm.calculateNextRunTime(hour, minute)
 			log.Printf("Background sync: next run at %s", nextRun.Format("15:04:05"))
 
 			select {
 			case <-time.After(time.Until(nextRun)):
-				// Time to run again
+				// Time to run sync
+				bsm.syncOnce()
 			case <-stopCh:
 				return
 			case <-bsm.scheduleCh:
