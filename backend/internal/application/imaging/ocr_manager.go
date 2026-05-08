@@ -244,7 +244,7 @@ func (om *OcrManager) consumeResults(results chan OcrResult, wg *sync.WaitGroup)
 
 	// Start results consumer goroutine
 	log.Printf("[OCR] Starting results consumer goroutine")
-	
+
 	// Wait for workers to finish in a separate goroutine, then close channel
 	go func() {
 		wg.Wait()
