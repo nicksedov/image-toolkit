@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"math"
 	"os"
 	"time"
 
@@ -58,7 +59,13 @@ func (om *OcrManager) processSingleImage(image domain.ImageFile, stopRequested f
 	}
 	log.Printf("[OCR] OCR API OK for image ID=%d in %v: isText=%v, confidence=%.3f", image.ID, ocrDuration, ocrResp.IsTextDocument, ocrResp.MeanConfidence)
 
-	// Build classification record
+	// Build classification record with transformed bounding box dimensions
+	rotatedWidth, rotatedHeight := transformBoundingBoxDimensions(
+		ocrResp.Angle,
+		ocrResp.BoundingBoxWidth,
+		ocrResp.BoundingBoxHeight,
+	)
+
 	result.Classification = &domain.OcrClassification{
 		ImageFileID:        image.ID,
 		IsTextDocument:     ocrResp.IsTextDocument,
@@ -67,8 +74,8 @@ func (om *OcrManager) processSingleImage(image domain.ImageFile, stopRequested f
 		TokenCount:         ocrResp.TokenCount,
 		Angle:              ocrResp.Angle,
 		ScaleFactor:        ocrResp.ScaleFactor,
-		BoundingBoxWidth:   ocrResp.BoundingBoxWidth,
-		BoundingBoxHeight:  ocrResp.BoundingBoxHeight,
+		BoundingBoxWidth:   rotatedWidth,
+		BoundingBoxHeight:  rotatedHeight,
 	}
 
 	// Build bounding box records only for text documents
@@ -97,4 +104,31 @@ func (om *OcrManager) detectContentType(path string) string {
 		}
 	}
 	return "image/jpeg"
+}
+
+// transformBoundingBoxDimensions applies affine transformation to calculate the correct
+// bounding box dimensions after counter-clockwise rotation.
+// The individual box coordinates from the OCR service already match the rotated image,
+// so only the overall bounding_box_width and bounding_box_height need to be recalculated.
+func transformBoundingBoxDimensions(angle int, srcWidth, srcHeight int) (int, int) {
+	if angle == 0 {
+		return srcWidth, srcHeight
+	}
+
+	// Normalize angle to [0, 360)
+	normalizedAngle := ((angle % 360) + 360) % 360
+	angleRad := float64(normalizedAngle) * math.Pi / 180
+
+	// After counter-clockwise rotation, the bounding box dimensions change.
+	// For a rectangle of size (W, H) rotated by angle θ counter-clockwise,
+	// the new bounding box dimensions are:
+	//   newW = |W * cos(θ)| + |H * sin(θ)|
+	//   newH = |W * sin(θ)| + |H * cos(θ)|
+	cos := math.Cos(angleRad)
+	sin := math.Sin(angleRad)
+
+	rotatedWidth := int(math.Abs(float64(srcWidth)*cos) + math.Abs(float64(srcHeight)*sin))
+	rotatedHeight := int(math.Abs(float64(srcWidth)*sin) + math.Abs(float64(srcHeight)*cos))
+
+	return rotatedWidth, rotatedHeight
 }
