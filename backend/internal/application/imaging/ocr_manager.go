@@ -1,10 +1,8 @@
 package imaging
 
 import (
-	"context"
 	"fmt"
 	"log"
-	"os"
 	"runtime"
 	"sync"
 	"time"
@@ -141,34 +139,18 @@ func (om *OcrManager) processUnclassified(incremental bool) {
 		om.mu.Unlock()
 	}()
 
-	// Build query based on mode
-	log.Printf("[OCR] Building query: incremental=%v", incremental)
-	query := om.db.Table("image_files").
-		Select("image_files.*").
-		Joins("LEFT JOIN ocr_classifications ON ocr_classifications.image_file_id = image_files.id")
-
-	if incremental {
-		// Only new files (no classification yet) or files modified after last classification
-		query = query.Where("ocr_classifications.id IS NULL OR ocr_classifications.updated_at < image_files.updated_at")
-	} else {
-		// All files: reclassify everything
-		query = query.Where("1=1")
-	}
-	query = query.Order("image_files.id")
-
-	log.Printf("[OCR] Executing database query...")
-	queryStart := time.Now()
-	var images []domain.ImageFile
-	if err := query.Find(&images).Error; err != nil {
-		log.Printf("[OCR] ERROR: failed to query images: %v", err)
+	// Query images that need classification
+	images, err := om.queryUnclassifiedImages(incremental)
+	if err != nil {
 		return
 	}
-	log.Printf("[OCR] Database query completed in %v: found %d images", time.Since(queryStart), len(images))
 
+	// Update total files count
 	om.mu.Lock()
 	om.totalFiles = len(images)
 	om.mu.Unlock()
 
+	// Handle empty result set
 	if len(images) == 0 {
 		log.Printf("[OCR] No images to process")
 		om.mu.Lock()
@@ -182,33 +164,32 @@ func (om *OcrManager) processUnclassified(incremental bool) {
 		return
 	}
 
+	// Log processing plan
 	workers := om.GetEffectiveWorkers()
 	log.Printf("[OCR] Preparing to process %d images with %d workers", len(images), workers)
-	om.mu.Lock()
-	om.progress = fmt.Sprintf("Found %d images to classify", len(images))
-	om.mu.Unlock()
+	om.updateProgressf("Found %d images to classify", len(images))
 
-	// Process images with limited concurrency using semaphore
-	type ocrResult struct {
-		image          domain.ImageFile
-		classification *domain.OcrClassification
-		boxes          []domain.OcrBoundingBox
-		err            error
-	}
+	// Launch workers and process results
+	om.launchWorkers(images)
+}
 
-	// Create semaphore to limit concurrent OCR requests
+// launchWorkers creates goroutines for each image and consumes results concurrently
+func (om *OcrManager) launchWorkers(images []domain.ImageFile) {
+	workers := om.GetEffectiveWorkers()
+	stopCheck := om.stopRequestedFunc()
+
+	// Semaphore to limit concurrent OCR requests
 	sem := make(chan struct{}, workers)
-	results := make(chan ocrResult, len(images))
+	results := make(chan OcrResult, len(images))
 
 	var wg sync.WaitGroup
 	goroutinesLaunched := 0
+
+	// Launch worker goroutines
 loop:
 	for i, img := range images {
 		// Check for stop request before acquiring semaphore
-		om.mu.RLock()
-		stop := om.stopRequested
-		om.mu.RUnlock()
-		if stop {
+		if om.isStopRequested() {
 			break
 		}
 
@@ -220,17 +201,13 @@ loop:
 				acquired = true
 			default:
 				// Check if we should stop while waiting
-				om.mu.RLock()
-				stop = om.stopRequested
-				om.mu.RUnlock()
-				if stop {
-					break loop // break out of the outer for loop
+				if om.isStopRequested() {
+					break loop
 				}
-				// Brief sleep before retry (50ms)
 				time.Sleep(50 * time.Millisecond)
 			}
 		}
-		if stop {
+		if !acquired {
 			break
 		}
 
@@ -239,217 +216,94 @@ loop:
 		if (i+1)%100 == 0 || i < 5 {
 			log.Printf("[OCR] Launching goroutine %d/%d for image ID=%d", i+1, len(images), img.ID)
 		}
+
 		go func(image domain.ImageFile) {
 			defer wg.Done()
 			defer func() {
-				<-sem
+				<-sem // Release semaphore
 				log.Printf("[OCR] Goroutine COMPLETED for image ID=%d", image.ID)
-			}() // Release semaphore
+			}()
 
 			log.Printf("[OCR] Goroutine START processing image ID=%d, path=%s", image.ID, image.Path)
-			result := ocrResult{image: image}
-
-			// Check for stop before processing
-			om.mu.RLock()
-			stopNow := om.stopRequested
-			om.mu.RUnlock()
-			if stopNow {
-				log.Printf("[OCR] Image ID=%d STOPPED before processing", image.ID)
-				result.err = fmt.Errorf("classification stopped")
-				results <- result
-				return
-			}
-
-			// Open image file
-			log.Printf("[OCR] Opening file: %s (image ID=%d)", image.Path, image.ID)
-			file, err := os.Open(image.Path)
-			if err != nil {
-				log.Printf("[OCR] ERROR opening file %s (ID=%d): %v", image.Path, image.ID, err)
-				result.err = fmt.Errorf("failed to open file: %w", err)
-				results <- result
-				return
-			}
-			log.Printf("[OCR] File opened OK: %s (ID=%d)", image.Path, image.ID)
-
-			// Determine content type based on extension
-			contentType := "image/jpeg"
-			if len(image.Path) > 4 {
-				ext := image.Path[len(image.Path)-4:]
-				if ext == ".png" {
-					contentType = "image/png"
-				}
-			}
-
-			// Call OCR API
-			log.Printf("[OCR] Calling OCR API for image ID=%d, path=%s, contentType=%s", image.ID, image.Path, contentType)
-			ocrStart := time.Now()
-			ctx := context.Background()
-			ocrResp, err := om.ocrClient.Classify(ctx, file, contentType, ocr.DefaultClassifyParams())
-			ocrDuration := time.Since(ocrStart)
-			file.Close()
-
-			if err != nil {
-				log.Printf("[OCR] OCR API FAILED for image ID=%d after %v: %v", image.ID, ocrDuration, err)
-				result.err = fmt.Errorf("OCR classification failed: %w", err)
-				results <- result
-				return
-			}
-			log.Printf("[OCR] OCR API OK for image ID=%d in %v: isText=%v, confidence=%.3f", image.ID, ocrDuration, ocrResp.IsTextDocument, ocrResp.MeanConfidence)
-
-			// Create classification record
-			classification := &domain.OcrClassification{
-				ImageFileID:        image.ID,
-				IsTextDocument:     ocrResp.IsTextDocument,
-				MeanConfidence:     ocrResp.MeanConfidence,
-				WeightedConfidence: ocrResp.WeightedConfidence,
-				TokenCount:         ocrResp.TokenCount,
-				Angle:              ocrResp.Angle,
-				ScaleFactor:        ocrResp.ScaleFactor,
-				BoundingBoxWidth:   ocrResp.BoundingBoxWidth,
-				BoundingBoxHeight:  ocrResp.BoundingBoxHeight,
-			}
-
-			// Create bounding box records only for text documents
-			var boxes []domain.OcrBoundingBox
-			if ocrResp.IsTextDocument && len(ocrResp.Boxes) > 0 {
-				for _, box := range ocrResp.Boxes {
-					boxes = append(boxes, domain.OcrBoundingBox{
-						X:          box.X,
-						Y:          box.Y,
-						Width:      box.Width,
-						Height:     box.Height,
-						Word:       box.Word,
-						Confidence: box.Confidence,
-					})
-				}
-			}
-
-			result.classification = classification
-			result.boxes = boxes
+			result := om.processSingleImage(image, stopCheck)
 			log.Printf("[OCR] Sending result to channel for image ID=%d", image.ID)
 			results <- result
 		}(img)
 	}
 
-	log.Printf("[OCR] All goroutines launched: %d total, waiting for results...", goroutinesLaunched)
+	log.Printf("[OCR] All goroutines launched: %d total", goroutinesLaunched)
 
-	// Process results with batch DB writes (runs concurrently with goroutines)
-	const batchSize = 20
-	var toCreate []domain.OcrClassification
-	// Map to track boxes by image file ID
-	boxesByImage := make(map[uint][]domain.OcrBoundingBox)
-
-	// Start results consumer in a separate goroutine
-	log.Printf("[OCR] Starting results consumer goroutine")
-	go func() {
-		log.Printf("[OCR] Results consumer goroutine STARTED")
-		count := 0
-		for result := range results {
-			count++
-			if count <= 3 || count%20 == 0 {
-				log.Printf("[OCR] Results consumer received result #%d, image ID=%d", count, result.image.ID)
-			}
-
-			// Check for graceful stop request
-			om.mu.RLock()
-			stop := om.stopRequested
-			om.mu.RUnlock()
-			if stop {
-				log.Printf("[OCR] Stop requested while processing results at count=%d", count)
-				break
-			}
-
-			if count%20 == 1 || count <= 5 {
-				log.Printf("[OCR] Processing result %d/%d, image ID=%d", count, om.totalFiles, result.image.ID)
-			}
-
-			if result.err != nil {
-				log.Printf("[OCR] ERROR processing image ID=%d, path=%s: %v", result.image.ID, result.image.Path, result.err)
-				om.mu.Lock()
-				om.filesProcessed = count
-				om.progress = fmt.Sprintf("Error on %s: %v", result.image.Path, result.err)
-				om.mu.Unlock()
-				continue
-			}
-
-			if result.classification != nil {
-				toCreate = append(toCreate, *result.classification)
-				// Store boxes keyed by image file ID for later lookup
-				if len(result.boxes) > 0 {
-					boxesByImage[result.classification.ImageFileID] = result.boxes
-				}
-			}
-
-			om.mu.Lock()
-			om.filesProcessed = count
-			om.progress = fmt.Sprintf("Classifying: %d/%d", count, om.totalFiles)
-			om.mu.Unlock()
-
-			// Batch write classifications
-			if len(toCreate) >= batchSize {
-				log.Printf("[OCR] Saving batch of %d classifications (count=%d)", len(toCreate), count)
-				om.saveClassificationBatch(&toCreate, boxesByImage)
-				boxesByImage = make(map[uint][]domain.OcrBoundingBox)
-			}
-		}
-
-		log.Printf("[OCR] Results consumer goroutine EXITED after processing %d results", count)
-
-		// Flush remaining
-		if len(toCreate) > 0 {
-			log.Printf("[OCR] Saving final batch of %d classifications", len(toCreate))
-			om.saveClassificationBatch(&toCreate, boxesByImage)
-		}
-
-		om.mu.Lock()
-		if om.stopRequested {
-			om.progress = fmt.Sprintf("OCR classification stopped: %d/%d images processed", count, om.totalFiles)
-			log.Printf("[OCR] %s", om.progress)
-		} else {
-			om.progress = fmt.Sprintf("OCR classification complete: %d/%d images processed", count, om.totalFiles)
-			log.Printf("[OCR] %s", om.progress)
-		}
-		om.mu.Unlock()
-	}()
-
-	// Wait for all goroutines to finish, then close results channel
-	wg.Wait()
-	log.Printf("[OCR] All goroutines completed, closing results channel")
-	close(results)
+	// Consume results concurrently with workers
+	om.consumeResults(results, &wg)
 }
 
-// saveClassificationBatch saves a batch of classifications and their bounding boxes
-func (om *OcrManager) saveClassificationBatch(classifications *[]domain.OcrClassification, boxesByImage map[uint][]domain.OcrBoundingBox) {
-	if len(*classifications) == 0 {
-		*classifications = (*classifications)[:0]
-		return
-	}
+// consumeResults reads from the results channel and saves to database in batches
+func (om *OcrManager) consumeResults(results chan OcrResult, wg *sync.WaitGroup) {
+	batch := NewClassificationBatch(om.db)
+	count := 0
 
-	// Save each classification and its bounding boxes
-	for i := range *classifications {
-		classification := &(*classifications)[i]
-		if err := om.db.Where("image_file_id = ?", classification.ImageFileID).Assign(classification).FirstOrCreate(classification).Error; err != nil {
-			log.Printf("OCR: failed to save classification for image %d: %v", classification.ImageFileID, err)
+	// Start results consumer goroutine
+	log.Printf("[OCR] Starting results consumer goroutine")
+	
+	// Wait for workers to finish in a separate goroutine, then close channel
+	go func() {
+		wg.Wait()
+		log.Printf("[OCR] All goroutines completed, closing results channel")
+		close(results)
+	}()
+
+	// Consumer loop in current goroutine
+	log.Printf("[OCR] Results consumer goroutine STARTED")
+	for result := range results {
+		count++
+		if count <= 3 || count%20 == 0 {
+			log.Printf("[OCR] Results consumer received result #%d, image ID=%d", count, result.Image.ID)
+		}
+
+		// Check for graceful stop request
+		if om.isStopRequested() {
+			log.Printf("[OCR] Stop requested while processing results at count=%d", count)
+			break
+		}
+
+		if count%20 == 1 || count <= 5 {
+			log.Printf("[OCR] Processing result %d/%d, image ID=%d", count, om.totalFiles, result.Image.ID)
+		}
+
+		// Handle errors
+		if result.Err != nil {
+			log.Printf("[OCR] ERROR processing image ID=%d, path=%s: %v", result.Image.ID, result.Image.Path, result.Err)
+			om.updateProgress(count, om.totalFiles, fmt.Sprintf("Error on %s: %v", result.Image.Path, result.Err))
 			continue
 		}
 
-		// Save bounding boxes only for text document classifications
-		if classification.IsTextDocument {
-			if boxes, ok := boxesByImage[classification.ImageFileID]; ok {
-				// Delete old bounding boxes for this classification before inserting new ones
-				om.db.Where("classification_id = ?", classification.ID).Delete(&domain.OcrBoundingBox{})
+		// Add successful result to batch
+		batch.Add(result)
 
-				for j := range boxes {
-					boxes[j].ClassificationID = classification.ID
-					if err := om.db.Create(&boxes[j]).Error; err != nil {
-						log.Printf("OCR: failed to save bounding box for classification %d: %v", classification.ID, err)
-					}
-				}
-				// Clean up to avoid re-processing
-				delete(boxesByImage, classification.ImageFileID)
-			}
+		// Update progress
+		om.updateProgress(count, om.totalFiles, "")
+
+		// Save batch if full
+		if batch.IsFull() {
+			batch.Save()
 		}
 	}
 
-	*classifications = (*classifications)[:0]
+	log.Printf("[OCR] Results consumer goroutine EXITED after processing %d results", count)
+
+	// Flush remaining results
+	if len(batch.Classifications) > 0 {
+		log.Printf("[OCR] Saving final batch of %d classifications", len(batch.Classifications))
+		batch.Save()
+	}
+
+	// Update final status
+	om.mu.Lock()
+	if om.stopRequested {
+		om.progress = fmt.Sprintf("OCR classification stopped: %d/%d images processed", count, om.totalFiles)
+	} else {
+		om.progress = fmt.Sprintf("OCR classification complete: %d/%d images processed", count, om.totalFiles)
+	}
+	log.Printf("[OCR] %s", om.progress)
+	om.mu.Unlock()
 }
