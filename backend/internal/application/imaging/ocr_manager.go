@@ -377,7 +377,7 @@ func (om *OcrManager) saveClassificationBatch(classifications *[]domain.OcrClass
 	// Save each classification and its bounding boxes
 	for i := range *classifications {
 		classification := &(*classifications)[i]
-		if err := om.db.Create(classification).Error; err != nil {
+		if err := om.db.Where("image_file_id = ?", classification.ImageFileID).Assign(classification).FirstOrCreate(classification).Error; err != nil {
 			log.Printf("OCR: failed to save classification for image %d: %v", classification.ImageFileID, err)
 			continue
 		}
@@ -385,6 +385,9 @@ func (om *OcrManager) saveClassificationBatch(classifications *[]domain.OcrClass
 		// Save bounding boxes only for text document classifications
 		if classification.IsTextDocument {
 			if boxes, ok := boxesByImage[classification.ImageFileID]; ok {
+				// Delete old bounding boxes for this classification before inserting new ones
+				om.db.Where("classification_id = ?", classification.ID).Delete(&domain.OcrBoundingBox{})
+
 				for j := range boxes {
 					boxes[j].ClassificationID = classification.ID
 					if err := om.db.Create(&boxes[j]).Error; err != nil {
