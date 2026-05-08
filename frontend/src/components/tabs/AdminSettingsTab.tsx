@@ -60,6 +60,12 @@ export function AdminSettingsTab() {
   const [isModelsLoading, setIsModelsLoading] = useState(false)
   const [showModelInput, setShowModelInput] = useState(false)
 
+  // Daily Sync Schedule state
+  const [dailySyncEnabled, setDailySyncEnabled] = useState(true)
+  const [dailySyncHour, setDailySyncHour] = useState(3)
+  const [dailySyncMinute, setDailySyncMinute] = useState(30)
+  const [isSavingSchedule, setIsSavingSchedule] = useState(false)
+
   const loadTrashInfo = useCallback(() => {
     fetchTrashInfo()
       .then((info) => {
@@ -94,6 +100,9 @@ export function AdminSettingsTab() {
       setTrashDir(settings.trashDir || "")
       setThumbnailCachePath(settings.thumbnailCachePath || "")
       setOcrConcurrentWorkers(settings.ocrConcurrentRequests ?? 4)
+      setDailySyncEnabled(settings.dailySyncEnabled ?? true)
+      setDailySyncHour(settings.dailySyncHour ?? 3)
+      setDailySyncMinute(settings.dailySyncMinute ?? 30)
     }).catch(() => {
       // Use local state values
     })
@@ -291,6 +300,22 @@ export function AdminSettingsTab() {
     }
   }, [thumbnailCacheStats, loadThumbnailCacheStats, t])
 
+  const handleSaveSchedule = useCallback(async () => {
+    setIsSavingSchedule(true)
+    try {
+      await updateSettings({
+        dailySyncEnabled,
+        dailySyncHour,
+        dailySyncMinute,
+      })
+      toast.success(t("settings.dailySync.saved"))
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("settings.dailySync.saveFailed"))
+    } finally {
+      setIsSavingSchedule(false)
+    }
+  }, [dailySyncEnabled, dailySyncHour, dailySyncMinute, t])
+
   const handleLoadModels = useCallback(async () => {
     setIsModelsLoading(true)
     try {
@@ -425,6 +450,10 @@ export function AdminSettingsTab() {
     }
   }, [folders.length, startPolling, setOnScanComplete, refetch, t])
 
+  // Generate hour options (0-23) and minute options (0, 5, 10, ..., 55)
+  const hourOptions = Array.from({ length: 24 }, (_, i) => i)
+  const minuteOptions = Array.from({ length: 12 }, (_, i) => i * 5)
+
   return (
     <div className="space-y-6">
       <div>
@@ -480,6 +509,76 @@ export function AdminSettingsTab() {
                 onRemove={handleRemove}
                 isLoading={isLoading}
               />
+            </CardContent>
+          </Card>
+
+          {/* Daily Sync Schedule - Admin Only */}
+          <Card>
+            <CardHeader>
+              <CardTitle>{t("settings.dailySync.title")}</CardTitle>
+              <CardDescription>{t("settings.dailySync.description")}</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="daily-sync-enabled"
+                  checked={dailySyncEnabled}
+                  onCheckedChange={(checked) => setDailySyncEnabled(checked as boolean)}
+                />
+                <Label htmlFor="daily-sync-enabled">{t("settings.dailySync.enabled")}</Label>
+              </div>
+
+              {dailySyncEnabled && (
+                <div className="flex items-center gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="daily-sync-hour">{t("settings.dailySync.hour")}</Label>
+                    <Select
+                      value={String(dailySyncHour)}
+                      onValueChange={(val) => setDailySyncHour(Number(val))}
+                    >
+                      <SelectTrigger id="daily-sync-hour" className="w-24">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {hourOptions.map((h) => (
+                          <SelectItem key={h} value={String(h)}>
+                            {String(h).padStart(2, "0")}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="daily-sync-minute">{t("settings.dailySync.minute")}</Label>
+                    <Select
+                      value={String(dailySyncMinute)}
+                      onValueChange={(val) => setDailySyncMinute(Number(val))}
+                    >
+                      <SelectTrigger id="daily-sync-minute" className="w-24">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {minuteOptions.map((m) => (
+                          <SelectItem key={m} value={String(m)}>
+                            {String(m).padStart(2, "0")}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="flex items-end">
+                    <Button
+                      onClick={handleSaveSchedule}
+                      disabled={isSavingSchedule}
+                      size="sm"
+                    >
+                      {isSavingSchedule ? t("common.saving") : t("settings.dailySync.save")}
+                    </Button>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </>

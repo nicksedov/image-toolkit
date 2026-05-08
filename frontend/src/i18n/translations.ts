@@ -82,6 +82,16 @@ export const translations = {
     "settings.galleryFolders": "Gallery Folders",
     "settings.galleryFoldersDescription": "Manage the folders included in your image gallery. Adding a folder will automatically start scanning it for images.",
 
+    // Daily sync schedule
+    "settings.dailySync.title": "Daily Sync Schedule",
+    "settings.dailySync.description": "Configure when the gallery sync runs each day.",
+    "settings.dailySync.enabled": "Enable daily sync",
+    "settings.dailySync.hour": "Hour",
+    "settings.dailySync.minute": "Minute",
+    "settings.dailySync.save": "Save Schedule",
+    "settings.dailySync.saved": "Schedule saved",
+    "settings.dailySync.saveFailed": "Failed to save schedule",
+
     // Trash settings
     "trash.title": "Trash",
     "trash.description": "Configure the trash directory for deleted files.",
@@ -650,6 +660,16 @@ export const translations = {
     "settings.toastFilesRemoved": "{message} ({count} файлов удалено)",
     "settings.galleryFolders": "Папки галереи",
     "settings.galleryFoldersDescription": "Управляйте папками, включенными в вашу галерею изображений. Добавление папки автоматически запустит сканирование изображений.",
+
+    // Daily sync schedule
+    "settings.dailySync.title": "Расписание синхронизации",
+    "settings.dailySync.description": "Настройте время ежедневной синхронизации галереи.",
+    "settings.dailySync.enabled": "Включить ежедневную синхронизацию",
+    "settings.dailySync.hour": "Час",
+    "settings.dailySync.minute": "Минута",
+    "settings.dailySync.save": "Сохранить расписание",
+    "settings.dailySync.saved": "Расписание сохранено",
+    "settings.dailySync.saveFailed": "Не удалось сохранить расписание",
 
     // Trash settings
     "trash.title": "Корзина",

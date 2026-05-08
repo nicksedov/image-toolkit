@@ -22,13 +22,14 @@ type Server struct {
 	scanManager      *imaging.ScanManager
 	ocrManager       *imaging.OcrManager
 	llmOcrService    *imaging.LlmOcrService
+	backgroundSync   *imaging.BackgroundSyncManager
 	config           *config.AppConfig
 	ocrClient        ocr.Client
 	clusterStorage   *geo.ClusterStorage
 }
 
 // NewServer creates a new server instance
-func NewServer(db *gorm.DB, scanManager *imaging.ScanManager, ocrManager *imaging.OcrManager, llmOcrService *imaging.LlmOcrService, thumbnailService *thumbnail.Service, cfg *config.AppConfig) *Server {
+func NewServer(db *gorm.DB, scanManager *imaging.ScanManager, ocrManager *imaging.OcrManager, llmOcrService *imaging.LlmOcrService, backgroundSync *imaging.BackgroundSyncManager, thumbnailService *thumbnail.Service, cfg *config.AppConfig) *Server {
 	var ocrClient ocr.Client
 	if cfg.OCREnabled {
 		ocrClient = ocr.NewClient(cfg.OCRHost, cfg.OCRPort)
@@ -40,6 +41,7 @@ func NewServer(db *gorm.DB, scanManager *imaging.ScanManager, ocrManager *imagin
 		scanManager:      scanManager,
 		ocrManager:       ocrManager,
 		llmOcrService:    llmOcrService,
+		backgroundSync:   backgroundSync,
 		config:           cfg,
 		ocrClient:        ocrClient,
 		clusterStorage:   geo.NewClusterStorage(),

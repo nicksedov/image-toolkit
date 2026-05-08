@@ -1,6 +1,7 @@
 package imaging
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -15,35 +16,36 @@ import (
 )
 
 // BackgroundSyncManager manages background synchronization of gallery files
-// and thumbnail cache. It runs sequentially, processing one file at a time.
+// and thumbnail cache. It runs daily at a configured time.
 type BackgroundSyncManager struct {
 	mu               sync.Mutex
 	running          bool
 	stopCh           chan struct{}
+	scheduleCh       chan struct{} // Signal to restart the schedule loop
 	db               *gorm.DB
 	thumbnailService *thumbnail.Service
 	geocoder         *geocoder.Geocoder
-	syncInterval     time.Duration
+	enabled          bool
+	hour             int
+	minute           int
 }
 
 // NewBackgroundSyncManager creates a new background sync manager
-func NewBackgroundSyncManager(db *gorm.DB, thumbnailService *thumbnail.Service, geo *geocoder.Geocoder, syncIntervalMinutes int) *BackgroundSyncManager {
-	interval := time.Duration(syncIntervalMinutes) * time.Minute
-	if interval <= 0 {
-		interval = 12 * 60 * time.Minute
-	}
-
+func NewBackgroundSyncManager(db *gorm.DB, thumbnailService *thumbnail.Service, geo *geocoder.Geocoder) *BackgroundSyncManager {
 	return &BackgroundSyncManager{
 		db:               db,
 		thumbnailService: thumbnailService,
 		geocoder:         geo,
-		syncInterval:     interval,
+		enabled:          true,
+		hour:             3,
+		minute:           30,
 		stopCh:           make(chan struct{}),
+		scheduleCh:       make(chan struct{}),
 	}
 }
 
-// Start begins the background synchronization loop
-func (bsm *BackgroundSyncManager) Start() {
+// Start begins the background synchronization loop with the given schedule
+func (bsm *BackgroundSyncManager) Start(enabled bool, hour int, minute int) {
 	bsm.mu.Lock()
 	if bsm.running {
 		bsm.mu.Unlock()
@@ -51,11 +53,15 @@ func (bsm *BackgroundSyncManager) Start() {
 		return
 	}
 	bsm.running = true
+	bsm.enabled = enabled
+	bsm.hour = hour
+	bsm.minute = minute
 	bsm.stopCh = make(chan struct{})
+	bsm.scheduleCh = make(chan struct{})
 	bsm.mu.Unlock()
 
-	log.Printf("Starting background gallery sync (interval: %v)", bsm.syncInterval)
-	go bsm.syncLoop()
+	log.Printf("Starting background gallery sync (daily at %02d:%02d, enabled=%v)", hour, minute, enabled)
+	go bsm.scheduleLoop()
 }
 
 // Stop stops the background synchronization
@@ -79,22 +85,77 @@ func (bsm *BackgroundSyncManager) IsRunning() bool {
 	return bsm.running
 }
 
-// syncLoop runs the synchronization at configured intervals
-func (bsm *BackgroundSyncManager) syncLoop() {
-	// Run immediately on start
-	bsm.syncOnce()
+// UpdateSchedule updates the schedule at runtime and restarts the loop
+func (bsm *BackgroundSyncManager) UpdateSchedule(enabled bool, hour int, minute int) {
+	bsm.mu.Lock()
+	wasRunning := bsm.running
+	bsm.enabled = enabled
+	bsm.hour = hour
+	bsm.minute = minute
+	bsm.mu.Unlock()
 
-	ticker := time.NewTicker(bsm.syncInterval)
-	defer ticker.Stop()
+	log.Printf("Background sync schedule updated: daily at %02d:%02d, enabled=%v", hour, minute, enabled)
 
-	for {
+	// Signal the schedule loop to restart with new settings
+	if wasRunning {
 		select {
-		case <-ticker.C:
-			bsm.syncOnce()
-		case <-bsm.stopCh:
-			return
+		case bsm.scheduleCh <- struct{}{}:
+		default:
 		}
 	}
+}
+
+// scheduleLoop runs the synchronization daily at the configured time
+func (bsm *BackgroundSyncManager) scheduleLoop() {
+	for {
+		bsm.mu.Lock()
+		enabled := bsm.enabled
+		hour := bsm.hour
+		minute := bsm.minute
+		stopCh := bsm.stopCh
+		bsm.mu.Unlock()
+
+		if enabled {
+			// Run immediately on first start
+			bsm.syncOnce()
+
+			// Calculate time until next run
+			nextRun := bsm.calculateNextRunTime(hour, minute)
+			log.Printf("Background sync: next run at %s", nextRun.Format("15:04:05"))
+
+			select {
+			case <-time.After(time.Until(nextRun)):
+				// Time to run again
+			case <-stopCh:
+				return
+			case <-bsm.scheduleCh:
+				// Schedule updated, restart the loop
+				continue
+			}
+		} else {
+			log.Println("Background sync: disabled, waiting for schedule change or stop")
+			select {
+			case <-stopCh:
+				return
+			case <-bsm.scheduleCh:
+				// Schedule updated, restart the loop
+				continue
+			}
+		}
+	}
+}
+
+// calculateNextRunTime calculates the next time the sync should run
+func (bsm *BackgroundSyncManager) calculateNextRunTime(hour, minute int) time.Time {
+	now := time.Now()
+	next := time.Date(now.Year(), now.Month(), now.Day(), hour, minute, 0, 0, now.Location())
+
+	// If the time has already passed today, schedule for tomorrow
+	if !next.After(now) {
+		next = next.Add(24 * time.Hour)
+	}
+
+	return next
 }
 
 // syncOnce performs a single synchronization pass
@@ -385,13 +446,19 @@ func (bsm *BackgroundSyncManager) invalidateOCRClassification(imageFileID uint) 
 // SyncStatus returns the current status of background sync
 type SyncStatus struct {
 	Running  bool   `json:"running"`
-	Interval string `json:"interval"`
+	Schedule string `json:"schedule"`
 }
 
 // GetStatus returns the current sync status
 func (bsm *BackgroundSyncManager) GetStatus() SyncStatus {
+	bsm.mu.Lock()
+	defer bsm.mu.Unlock()
+	schedule := "disabled"
+	if bsm.enabled {
+		schedule = fmt.Sprintf("daily at %02d:%02d", bsm.hour, bsm.minute)
+	}
 	return SyncStatus{
-		Running:  bsm.IsRunning(),
-		Interval: bsm.syncInterval.String(),
+		Running:  bsm.running,
+		Schedule: schedule,
 	}
 }

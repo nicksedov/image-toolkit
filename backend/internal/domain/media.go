@@ -82,6 +82,9 @@ type AppSettings struct {
 	ThumbnailCachePath    string    `gorm:"default:''" json:"thumbnailCachePath"`
 	ThumbnailCacheSize    int       `gorm:"default:0" json:"thumbnailCacheSize"`
 	OcrConcurrentRequests int       `gorm:"default:4" json:"ocrConcurrentRequests"`
+	DailySyncEnabled      bool      `gorm:"default:true" json:"dailySyncEnabled"`
+	DailySyncHour         int       `gorm:"default:3" json:"dailySyncHour"`
+	DailySyncMinute       int       `gorm:"default:30" json:"dailySyncMinute"`
 	UpdatedAt             time.Time `json:"updatedAt"`
 }
 

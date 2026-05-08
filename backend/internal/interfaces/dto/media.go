@@ -210,6 +210,9 @@ type AppSettingsDTO struct {
 	ThumbnailCachePath    string `json:"thumbnailCachePath,omitempty"`
 	ThumbnailCacheSize    int    `json:"thumbnailCacheSize,omitempty"`
 	OcrConcurrentRequests int    `json:"ocrConcurrentRequests,omitempty"`
+	DailySyncEnabled      bool   `json:"dailySyncEnabled"`
+	DailySyncHour         int    `json:"dailySyncHour"`
+	DailySyncMinute       int    `json:"dailySyncMinute"`
 }
 
 // UserSettingsDTO is the JSON response for user settings
@@ -223,6 +226,9 @@ type UpdateSettingsRequest struct {
 	TrashDir              *string `json:"trashDir"`
 	ThumbnailCachePath    *string `json:"thumbnailCachePath,omitempty"`
 	OcrConcurrentRequests *int    `json:"ocrConcurrentRequests,omitempty"`
+	DailySyncEnabled      *bool   `json:"dailySyncEnabled,omitempty"`
+	DailySyncHour         *int    `json:"dailySyncHour,omitempty"`
+	DailySyncMinute       *int    `json:"dailySyncMinute,omitempty"`
 }
 
 // UpdateUserSettingsRequest is the JSON request for PUT /api/user-settings

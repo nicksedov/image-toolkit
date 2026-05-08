@@ -156,6 +156,9 @@ export interface AppSettingsDTO {
   thumbnailCachePath?: string
   thumbnailCacheSize?: number
   ocrConcurrentRequests?: number
+  dailySyncEnabled?: boolean
+  dailySyncHour?: number
+  dailySyncMinute?: number
 }
 
 export interface UserSettingsDTO {
@@ -176,6 +179,9 @@ export interface UpdateSettingsRequest {
   trashDir?: string
   thumbnailCachePath?: string
   ocrConcurrentRequests?: number
+  dailySyncEnabled?: boolean
+  dailySyncHour?: number
+  dailySyncMinute?: number
 }
 
 export interface UpdateUserSettingsRequest {

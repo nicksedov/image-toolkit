@@ -713,7 +713,7 @@ func (s *Server) handleServeOcrImage(c *gin.Context) {
 func (s *Server) handleGetSettings(c *gin.Context) {
 	var settings domain.AppSettings
 	if result := s.db.First(&settings, 1); result.Error != nil {
-		c.JSON(http.StatusOK, dto.AppSettingsDTO{TrashDir: "", OcrConcurrentRequests: 4})
+		c.JSON(http.StatusOK, dto.AppSettingsDTO{TrashDir: "", OcrConcurrentRequests: 4, DailySyncEnabled: true, DailySyncHour: 3, DailySyncMinute: 30})
 		return
 	}
 	c.JSON(http.StatusOK, dto.AppSettingsDTO{
@@ -721,6 +721,9 @@ func (s *Server) handleGetSettings(c *gin.Context) {
 		ThumbnailCachePath:    settings.ThumbnailCachePath,
 		ThumbnailCacheSize:    settings.ThumbnailCacheSize,
 		OcrConcurrentRequests: settings.OcrConcurrentRequests,
+		DailySyncEnabled:      settings.DailySyncEnabled,
+		DailySyncHour:         settings.DailySyncHour,
+		DailySyncMinute:       settings.DailySyncMinute,
 	})
 }
 
@@ -803,6 +806,31 @@ func (s *Server) handleUpdateSettings(c *gin.Context) {
 		}
 	}
 
+	if req.DailySyncEnabled != nil {
+		settings.DailySyncEnabled = *req.DailySyncEnabled
+	}
+	if req.DailySyncHour != nil {
+		hour := *req.DailySyncHour
+		if hour < 0 || hour > 23 {
+			c.JSON(http.StatusBadRequest, i18n.ErrorResponse(i18n.ValidationError))
+			return
+		}
+		settings.DailySyncHour = hour
+	}
+	if req.DailySyncMinute != nil {
+		minute := *req.DailySyncMinute
+		if minute < 0 || minute > 59 {
+			c.JSON(http.StatusBadRequest, i18n.ErrorResponse(i18n.ValidationError))
+			return
+		}
+		settings.DailySyncMinute = minute
+	}
+
+	// Apply schedule changes to background sync manager in real-time
+	if s.backgroundSync != nil && (req.DailySyncEnabled != nil || req.DailySyncHour != nil || req.DailySyncMinute != nil) {
+		s.backgroundSync.UpdateSchedule(settings.DailySyncEnabled, settings.DailySyncHour, settings.DailySyncMinute)
+	}
+
 	s.db.Save(&settings)
 
 	c.JSON(http.StatusOK, dto.AppSettingsDTO{
@@ -810,6 +838,9 @@ func (s *Server) handleUpdateSettings(c *gin.Context) {
 		ThumbnailCachePath:    settings.ThumbnailCachePath,
 		ThumbnailCacheSize:    settings.ThumbnailCacheSize,
 		OcrConcurrentRequests: settings.OcrConcurrentRequests,
+		DailySyncEnabled:      settings.DailySyncEnabled,
+		DailySyncHour:         settings.DailySyncHour,
+		DailySyncMinute:       settings.DailySyncMinute,
 	})
 }
 
