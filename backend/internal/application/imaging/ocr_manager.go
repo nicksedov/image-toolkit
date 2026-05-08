@@ -125,6 +125,16 @@ func (om *OcrManager) GetEffectiveWorkers() int {
 
 // processUnclassified finds images without OCR classification and processes them
 func (om *OcrManager) processUnclassified(incremental bool) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("[OCR] PANIC in processUnclassified: %v", r)
+			om.mu.Lock()
+			om.isProcessing = false
+			om.progress = fmt.Sprintf("OCR classification panic: %v", r)
+			om.mu.Unlock()
+		}
+	}()
+
 	log.Printf("[OCR] Starting processUnclassified: incremental=%v, maxWorkers=%d", incremental, om.maxWorkers)
 
 	defer func() {
@@ -169,8 +179,12 @@ func (om *OcrManager) processUnclassified(incremental bool) {
 	log.Printf("[OCR] Preparing to process %d images with %d workers", len(images), workers)
 	om.updateProgressf("Found %d images to classify", len(images))
 
+	log.Printf("[OCR] About to call launchWorkers: %d images", len(images))
+
 	// Launch workers and process results
 	om.launchWorkers(images)
+
+	log.Printf("[OCR] launchWorkers returned")
 }
 
 // launchWorkers creates goroutines for each image and consumes results concurrently
@@ -218,7 +232,12 @@ loop:
 		}
 
 		go func(image domain.ImageFile) {
-			defer wg.Done()
+			defer func() {
+				if r := recover(); r != nil {
+					log.Printf("[OCR] PANIC in worker goroutine for image ID=%d: %v", image.ID, r)
+				}
+				wg.Done()
+			}()
 			defer func() {
 				<-sem // Release semaphore
 				log.Printf("[OCR] Goroutine COMPLETED for image ID=%d", image.ID)
@@ -228,17 +247,28 @@ loop:
 			result := om.processSingleImage(image, stopCheck)
 			log.Printf("[OCR] Sending result to channel for image ID=%d", image.ID)
 			results <- result
+			log.Printf("[OCR] Result sent to channel for image ID=%d", image.ID)
 		}(img)
 	}
 
 	log.Printf("[OCR] All goroutines launched: %d total", goroutinesLaunched)
+	log.Printf("[OCR] About to call consumeResults: results channel buf size=%d", cap(results))
 
 	// Consume results concurrently with workers
 	om.consumeResults(results, &wg)
+
+	log.Printf("[OCR] consumeResults returned")
 }
 
 // consumeResults reads from the results channel and saves to database in batches
 func (om *OcrManager) consumeResults(results chan OcrResult, wg *sync.WaitGroup) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("[OCR] PANIC in consumeResults: %v", r)
+		}
+	}()
+
+	log.Printf("[OCR] consumeResults ENTERED: results chan=%p, wg=%p", results, wg)
 	batch := NewClassificationBatch(om.db)
 	count := 0
 
@@ -247,13 +277,19 @@ func (om *OcrManager) consumeResults(results chan OcrResult, wg *sync.WaitGroup)
 
 	// Wait for workers to finish in a separate goroutine, then close channel
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("[OCR] PANIC in wg.Wait goroutine: %v", r)
+			}
+		}()
+		log.Printf("[OCR] wg.Wait() goroutine STARTED")
 		wg.Wait()
 		log.Printf("[OCR] All goroutines completed, closing results channel")
 		close(results)
 	}()
 
 	// Consumer loop in current goroutine
-	log.Printf("[OCR] Results consumer goroutine STARTED")
+	log.Printf("[OCR] Results consumer goroutine STARTED, about to enter range loop")
 	for result := range results {
 		count++
 		if count <= 3 || count%20 == 0 {
