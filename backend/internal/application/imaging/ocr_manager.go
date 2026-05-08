@@ -195,9 +195,15 @@ func (om *OcrManager) launchWorkers(images []domain.ImageFile) {
 	// Semaphore to limit concurrent OCR requests
 	sem := make(chan struct{}, workers)
 	results := make(chan OcrResult, len(images))
+	resultsDone := make(chan struct{})
 
 	var wg sync.WaitGroup
 	goroutinesLaunched := 0
+
+	// Start the results consumer in a SEPARATE goroutine BEFORE launching workers
+	// This ensures results are consumed concurrently with worker launching and processing
+	log.Printf("[OCR] Starting consumeResults in background goroutine")
+	go om.consumeResults(results, &wg, resultsDone)
 
 	// Launch worker goroutines
 loop:
@@ -252,23 +258,29 @@ loop:
 	}
 
 	log.Printf("[OCR] All goroutines launched: %d total", goroutinesLaunched)
-	log.Printf("[OCR] About to call consumeResults: results channel buf size=%d", cap(results))
+	log.Printf("[OCR] launchWorkers loop finished, consumeResults is running in background")
 
-	// Consume results concurrently with workers
-	om.consumeResults(results, &wg)
-
-	log.Printf("[OCR] consumeResults returned")
+	// consumeResults is already running in a background goroutine (started above).
+	// It will wait for all workers via wg.Wait(), close results channel, process remaining results,
+	// and update the final status via om.mu.
+	// We return here; processUnclassified's defer will NOT set isProcessing=false because
+	// consumeResults manages the final state.
+	// NOTE: We must NOT let processUnclassified's defer set isProcessing=false prematurely.
+	// To coordinate, we use a done channel.
+	<-resultsDone // Wait for consumeResults to complete
+	log.Printf("[OCR] consumeResults goroutine completed, launchWorkers returning")
 }
 
 // consumeResults reads from the results channel and saves to database in batches
-func (om *OcrManager) consumeResults(results chan OcrResult, wg *sync.WaitGroup) {
+func (om *OcrManager) consumeResults(results chan OcrResult, wg *sync.WaitGroup, done chan struct{}) {
 	defer func() {
 		if r := recover(); r != nil {
 			log.Printf("[OCR] PANIC in consumeResults: %v", r)
 		}
 	}()
+	defer close(done) // Signal that consumeResults is done
 
-	log.Printf("[OCR] consumeResults ENTERED: results chan=%p, wg=%p", results, wg)
+	log.Printf("[OCR] consumeResults ENTERED: results chan=%p, wg=%p, done=%p", results, wg, done)
 	batch := NewClassificationBatch(om.db)
 	count := 0
 
