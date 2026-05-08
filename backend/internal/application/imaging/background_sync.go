@@ -238,6 +238,7 @@ func (bsm *BackgroundSyncManager) syncFolder(folderPath string, thumbnailEnabled
 				}
 
 				hashChanged := dbFile.Hash != hash
+				contentChanged := sizeChanged || hashChanged
 				dbFile.Size = diskInfo.Size()
 				dbFile.Hash = hash
 				dbFile.ModTime = diskInfo.ModTime()
@@ -250,17 +251,18 @@ func (bsm *BackgroundSyncManager) syncFolder(folderPath string, thumbnailEnabled
 				updatedCount++
 				log.Printf("Background sync: updated file %s (size:%v, modtime:%v, hash:%v)", diskPath, sizeChanged, modTimeChanged, hashChanged)
 
-				// Re-extract EXIF/geo metadata for modified file
-				bsm.extractAndSaveMetadata(diskPath, dbFile.ID)
+				// Re-extract EXIF/geo metadata only if file content actually changed
+				if contentChanged {
+					bsm.extractAndSaveMetadata(diskPath, dbFile.ID)
+				}
 
 				// Invalidate OCR classification only if file content actually changed
-				// Size change = definite content change; ModTime change alone requires hash comparison
-				if sizeChanged || hashChanged {
+				if contentChanged {
 					bsm.invalidateOCRClassification(dbFile.ID)
 				}
 
 				// Regenerate thumbnail for modified file (invalidate old one)
-				if thumbnailEnabled && (sizeChanged || hashChanged) {
+				if thumbnailEnabled && contentChanged {
 					bsm.thumbnailService.Invalidate(diskPath)
 					if bsm.ensureThumbnail(diskPath) {
 						thumbCount++
