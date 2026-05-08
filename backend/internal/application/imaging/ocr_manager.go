@@ -236,7 +236,7 @@ loop:
 
 		wg.Add(1)
 		goroutinesLaunched++
-		if (i+1) % 100 == 0 || i < 5 {
+		if (i+1)%100 == 0 || i < 5 {
 			log.Printf("[OCR] Launching goroutine %d/%d for image ID=%d", i+1, len(images), img.ID)
 		}
 		go func(image domain.ImageFile) {
@@ -358,7 +358,7 @@ loop:
 		}
 
 		count++
-		if count % 50 == 1 || count <= 5 {
+		if count%50 == 1 || count <= 5 {
 			log.Printf("[OCR] Processing result %d/%d, image ID=%d", count, om.totalFiles, result.image.ID)
 		}
 
