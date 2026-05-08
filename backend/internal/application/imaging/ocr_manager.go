@@ -192,6 +192,7 @@ func (om *OcrManager) processUnclassified(incremental bool) {
 	results := make(chan ocrResult, len(images))
 
 	var wg sync.WaitGroup
+loop:
 	for _, img := range images {
 		// Check for stop request before acquiring semaphore
 		om.mu.RLock()
@@ -213,7 +214,7 @@ func (om *OcrManager) processUnclassified(incremental bool) {
 				stop = om.stopRequested
 				om.mu.RUnlock()
 				if stop {
-					break
+					break loop // break out of the outer for loop
 				}
 				// Brief sleep before retry (50ms)
 				time.Sleep(50 * time.Millisecond)
@@ -235,6 +236,8 @@ func (om *OcrManager) processUnclassified(incremental bool) {
 			stopNow := om.stopRequested
 			om.mu.RUnlock()
 			if stopNow {
+				result.err = fmt.Errorf("classification stopped")
+				results <- result
 				return
 			}
 
