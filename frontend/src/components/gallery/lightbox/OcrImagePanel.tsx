@@ -39,7 +39,7 @@ export function OcrImagePanel({
       )}
 
       <div className="relative inline-block">
-        {imageUrl && (
+        {imageUrl ? (
           <img
             ref={imageRef}
             src={imageUrl}
@@ -47,6 +47,10 @@ export function OcrImagePanel({
             className="max-w-full max-h-[75vh] object-contain"
             onLoad={handleImageLoad}
           />
+        ) : loading && (
+          <div className="w-[600px] h-[400px] bg-muted/30 rounded flex items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
         )}
 
         {ocrData && ocrData.boxes.length > 0 && imageLoaded && displayDimensions && (

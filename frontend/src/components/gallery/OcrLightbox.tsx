@@ -24,8 +24,8 @@ export function OcrLightbox({ imagePath, onClose }: OcrLightboxProps) {
     onClose()
   }, [resetState, onClose])
 
-  const angle = ocrData?.angle || 0
-  const imageUrl = imagePath
+  const angle = ocrData?.angle
+  const imageUrl = imagePath && angle !== undefined
     ? buildImageUrl(imagePath, "/api/ocr-image", { angle })
     : ""
 
