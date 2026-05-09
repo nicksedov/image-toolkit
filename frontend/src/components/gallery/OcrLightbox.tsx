@@ -16,18 +16,19 @@ interface OcrLightboxProps {
 export function OcrLightbox({ imagePath, onClose }: OcrLightboxProps) {
   const { t } = useTranslation()
   const { ocrData, llmData, loading, recognizing, resetState, handleRecognize } = useOcrState(imagePath)
-  const { imageRef, displayDimensions, imageLoaded, handleImageLoad } = useImageDimensions()
+
+  const angle = ocrData?.angle
+  const imageUrl = imagePath && angle !== undefined
+    ? buildImageUrl(imagePath, "/api/ocr-image", { angle })
+    : ""
+
+  const { imageRef, displayDimensions, imageLoaded, handleImageLoad } = useImageDimensions(imageUrl)
   const { handleSaveMd, handleSaveHtml } = useFileExport(llmData?.markdownContent, imagePath)
 
   const handleClose = useCallback(() => {
     resetState()
     onClose()
   }, [resetState, onClose])
-
-  const angle = ocrData?.angle
-  const imageUrl = imagePath && angle !== undefined
-    ? buildImageUrl(imagePath, "/api/ocr-image", { angle })
-    : ""
 
   const formatProcessingTime = (ms?: number) => {
     if (!ms) return ""

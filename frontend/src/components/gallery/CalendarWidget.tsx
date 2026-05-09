@@ -114,10 +114,10 @@ export function CalendarWidget({
           <select
             value={calendarViewDate.getMonth()}
             onChange={(e) => handleMonthChange(parseInt(e.target.value))}
-            className="text-sm font-medium bg-background dark:bg-zinc-800 text-foreground dark:text-zinc-100 border border-border rounded px-2 py-1 outline-none cursor-pointer"
+            className="text-sm font-medium bg-background dark:bg-zinc-900 text-foreground dark:text-zinc-100 border border-border rounded px-2 py-1 outline-none cursor-pointer"
           >
             {MONTHS.map((m) => (
-              <option key={m.value} value={m.value} className="bg-background dark:bg-zinc-800 text-foreground dark:text-zinc-100">
+              <option key={m.value} value={m.value} className="bg-background dark:bg-zinc-900 text-foreground dark:text-zinc-100">
                 {new Date(2000, m.value, 1).toLocaleDateString(undefined, { month: "long" })}
               </option>
             ))}
@@ -127,7 +127,7 @@ export function CalendarWidget({
           <select
             value={calendarViewDate.getFullYear()}
             onChange={(e) => handleYearChange(parseInt(e.target.value))}
-            className="text-sm font-medium bg-background dark:bg-zinc-800 text-foreground dark:text-zinc-100 border border-border rounded px-2 py-1 outline-none cursor-pointer"
+            className="text-sm font-medium bg-background dark:bg-zinc-900 text-foreground dark:text-zinc-100 border border-border rounded px-2 py-1 outline-none cursor-pointer"
           >
             {(() => {
               // Generate year range from dateRange or fallback to current year ±5
@@ -149,7 +149,7 @@ export function CalendarWidget({
               }
               
               return years.map((year) => (
-                <option key={year} value={year} className="bg-background dark:bg-zinc-800 text-foreground dark:text-zinc-100">
+                <option key={year} value={year} className="bg-background dark:bg-zinc-900 text-foreground dark:text-zinc-100">
                   {year}
                 </option>
               ))
@@ -179,8 +179,8 @@ export function CalendarWidget({
                 ${isSelected
                   ? "bg-primary/80 text-primary-foreground hover:bg-primary/90 font-medium cursor-pointer"
                   : day.hasImages 
-                    ? "bg-emerald-100/80 dark:bg-emerald-900/24 hover:bg-emerald-200/80 dark:hover:bg-emerald-900/40 text-emerald-700 dark:text-emerald-200 font-medium cursor-pointer"
-                    : "bg-red-50/80 dark:bg-red-900/16 hover:bg-red-100/80 dark:hover:bg-red-900/24 text-muted-foreground/70 dark:text-muted-foreground/80"
+                    ? "bg-emerald-100/80 dark:bg-zinc-800/60 hover:bg-emerald-200/80 dark:hover:bg-zinc-700/60 text-emerald-700 dark:text-emerald-200 font-medium cursor-pointer"
+                    : "bg-red-50/80 dark:bg-zinc-800/40 hover:bg-red-100/80 dark:hover:bg-zinc-700/50 text-muted-foreground/70 dark:text-muted-foreground/80"
                 }
                 ${isRangeStart || isRangeEnd ? "ring-2 ring-primary ring-offset-2" : ""}
                 ${isSelected && !isRangeStart && !isRangeEnd ? "opacity-80" : ""}

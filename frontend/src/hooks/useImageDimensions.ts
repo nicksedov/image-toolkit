@@ -7,17 +7,32 @@ interface UseImageDimensionsReturn {
   handleImageLoad: () => void
 }
 
-export function useImageDimensions(): UseImageDimensionsReturn {
+export function useImageDimensions(imageUrl?: string): UseImageDimensionsReturn {
   const [imageLoaded, setImageLoaded] = useState(false)
   const [displayDimensions, setDisplayDimensions] = useState<{ width: number; height: number } | null>(null)
   const imageRef = useRef<HTMLImageElement>(null)
+  const prevUrlRef = useRef<string | undefined>(imageUrl)
+
+  // Reset state when imageUrl changes
+  useEffect(() => {
+    if (prevUrlRef.current !== imageUrl) {
+      prevUrlRef.current = imageUrl
+      setImageLoaded(false)
+      setDisplayDimensions(null)
+    }
+  }, [imageUrl])
 
   const handleImageLoad = useCallback(() => {
-    if (imageRef.current) {
-      const { clientWidth, clientHeight } = imageRef.current
-      setDisplayDimensions({ width: clientWidth, height: clientHeight })
-      setImageLoaded(true)
-    }
+    // Use requestAnimationFrame to ensure dimensions are read after paint
+    requestAnimationFrame(() => {
+      if (imageRef.current) {
+        const { clientWidth, clientHeight } = imageRef.current
+        if (clientWidth > 0 && clientHeight > 0) {
+          setDisplayDimensions({ width: clientWidth, height: clientHeight })
+          setImageLoaded(true)
+        }
+      }
+    })
   }, [])
 
   useEffect(() => {
