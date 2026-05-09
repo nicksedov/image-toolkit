@@ -1,15 +1,9 @@
-import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog"
-import { VisuallyHidden } from "@radix-ui/react-visually-hidden"
-import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
-import { X, Camera, MapPin, Info, Image as ImageIcon } from "lucide-react"
+import { Camera, MapPin, Info, Image as ImageIcon } from "lucide-react"
 import { useTranslation } from "@/i18n"
 import { useImageMetadata } from "@/hooks/useImageMetadata"
+import { LightboxDialog } from "./lightbox/LightboxDialog"
+import { buildImageUrl } from "@/utils/buildImageUrl"
 import type { ImageMetadataDTO } from "@/types"
 
 interface ImageLightboxProps {
@@ -17,57 +11,44 @@ interface ImageLightboxProps {
   onClose: () => void
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || ""
-
 export function ImageLightbox({ imagePath, onClose }: ImageLightboxProps) {
   const { t } = useTranslation()
   const { metadata, isLoading } = useImageMetadata(imagePath)
 
   if (!imagePath) return null
 
-  const imageUrl = `${API_BASE_URL}/api/image?path=${encodeURIComponent(imagePath)}`
+  const imageUrl = buildImageUrl(imagePath, "/api/image")
 
   return (
-    <Dialog open={!!imagePath} onOpenChange={() => onClose()}>
-      <DialogContent className="max-w-[95vw] max-h-[90vh] p-0 overflow-hidden">
-        <VisuallyHidden>
-          <DialogTitle>{t("lightbox.title")}</DialogTitle>
-          <DialogDescription>{t("lightbox.description")}</DialogDescription>
-        </VisuallyHidden>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="absolute right-2 top-2 z-10 h-8 w-8 p-0 bg-black/50 text-white hover:bg-black/70 rounded-full"
-          onClick={onClose}
-        >
-          <X className="h-4 w-4" />
-        </Button>
-        <div className="flex flex-col md:flex-row h-full max-h-[85vh]">
-          {/* Image area */}
-          <div className="flex-1 flex items-center justify-center bg-black min-h-[300px] min-w-0">
-            <img
-              src={imageUrl}
-              alt={t("lightbox.alt")}
-              className="max-w-full max-h-[85vh] md:max-h-[85vh] object-contain"
-            />
-          </div>
+    <LightboxDialog
+      open={!!imagePath}
+      onOpenChange={() => onClose()}
+      titleKey="lightbox.title"
+      descriptionKey="lightbox.description"
+    >
+      <div className="flex flex-col md:flex-row h-full max-h-[85vh]">
+        <div className="flex-1 flex items-center justify-center bg-black min-h-[300px] min-w-0">
+          <img
+            src={imageUrl}
+            alt={t("lightbox.alt")}
+            className="max-w-full max-h-[85vh] md:max-h-[85vh] object-contain"
+          />
+        </div>
 
-          {/* Metadata panel */}
-          <div className="w-full md:w-[300px] lg:w-[340px] md:min-w-[280px] border-t md:border-t-0 md:border-l bg-card overflow-y-auto max-h-[40vh] md:max-h-[85vh] shrink-0">
-            <div className="p-4">
-              <h3 className="text-sm font-semibold mb-3">{t("metadata.title")}</h3>
-              {isLoading ? (
-                <MetadataSkeleton />
-              ) : metadata ? (
-                <MetadataContent metadata={metadata} />
-              ) : (
-                <p className="text-xs text-muted-foreground">{t("metadata.noData")}</p>
-              )}
-            </div>
+        <div className="w-full md:w-[300px] lg:w-[340px] md:min-w-[280px] border-t md:border-t-0 md:border-l bg-card overflow-y-auto max-h-[40vh] md:max-h-[85vh] shrink-0">
+          <div className="p-4">
+            <h3 className="text-sm font-semibold mb-3">{t("metadata.title")}</h3>
+            {isLoading ? (
+              <MetadataSkeleton />
+            ) : metadata ? (
+              <MetadataContent metadata={metadata} />
+            ) : (
+              <p className="text-xs text-muted-foreground">{t("metadata.noData")}</p>
+            )}
           </div>
         </div>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </LightboxDialog>
   )
 }
 
@@ -174,7 +155,6 @@ function MetadataSection({
   )
 }
 
-/** Filters out entries with empty values */
 function buildFields(entries: [string, string][]): [string, string][] {
   return entries.filter(([, value]) => value !== "" && value !== "0")
 }
