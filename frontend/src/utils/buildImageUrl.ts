@@ -1,10 +1,11 @@
 export function buildImageUrl(imagePath: string, apiEndpoint: string, params?: Record<string, string | number>) {
-  const url = new URL(apiEndpoint, import.meta.env.VITE_API_URL || "")
-  url.searchParams.set("path", imagePath)
+  const baseUrl = import.meta.env.VITE_API_URL || ""
+  const searchParams = new URLSearchParams()
+  searchParams.set("path", imagePath)
   if (params) {
     Object.entries(params).forEach(([key, value]) => {
-      url.searchParams.set(key, String(value))
+      searchParams.set(key, String(value))
     })
   }
-  return url.toString()
+  return `${baseUrl}${apiEndpoint}?${searchParams.toString()}`
 }
