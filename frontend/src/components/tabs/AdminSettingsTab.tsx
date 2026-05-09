@@ -337,23 +337,26 @@ export function AdminSettingsTab() {
     loadTrashInfo()
   }, [loadTrashInfo])
 
+  // Check OCR classification status on mount to detect already running processes
+  const checkInitialOCRStatus = useCallback(async () => {
+    try {
+      const status = await fetchOcrClassificationStatus()
+      if (status.processing) {
+        setOcrScanning(true)
+        setOcrScanStatus(status)
+      }
+    } catch {
+      // Ignore errors on initial check
+    }
+  }, [])
+
   useEffect(() => {
     if (isAdmin) {
       loadOCRStatus()
       loadLlmSettings()
-      // Check if OCR classification is already running on mount
-      fetchOcrClassificationStatus()
-        .then((status) => {
-          if (status.processing) {
-            setOcrScanning(true)
-            setOcrScanStatus(status)
-          }
-        })
-        .catch(() => {
-          // Ignore errors on initial check
-        })
+      checkInitialOCRStatus()
     }
-  }, [isAdmin, loadOCRStatus, loadLlmSettings])
+  }, [isAdmin, loadOCRStatus, loadLlmSettings, checkInitialOCRStatus])
 
   const handleSaveTrashDir = useCallback(async () => {
     setIsSavingTrash(true)
