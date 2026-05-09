@@ -187,11 +187,14 @@ export function GalleryCalendarView({ onImageClick, onImageView, onImageOcr, onI
 
   // Initial load on mount
   useEffect(() => {
-    pageRef.current = 1
-    prefetchedPageRef.current = 0
-    setGroups([])
-    setInitialized(false)
-    loadPage(1, true)
+    const initialize = async () => {
+      pageRef.current = 1
+      prefetchedPageRef.current = 0
+      setGroups([])
+      setInitialized(false)
+      await loadPage(1, true)
+    }
+    initialize()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []) // Only on mount
 
