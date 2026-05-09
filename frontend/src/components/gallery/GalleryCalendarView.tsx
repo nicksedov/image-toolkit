@@ -219,29 +219,35 @@ export function GalleryCalendarView({ onImageClick, onImageView, onImageOcr, onI
 
   // Reload calendar data with thumbnails when month/year changes
   useEffect(() => {
-    pageRef.current = 1
-    prefetchedPageRef.current = 0
-    setGroups([])
-    setInitialized(false)
-    setDateRangeFilter({ start: null, end: null })
-    setRangeSelecting(false)
-    loadPage(1, true)
+    const initialize = async () => {
+      pageRef.current = 1
+      prefetchedPageRef.current = 0
+      setGroups([])
+      setInitialized(false)
+      setDateRangeFilter({ start: null, end: null })
+      setRangeSelecting(false)
+      await loadPage(1, true)
+    }
+    initialize()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [calendarMonthKey])
 
   // Reload when date range filter changes (user clicking on calendar days)
   // Only triggers when start/end are actual dates, not null resets from month changes
   useEffect(() => {
-    // Skip if both are null (this means it was reset by month/year change, handled above)
-    if (dateRangeFilter.start === null && dateRangeFilter.end === null) return
-    // Skip if not yet initialized
-    if (!initialized) return
-    
-    pageRef.current = 1
-    prefetchedPageRef.current = 0
-    setGroups([])
-    setInitialized(false)
-    loadPage(1, true)
+    const initialize = async () => {
+      // Skip if both are null (this means it was reset by month/year change, handled above)
+      if (dateRangeFilter.start === null && dateRangeFilter.end === null) return
+      // Skip if not yet initialized
+      if (!initialized) return
+      
+      pageRef.current = 1
+      prefetchedPageRef.current = 0
+      setGroups([])
+      setInitialized(false)
+      await loadPage(1, true)
+    }
+    initialize()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dateRangeFilter.start, dateRangeFilter.end])
 
