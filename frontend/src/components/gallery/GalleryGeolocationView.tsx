@@ -14,7 +14,7 @@ interface GalleryGeolocationViewProps {
   onImageView?: (image: GalleryImageDTO) => void
   onImageOcr?: (image: GalleryImageDTO) => void
   onImageDownload?: (image: GalleryImageDTO) => void
-  onImageDelete?: (image: GalleryImageDTO) => void
+  onImageDelete?: (image: GalleryImageDTO, removeThumbnail: () => void) => void
 }
 
 type GeoViewMode = "map" | "grid"
@@ -113,7 +113,7 @@ export function GalleryGeolocationView({ onImageClick, onImageView, onImageOcr, 
     }
   }, [totalImages])
 
-  const { images, hasMore, isLoading: imagesLoading, loadMore, reset: resetImages } = useGeoImages(
+  const { images, hasMore, isLoading: imagesLoading, loadMore, reset: resetImages, removeImage: removeGeoImage } = useGeoImages(
     viewMode === "grid" ? selectedClusterId : null
   )
 
@@ -228,7 +228,7 @@ export function GalleryGeolocationView({ onImageClick, onImageView, onImageOcr, 
               onImageView={onImageView}
               onImageOcr={onImageOcr}
               onImageDownload={onImageDownload}
-              onImageDelete={onImageDelete}
+              onImageDelete={(image) => onImageDelete?.(image, () => removeGeoImage(image.id))}
             />
             <div ref={sentinelRef} className="h-4" />
             {imagesLoading && (

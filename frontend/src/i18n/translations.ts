@@ -154,6 +154,13 @@ export const translations = {
     "gallery.overlay.ocr": "OCR",
     "gallery.overlay.delete": "Delete",
 
+    // Gallery delete confirmation dialog
+    "gallery.deleteConfirm.title": "Delete File",
+    "gallery.deleteConfirm.description": "Are you sure you want to move \"{fileName}\" to trash?",
+    "gallery.deleteConfirm.cancel": "Cancel",
+    "gallery.deleteConfirm.delete": "Delete",
+    "gallery.deleteConfirm.deleting": "Deleting...",
+
     // Geolocation
     "geolocation.backToMap": "Back to Map",
     "geolocation.noGpsData": "No images with geolocation data",
@@ -732,6 +739,13 @@ export const translations = {
     "gallery.overlay.view": "Просмотр",
     "gallery.overlay.ocr": "OCR",
     "gallery.overlay.delete": "Удалить",
+
+    // Gallery delete confirmation dialog
+    "gallery.deleteConfirm.title": "Удалить файл",
+    "gallery.deleteConfirm.description": "Вы уверены, что хотите переместить \"{fileName}\" в корзину?",
+    "gallery.deleteConfirm.cancel": "Отмена",
+    "gallery.deleteConfirm.delete": "Удалить",
+    "gallery.deleteConfirm.deleting": "Удаление...",
 
     // Geolocation
     "geolocation.backToMap": "Вернуться к карте",

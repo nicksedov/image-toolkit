@@ -13,7 +13,7 @@ export function useGalleryImages(view: string) {
     viewRef.current = view
   }
 
-  const { items, total, hasMore, isLoading, error, initialized, loadMore, reset } =
+  const { items, total, hasMore, isLoading, error, initialized, loadMore, reset, removeItem } =
     useInfiniteScroll<GalleryImageDTO, GalleryImagesResponse>({
       fetchFn: (page, pageSize) => fetchGalleryImages(page, pageSize, viewRef.current),
       pageSize: PAGE_SIZE,
@@ -41,5 +41,6 @@ export function useGalleryImages(view: string) {
     initialized,
     loadMore,
     reset: resetWithView,
+    removeImage: removeItem,
   }
 }

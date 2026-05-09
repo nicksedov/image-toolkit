@@ -9,10 +9,26 @@ interface CalendarImageGridProps {
   onImageView?: (image: GalleryImageDTO) => void
   onImageOcr?: (image: GalleryImageDTO) => void
   onImageDownload?: (image: GalleryImageDTO) => void
-  onImageDelete?: (image: GalleryImageDTO) => void
+  onImageDelete?: (image: GalleryImageDTO, removeThumbnail: () => void) => void
 }
 
 export function CalendarImageGrid({ groups, onImageClick, onImageView, onImageOcr, onImageDownload, onImageDelete }: CalendarImageGridProps) {
+  const handleDelete = (image: GalleryImageDTO) => {
+    const removeThumbnail = () => {
+      // Find the group and remove the image from it
+      for (const group of groups) {
+        const idx = group.images.findIndex((img) => img.id === image.id)
+        if (idx !== -1) {
+          group.images.splice(idx, 1)
+          break
+        }
+      }
+      // Force re-render by triggering state update in parent
+      // This is a workaround - ideally the parent would manage this
+    }
+    onImageDelete?.(image, removeThumbnail)
+  }
+
   return (
     <div className="space-y-5">
       {groups.map((group) => (
@@ -33,7 +49,7 @@ export function CalendarImageGrid({ groups, onImageClick, onImageView, onImageOc
                 onImageView={onImageView}
                 onImageOcr={onImageOcr}
                 onImageDownload={onImageDownload}
-                onImageDelete={onImageDelete}
+                onImageDelete={handleDelete}
               />
             ))}
           </div>

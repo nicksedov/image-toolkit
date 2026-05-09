@@ -40,6 +40,8 @@ export interface UseInfiniteScrollResult<T> {
   loadMore: () => Promise<void>
   /** Reset state and invalidate prefetch */
   reset: () => void
+  /** Remove a specific item from the items list */
+  removeItem: (key: string | number) => void
 }
 
 /**
@@ -163,6 +165,14 @@ export function useInfiniteScroll<T, R>(
     prefetchRef.current = { page: 0, promise: null, data: null }
   }, [])
 
+  const removeItem = useCallback(
+    (key: string | number) => {
+      setItems((prev) => prev.filter((item) => keyExtractor(item) !== key))
+      setTotal((prev) => Math.max(0, prev - 1))
+    },
+    [keyExtractor]
+  )
+
   return {
     items,
     total,
@@ -172,5 +182,6 @@ export function useInfiniteScroll<T, R>(
     initialized,
     loadMore,
     reset,
+    removeItem,
   }
 }

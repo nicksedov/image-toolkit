@@ -4,8 +4,18 @@ import { GalleryCalendarView } from "@/components/gallery/GalleryCalendarView"
 import { GalleryGeolocationView } from "@/components/gallery/GalleryGeolocationView"
 import { ImageLightbox } from "@/components/gallery/ImageLightbox"
 import { OcrLightbox } from "@/components/gallery/OcrLightbox"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
 import { deleteFiles } from "@/api/endpoints"
 import { useSettings } from "@/providers/useSettings"
+import { useTranslation } from "@/i18n"
 import type { GalleryImageDTO } from "@/types"
 
 interface GalleryTabProps {
@@ -16,8 +26,11 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || ""
 
 export function GalleryTab({ galleryMode }: GalleryTabProps) {
   const { trashDir } = useSettings()
+  const { t } = useTranslation()
   const [selectedImage, setSelectedImage] = useState<string | null>(null)
   const [ocrImage, setOcrImage] = useState<string | null>(null)
+  const [deleteConfirm, setDeleteConfirm] = useState<{ image: GalleryImageDTO; removeThumbnail: () => void } | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   const handleImageClick = useCallback((image: GalleryImageDTO) => {
     setSelectedImage(image.path)
@@ -39,19 +52,27 @@ export function GalleryTab({ galleryMode }: GalleryTabProps) {
     a.click()
   }, [])
 
-  const handleImageDelete = useCallback(async (image: GalleryImageDTO) => {
-    if (!confirm(`Delete "${image.fileName}" to trash?`)) return
+  const handleImageDelete = useCallback((image: GalleryImageDTO, removeThumbnail: () => void) => {
+    setDeleteConfirm({ image, removeThumbnail })
+  }, [])
 
+  const handleConfirmDelete = useCallback(async () => {
+    if (!deleteConfirm) return
+    setIsDeleting(true)
     try {
       await deleteFiles({
-        filePaths: [image.path],
+        filePaths: [deleteConfirm.image.path],
         trashDir: trashDir || "",
       })
+      deleteConfirm.removeThumbnail()
     } catch (err) {
       console.error("Failed to delete file:", err)
       alert("Failed to delete file")
+    } finally {
+      setIsDeleting(false)
+      setDeleteConfirm(null)
     }
-  }, [trashDir])
+  }, [deleteConfirm, trashDir])
 
   return (
     <div className="space-y-4">
@@ -90,6 +111,25 @@ export function GalleryTab({ galleryMode }: GalleryTabProps) {
         imagePath={ocrImage}
         onClose={() => setOcrImage(null)}
       />
+
+      <Dialog open={!!deleteConfirm} onOpenChange={(open) => !open && setDeleteConfirm(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("gallery.deleteConfirm.title")}</DialogTitle>
+            <DialogDescription>
+              {deleteConfirm && t("gallery.deleteConfirm.description", { fileName: deleteConfirm.image.fileName })}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteConfirm(null)} disabled={isDeleting}>
+              {t("gallery.deleteConfirm.cancel")}
+            </Button>
+            <Button variant="destructive" onClick={handleConfirmDelete} disabled={isDeleting}>
+              {isDeleting ? t("gallery.deleteConfirm.deleting") : t("gallery.deleteConfirm.delete")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

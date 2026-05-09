@@ -13,7 +13,7 @@ export function useGeoImages(clusterId: string | null) {
     clusterIdRef.current = clusterId
   }
 
-  const { items, total, hasMore, isLoading, error, initialized, loadMore, reset } =
+  const { items, total, hasMore, isLoading, error, initialized, loadMore, reset, removeItem } =
     useInfiniteScroll<GalleryImageDTO, GeoImagesResponse>({
       fetchFn: (page, pageSize) => {
         if (!clusterIdRef.current) {
@@ -53,5 +53,6 @@ export function useGeoImages(clusterId: string | null) {
     initialized,
     loadMore,
     reset: resetWithClusterId,
+    removeImage: removeItem,
   }
 }

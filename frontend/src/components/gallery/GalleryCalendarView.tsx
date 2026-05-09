@@ -12,7 +12,7 @@ interface GalleryCalendarViewProps {
   onImageView?: (image: GalleryImageDTO) => void
   onImageOcr?: (image: GalleryImageDTO) => void
   onImageDownload?: (image: GalleryImageDTO) => void
-  onImageDelete?: (image: GalleryImageDTO) => void
+  onImageDelete?: (image: GalleryImageDTO, removeThumbnail: () => void) => void
 }
 
 const PAGE_SIZE = 50
@@ -374,7 +374,16 @@ export function GalleryCalendarView({ onImageClick, onImageView, onImageOcr, onI
                 onImageView={onImageView}
                 onImageOcr={onImageOcr}
                 onImageDownload={onImageDownload}
-                onImageDelete={onImageDelete}
+                onImageDelete={(image) => {
+                  onImageDelete?.(image, () => {
+                    setGroups((prev) =>
+                      prev
+                        .map((g) => ({ ...g, images: g.images.filter((img) => img.id !== image.id) }))
+                        .map((g) => ({ ...g, imageCount: g.images.length }))
+                    )
+                    setTotalImages((prev) => Math.max(0, prev - 1))
+                  })
+                }}
               />
 
               <div ref={sentinelRef} className="h-4" />
