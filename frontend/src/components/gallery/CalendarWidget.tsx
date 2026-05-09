@@ -180,7 +180,7 @@ export function CalendarWidget({
                   ? "bg-primary/80 text-primary-foreground hover:bg-primary/90 font-medium cursor-pointer"
                   : day.hasImages 
                     ? "bg-emerald-50/60 dark:bg-zinc-800/60 hover:bg-emerald-100/70 dark:hover:bg-zinc-700/70 text-emerald-700 dark:text-emerald-200 font-medium cursor-pointer"
-                    : "bg-muted/30 dark:bg-zinc-800/40 hover:bg-muted/50 dark:hover:bg-zinc-700/50 text-muted-foreground/70 dark:text-muted-foreground/80"
+                    : "bg-zinc-100/40 dark:bg-zinc-800/40 hover:bg-zinc-200/50 dark:hover:bg-zinc-700/50 text-muted-foreground/70 dark:text-muted-foreground/80"
                 }
                 ${isRangeStart || isRangeEnd ? "ring-2 ring-primary ring-offset-2" : ""}
                 ${isSelected && !isRangeStart && !isRangeEnd ? "opacity-80" : ""}
