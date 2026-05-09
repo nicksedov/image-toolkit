@@ -177,10 +177,10 @@ export function CalendarWidget({
                 flex-shrink-0 w-9 h-9 flex flex-col items-center justify-center text-xs rounded-md
                 transition-all relative
                 ${isSelected
-                  ? "bg-primary text-primary-foreground hover:bg-primary/90 font-medium cursor-pointer"
+                  ? "bg-primary/80 text-primary-foreground hover:bg-primary/90 font-medium cursor-pointer"
                   : day.hasImages 
-                    ? "bg-emerald-100 dark:bg-emerald-900/30 hover:bg-emerald-200 dark:hover:bg-emerald-900/50 text-emerald-700 dark:text-emerald-200 font-medium cursor-pointer"
-                    : "bg-red-50 dark:bg-red-900/20 text-muted-foreground/70 dark:text-muted-foreground/80 hover:bg-red-100 dark:hover:bg-red-900/30"
+                    ? "bg-emerald-100/80 dark:bg-emerald-900/24 hover:bg-emerald-200/80 dark:hover:bg-emerald-900/40 text-emerald-700 dark:text-emerald-200 font-medium cursor-pointer"
+                    : "bg-red-50/80 dark:bg-red-900/16 hover:bg-red-100/80 dark:hover:bg-red-900/24 text-muted-foreground/70 dark:text-muted-foreground/80"
                 }
                 ${isRangeStart || isRangeEnd ? "ring-2 ring-primary ring-offset-2" : ""}
                 ${isSelected && !isRangeStart && !isRangeEnd ? "opacity-80" : ""}
