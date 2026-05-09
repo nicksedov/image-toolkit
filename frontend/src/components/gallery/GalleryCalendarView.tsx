@@ -105,7 +105,7 @@ export function GalleryCalendarView({ onImageClick, onImageView, onImageOcr, onI
       loadingRef.current = false
       setIsLoading(false)
     }
-  }, [dateRangeFilter.start, dateRangeFilter.end, calendarMonthKey])
+  }, [dateRangeFilter.start, dateRangeFilter.end, calendarMonthKey, initialized])
 
   // Preload images for smoother scrolling
   const preloadImages = useCallback((imageUrls: string[]) => {
