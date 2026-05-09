@@ -341,6 +341,17 @@ export function AdminSettingsTab() {
     if (isAdmin) {
       loadOCRStatus()
       loadLlmSettings()
+      // Check if OCR classification is already running on mount
+      fetchOcrClassificationStatus()
+        .then((status) => {
+          if (status.processing) {
+            setOcrScanning(true)
+            setOcrScanStatus(status)
+          }
+        })
+        .catch(() => {
+          // Ignore errors on initial check
+        })
     }
   }, [isAdmin, loadOCRStatus, loadLlmSettings])
 
