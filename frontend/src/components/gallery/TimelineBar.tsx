@@ -160,17 +160,17 @@ export function TimelineBar({
             const isActive = !isFiltered
 
             // Style based on state
-            let markerClasses = "absolute left-1/2 -translate-x-1/2 transition-all"
+            let markerClasses = "absolute left-1/2 -translate-x-1/2 w-2 h-2 rounded-full transition-all"
 
             if (!isActive) {
-              // Inactive (outside filter range) - visible but dimmed
-              markerClasses += " w-2 h-2 rounded-full bg-muted/70 border border-border/30 cursor-not-allowed"
+              // Inactive (outside filter range)
+              markerClasses += " bg-muted/30 cursor-not-allowed opacity-40"
             } else if (isLoaded) {
               // Loaded and active
-              markerClasses += " w-2.5 h-2.5 rounded-full bg-primary/70 cursor-pointer hover:scale-150"
+              markerClasses += " bg-primary/70 cursor-pointer hover:scale-150"
             } else {
               // Active but not loaded yet
-              markerClasses += " w-2 h-2 rounded-full bg-primary/30 cursor-pointer hover:scale-125 hover:bg-primary/60"
+              markerClasses += " bg-primary/30 cursor-pointer hover:scale-125 hover:bg-primary/60"
             }
 
             return (
