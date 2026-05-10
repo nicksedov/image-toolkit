@@ -307,6 +307,19 @@ type CalendarMonthInfo struct {
 	Days  []int `json:"days"`  // Days that have images (1-31)
 }
 
+// TimelineDateMarker represents a single date with image count for the timeline
+type TimelineDateMarker struct {
+	Date       string `json:"date"`       // "YYYY-MM-DD"
+	ImageCount int    `json:"imageCount"` // Number of images on this date
+}
+
+// CalendarAllDatesResponse is the JSON response for GET /api/gallery/calendar/dates
+type CalendarAllDatesResponse struct {
+	MinDate string              `json:"minDate"` // "YYYY-MM-DD" or empty
+	MaxDate string              `json:"maxDate"` // "YYYY-MM-DD" or empty
+	Dates   []TimelineDateMarker `json:"dates"`   // All dates that have images
+}
+
 // GalleryCalendarResponse is the JSON response for GET /api/gallery/calendar
 type GalleryCalendarResponse struct {
 	Groups      []CalendarDateGroup `json:"groups"`

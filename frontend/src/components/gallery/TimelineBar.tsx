@@ -1,15 +1,25 @@
 import { useMemo } from "react"
-import type { CalendarDateGroup, CalendarDateRange } from "@/types"
+import type { CalendarDateGroup, CalendarDateRange, TimelineDateMarker } from "@/types"
 
 interface TimelineBarProps {
   dateRange: CalendarDateRange
   groups: CalendarDateGroup[]
+  allDates: TimelineDateMarker[]
+  dateRangeFilter: { start: string | null; end: string | null }
+  loadedDates: Set<string>
   onNavigateToDate: (date: string) => void
 }
 
 const HEADER_HEIGHT = 56
 
-export function TimelineBar({ dateRange, groups, onNavigateToDate }: TimelineBarProps) {
+export function TimelineBar({
+  dateRange,
+  groups,
+  allDates,
+  dateRangeFilter,
+  loadedDates,
+  onNavigateToDate,
+}: TimelineBarProps) {
   const visibleDateRange = useMemo(() => {
     if (groups.length === 0) return { start: null, end: null }
     return {
@@ -18,7 +28,23 @@ export function TimelineBar({ dateRange, groups, onNavigateToDate }: TimelineBar
     }
   }, [groups])
 
-  if (!dateRange.minDate || !dateRange.maxDate || groups.length === 0) {
+  // Determine which dates are active based on filter
+  const activeDateSet = useMemo(() => {
+    const set = new Set<string>()
+    if (dateRangeFilter.start && dateRangeFilter.end) {
+      // When a date range filter is active, only dates within it are active
+      allDates.forEach((d) => {
+        if (d.date >= dateRangeFilter.start! && d.date <= dateRangeFilter.end!) {
+          set.add(d.date)
+        }
+      })
+    }
+    return set
+  }, [allDates, dateRangeFilter.start, dateRangeFilter.end])
+
+  const hasActiveFilter = dateRangeFilter.start !== null && dateRangeFilter.end !== null
+
+  if (!dateRange.minDate || !dateRange.maxDate || allDates.length === 0) {
     return null
   }
 
@@ -54,7 +80,11 @@ export function TimelineBar({ dateRange, groups, onNavigateToDate }: TimelineBar
 
             const dateStr = `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, "0")}-${String(targetDate.getDate()).padStart(2, "0")}`
 
-            onNavigateToDate(dateStr)
+            // Find the closest actual date from allDates
+            const closestDate = findClosestDate(allDates.map((d) => d.date), dateStr)
+            if (closestDate) {
+              onNavigateToDate(closestDate)
+            }
           }}
         >
           {/* Timeline track */}
@@ -118,21 +148,42 @@ export function TimelineBar({ dateRange, groups, onNavigateToDate }: TimelineBar
             })()
           )}
 
-          {/* Date markers for visible groups */}
-          {groups.map((group) => {
-            const offset = daysBetween(dateRange.minDate, group.date)
+          {/* Date markers for ALL dates (not just visible groups) */}
+          {allDates.map((dateMarker) => {
+            const offset = daysBetween(dateRange.minDate, dateMarker.date)
             const totalDays = daysBetween(dateRange.minDate, dateRange.maxDate)
             const topPercent = totalDays > 0 ? (offset / totalDays) * 100 : 0
 
+            // Determine marker state
+            const isLoaded = loadedDates.has(dateMarker.date)
+            const isFiltered = hasActiveFilter && !activeDateSet.has(dateMarker.date)
+            const isActive = !isFiltered
+
+            // Style based on state
+            let markerClasses = "absolute left-1/2 -translate-x-1/2 w-2 h-2 rounded-full transition-all"
+
+            if (!isActive) {
+              // Inactive (outside filter range)
+              markerClasses += " bg-muted/30 cursor-not-allowed opacity-40"
+            } else if (isLoaded) {
+              // Loaded and active
+              markerClasses += " bg-primary/70 cursor-pointer hover:scale-150"
+            } else {
+              // Active but not loaded yet
+              markerClasses += " bg-primary/30 cursor-pointer hover:scale-125 hover:bg-primary/60"
+            }
+
             return (
               <div
-                key={group.date}
-                className="absolute left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-primary/40 cursor-pointer hover:scale-150 transition-transform"
+                key={dateMarker.date}
+                className={markerClasses}
                 style={{ top: `${topPercent}%` }}
-                title={group.date}
+                title={`${dateMarker.date} (${dateMarker.imageCount} images)${isLoaded ? " - loaded" : ""}${isFiltered ? " - outside filter" : ""}`}
                 onClick={(e) => {
                   e.stopPropagation()
-                  onNavigateToDate(group.date)
+                  if (isActive) {
+                    onNavigateToDate(dateMarker.date)
+                  }
                 }}
               />
             )
@@ -147,4 +198,29 @@ function daysBetween(date1: string, date2: string): number {
   const d1 = new Date(date1 + "T00:00:00")
   const d2 = new Date(date2 + "T00:00:00")
   return Math.floor((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24))
+}
+
+/**
+ * Find the closest date from the list that is <= target date
+ */
+function findClosestDate(dates: string[], target: string): string | null {
+  // Sort dates and find the one closest to but not after target
+  let closest: string | null = null
+  let minDiff = Infinity
+
+  for (const date of dates) {
+    const diff = daysBetween(target, date)
+    // We want the date closest to target from below (date <= target)
+    if (diff >= 0 && diff < minDiff) {
+      minDiff = diff
+      closest = date
+    }
+  }
+
+  // If no date found before target, return the earliest date
+  if (!closest && dates.length > 0) {
+    return dates[0]
+  }
+
+  return closest
 }

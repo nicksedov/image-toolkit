@@ -1381,6 +1381,53 @@ func (s *Server) handleGetGalleryCalendar(c *gin.Context) {
 	})
 }
 
+// handleGetCalendarAllDates returns all dates that have images with their counts (lightweight, no thumbnails)
+func (s *Server) handleGetCalendarAllDates(c *gin.Context) {
+	// Get min/max dates
+	var minDate, maxDate *time.Time
+	s.db.Raw("SELECT MIN(date_taken), MAX(date_taken) FROM image_metadata WHERE date_taken IS NOT NULL").Row().Scan(&minDate, &maxDate)
+
+	if minDate == nil || maxDate == nil {
+		c.JSON(http.StatusOK, dto.CalendarAllDatesResponse{
+			MinDate: "",
+			MaxDate: "",
+			Dates:   []dto.TimelineDateMarker{},
+		})
+		return
+	}
+
+	minDateStr := minDate.Format("2006-01-02")
+	maxDateStr := maxDate.Format("2006-01-02")
+
+	// Get all dates with image counts, ordered by date
+	type dateCount struct {
+		Date  time.Time
+		Count int64
+	}
+	var dateCounts []dateCount
+	s.db.Raw(`
+		SELECT DATE(date_taken) as date, COUNT(*) as count
+		FROM image_metadata
+		WHERE date_taken IS NOT NULL
+		GROUP BY DATE(date_taken)
+		ORDER BY date ASC
+	`).Scan(&dateCounts)
+
+	dates := make([]dto.TimelineDateMarker, 0, len(dateCounts))
+	for _, dc := range dateCounts {
+		dates = append(dates, dto.TimelineDateMarker{
+			Date:       dc.Date.Format("2006-01-02"),
+			ImageCount: int(dc.Count),
+		})
+	}
+
+	c.JSON(http.StatusOK, dto.CalendarAllDatesResponse{
+		MinDate: minDateStr,
+		MaxDate: maxDateStr,
+		Dates:   dates,
+	})
+}
+
 // handleGetCalendarMonthInfo returns days with image counts for a specific month (lightweight, no thumbnails)
 func (s *Server) handleGetCalendarMonthInfo(c *gin.Context) {
 	monthYear := c.Query("monthYear") // "YYYY-MM"

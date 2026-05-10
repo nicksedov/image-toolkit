@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { fetchGalleryCalendar, fetchCalendarMonthInfo } from "@/api/endpoints"
+import { fetchGalleryCalendar, fetchCalendarMonthInfo, fetchCalendarAllDates } from "@/api/endpoints"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Calendar as CalendarIcon } from "lucide-react"
 import { useTranslation } from "@/i18n"
-import type { GalleryImageDTO, CalendarDateGroup, CalendarDateRange, CalendarMonthInfo } from "@/types"
+import type { GalleryImageDTO, CalendarDateGroup, CalendarDateRange, CalendarMonthInfo, TimelineDateMarker } from "@/types"
 import { CalendarImageGrid } from "./CalendarImageGrid"
 import { CalendarWidget } from "./CalendarWidget"
 import { TimelineBar } from "./TimelineBar"
@@ -30,6 +30,8 @@ export function GalleryCalendarView({ onImageClick, onImageView, onImageOcr, onI
   const [dateRange, setDateRange] = useState<CalendarDateRange>({ minDate: "", maxDate: "", totalWithDate: 0 })
   const [monthInfo, setMonthInfo] = useState<CalendarMonthInfo | null>(null)
   const [dayCounts, setDayCounts] = useState<Map<number, number>>(new Map()) // day -> count
+  const [allDates, setAllDates] = useState<TimelineDateMarker[]>([])
+  const [loadedDates, setLoadedDates] = useState<Set<string>>(new Set()) // dates that have been loaded/visible
 
   // Date filter state - now supports range selection
   const [dateRangeFilter, setDateRangeFilter] = useState<{ start: string | null; end: string | null }>({
@@ -198,6 +200,17 @@ export function GalleryCalendarView({ onImageClick, onImageView, onImageOcr, onI
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []) // Only on mount
 
+  // Fetch all dates for timeline markers on mount
+  useEffect(() => {
+    fetchCalendarAllDates()
+      .then((result) => {
+        setAllDates(result.dates)
+      })
+      .catch(() => {
+        setAllDates([])
+      })
+  }, [])
+
   // Load month info when calendar month changes (using lightweight endpoint)
   useEffect(() => {
     fetchCalendarMonthInfo(calendarMonthKey)
@@ -302,10 +315,71 @@ export function GalleryCalendarView({ onImageClick, onImageView, onImageOcr, onI
     setRangeSelecting(false)
   }
 
-  const handleNavigateToDate = (date: string) => {
-    const element = document.getElementById(`date-group-${date}`)
-    if (element) {
-      element.scrollIntoView({ behavior: "smooth", block: "start" })
+  const handleNavigateToDate = async (date: string) => {
+    // If the date is already loaded (visible in groups), just scroll to it
+    if (loadedDates.has(date)) {
+      const element = document.getElementById(`date-group-${date}`)
+      if (element) {
+        element.scrollIntoView({ behavior: "smooth", block: "start" })
+      }
+      return
+    }
+
+    // Otherwise, load the page that contains this date
+    setIsLoading(true)
+    setError(null)
+    try {
+      let currentPage = 1
+      let found = false
+      const allGroups: CalendarDateGroup[] = []
+      const maxPages = 200
+
+      while (currentPage <= maxPages && !found) {
+        const result = await fetchGalleryCalendar(
+          currentPage,
+          PAGE_SIZE,
+          dateRangeFilter.start ?? undefined,
+          dateRangeFilter.end ?? undefined,
+          calendarMonthKey
+        )
+
+        if (result.groups.length === 0) break
+
+        allGroups.push(...result.groups)
+
+        for (const group of result.groups) {
+          if (group.date === date) {
+            found = true
+            break
+          }
+          if (group.date > date) break
+        }
+
+        if (!result.hasMore) break
+        currentPage++
+      }
+
+      if (found) {
+        setGroups(allGroups)
+        setTotalImages(allGroups.reduce((sum, g) => sum + g.imageCount, 0))
+        setHasMore(false)
+        const newLoaded = new Set(loadedDates)
+        allGroups.forEach((g) => newLoaded.add(g.date))
+        setLoadedDates(newLoaded)
+
+        setTimeout(() => {
+          const element = document.getElementById(`date-group-${date}`)
+          if (element) {
+            element.scrollIntoView({ behavior: "smooth", block: "start" })
+          }
+        }, 100)
+      } else {
+        setError(`No images found for date ${date}`)
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load images")
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -405,6 +479,9 @@ export function GalleryCalendarView({ onImageClick, onImageView, onImageOcr, onI
         <TimelineBar
           dateRange={dateRange}
           groups={groups}
+          allDates={allDates}
+          dateRangeFilter={dateRangeFilter}
+          loadedDates={loadedDates}
           onNavigateToDate={handleNavigateToDate}
         />
       </div>

@@ -268,6 +268,17 @@ export interface CalendarMonthInfo {
   days: number[]     // Days that have images (1-31)
 }
 
+export interface TimelineDateMarker {
+  date: string       // "YYYY-MM-DD"
+  imageCount: number // Number of images on this date
+}
+
+export interface CalendarAllDatesResponse {
+  minDate: string    // "YYYY-MM-DD" or empty
+  maxDate: string    // "YYYY-MM-DD" or empty
+  dates: TimelineDateMarker[]
+}
+
 export interface GalleryCalendarResponse {
   groups: CalendarDateGroup[]
   totalImages: number

@@ -16,6 +16,7 @@ import type {
   RemoveFolderResponse,
   GalleryImagesResponse,
   GalleryCalendarResponse,
+  CalendarAllDatesResponse,
   GeoClustersResponse,
   GeoClusterRequest,
   GeoImagesResponse,
@@ -154,6 +155,10 @@ export interface CalendarMonthData {
 
 export function fetchCalendarMonthInfo(monthYear: string): Promise<CalendarMonthData> {
   return apiGet<CalendarMonthData>("/api/gallery/calendar/month", { monthYear })
+}
+
+export function fetchCalendarAllDates(): Promise<CalendarAllDatesResponse> {
+  return apiGet<CalendarAllDatesResponse>("/api/gallery/calendar/dates")
 }
 
 // --- Gallery Geolocation ---

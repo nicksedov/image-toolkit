@@ -45,6 +45,39 @@ export function CalendarWidget({
 }: CalendarWidgetProps) {
   const { t } = useTranslation()
 
+  // Compute which months have images across all years in the date range
+  const monthsWithImages = useMemo(() => {
+    const monthSet = new Set<number>()
+    if (dateRange.minDate && dateRange.maxDate) {
+      const minDate = new Date(dateRange.minDate + "T00:00:00")
+      const maxDate = new Date(dateRange.maxDate + "T00:00:00")
+      for (let y = minDate.getFullYear(); y <= maxDate.getFullYear(); y++) {
+        for (let m = 0; m < 12; m++) {
+          // A month is "active" if it falls within the data range
+          const monthStart = new Date(y, m, 1)
+          const monthEnd = new Date(y, m + 1, 0)
+          if (monthEnd >= minDate && monthStart <= maxDate) {
+            monthSet.add(m)
+          }
+        }
+      }
+    }
+    return monthSet
+  }, [dateRange.minDate, dateRange.maxDate])
+
+  // Compute which years have images
+  const yearsWithImages = useMemo(() => {
+    const yearSet = new Set<number>()
+    if (dateRange.minDate && dateRange.maxDate) {
+      const minYear = new Date(dateRange.minDate + "T00:00:00").getFullYear()
+      const maxYear = new Date(dateRange.maxDate + "T00:00:00").getFullYear()
+      for (let y = minYear; y <= maxYear; y++) {
+        yearSet.add(y)
+      }
+    }
+    return yearSet
+  }, [dateRange.minDate, dateRange.maxDate])
+
   const prevMonth = () => {
     onMonthChange(new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth() - 1, 1))
   }
@@ -73,7 +106,7 @@ export function CalendarWidget({
     const firstDay = `${year}-${String(month + 1).padStart(2, "0")}-01`
     const lastDayDate = new Date(year, month + 1, 0)
     const lastDay = `${year}-${String(month + 1).padStart(2, "0")}-${String(lastDayDate.getDate()).padStart(2, "0")}`
-    
+
     onDateRangeSelect(firstDay, lastDay)
   }
 
@@ -108,7 +141,7 @@ export function CalendarWidget({
         <button onClick={prevMonth} className="p-1 hover:bg-muted rounded flex-shrink-0">
           <ChevronLeft className="h-4 w-4" />
         </button>
-        
+
         <div className="flex items-center gap-2">
           {/* Month dropdown */}
           <select
@@ -116,11 +149,22 @@ export function CalendarWidget({
             onChange={(e) => handleMonthChange(parseInt(e.target.value))}
             className="text-sm font-medium bg-background dark:bg-zinc-900 text-foreground dark:text-zinc-100 border border-border rounded px-2 py-1 outline-none cursor-pointer"
           >
-            {MONTHS.map((m) => (
-              <option key={m.value} value={m.value} className="bg-background dark:bg-zinc-900 text-foreground dark:text-zinc-100">
-                {new Date(2000, m.value, 1).toLocaleDateString(undefined, { month: "long" })}
-              </option>
-            ))}
+            {MONTHS.map((m) => {
+              const isActive = monthsWithImages.has(m.value)
+              return (
+                <option
+                  key={m.value}
+                  value={m.value}
+                  className={
+                    isActive
+                      ? "bg-background dark:bg-zinc-900 text-foreground dark:text-zinc-100"
+                      : "bg-background dark:bg-zinc-950 text-muted-foreground dark:text-zinc-600"
+                  }
+                >
+                  {new Date(2000, m.value, 1).toLocaleDateString(undefined, { month: "long" })}
+                </option>
+              )
+            })}
           </select>
 
           {/* Year dropdown */}
@@ -130,29 +174,38 @@ export function CalendarWidget({
             className="text-sm font-medium bg-background dark:bg-zinc-900 text-foreground dark:text-zinc-100 border border-border rounded px-2 py-1 outline-none cursor-pointer"
           >
             {(() => {
-              // Generate year range from dateRange or fallback to current year ±5
               const currentYear = calendarViewDate.getFullYear()
               let startYear = currentYear - 5
               let endYear = currentYear + 5
-              
-              // Use actual data range if available
+
               if (dateRange.minDate && dateRange.maxDate) {
                 const minYear = new Date(dateRange.minDate + "T00:00:00").getFullYear()
                 const maxYear = new Date(dateRange.maxDate + "T00:00:00").getFullYear()
                 startYear = minYear
                 endYear = maxYear
               }
-              
+
               const years = []
               for (let y = startYear; y <= endYear; y++) {
                 years.push(y)
               }
-              
-              return years.map((year) => (
-                <option key={year} value={year} className="bg-background dark:bg-zinc-900 text-foreground dark:text-zinc-100">
-                  {year}
-                </option>
-              ))
+
+              return years.map((year) => {
+                const isActive = yearsWithImages.has(year)
+                return (
+                  <option
+                    key={year}
+                    value={year}
+                    className={
+                      isActive
+                        ? "bg-background dark:bg-zinc-900 text-foreground dark:text-zinc-100"
+                        : "bg-background dark:bg-zinc-950 text-muted-foreground dark:text-zinc-600"
+                    }
+                  >
+                    {year}
+                  </option>
+                )
+              })
             })()}
           </select>
         </div>
@@ -168,7 +221,7 @@ export function CalendarWidget({
           const isSelected = isInSelectedRange(day.date)
           const isRangeStart = day.date === dateRangeFilter.start
           const isRangeEnd = day.date === dateRangeFilter.end && dateRangeFilter.end !== null
-          
+
           return (
             <button
               key={day.date}
@@ -178,7 +231,7 @@ export function CalendarWidget({
                 transition-all relative
                 ${isSelected
                   ? "bg-primary/80 text-primary-foreground hover:bg-primary/90 font-medium cursor-pointer"
-                  : day.hasImages 
+                  : day.hasImages
                     ? "bg-emerald-50/60 dark:bg-zinc-800/60 hover:bg-emerald-100/70 dark:hover:bg-zinc-700/70 text-emerald-700 dark:text-emerald-200 font-medium cursor-pointer"
                     : "bg-zinc-100/40 dark:bg-zinc-800/40 hover:bg-zinc-200/50 dark:hover:bg-zinc-700/50 text-muted-foreground/70 dark:text-muted-foreground/80"
                 }
@@ -202,7 +255,7 @@ export function CalendarWidget({
         >
           {t("gallery.calendar.fullMonth")}
         </button>
-        
+
         {(dateRangeFilter.start || dateRangeFilter.end) && (
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground">
