@@ -7,6 +7,7 @@ interface TimelineBarProps {
   allDates: TimelineDateMarker[]
   dateRangeFilter: { start: string | null; end: string | null }
   loadedDates: Set<string>
+  isLoading: boolean
   onNavigateToDate: (date: string) => void
 }
 
@@ -18,6 +19,7 @@ export function TimelineBar({
   allDates,
   dateRangeFilter,
   loadedDates,
+  isLoading,
   onNavigateToDate,
 }: TimelineBarProps) {
   const visibleDateRange = useMemo(() => {
@@ -42,6 +44,13 @@ export function TimelineBar({
     return set
   }, [allDates, dateRangeFilter.start, dateRangeFilter.end])
 
+  // Dates currently visible on the page (from loaded groups)
+  const visibleDatesSet = useMemo(() => {
+    const set = new Set<string>()
+    groups.forEach((g) => set.add(g.date))
+    return set
+  }, [groups])
+
   const hasActiveFilter = dateRangeFilter.start !== null && dateRangeFilter.end !== null
 
   if (!dateRange.minDate || !dateRange.maxDate || allDates.length === 0) {
@@ -63,6 +72,7 @@ export function TimelineBar({
           pointerEvents: "auto",
           height: "calc(100vh - 2rem)",
           maxHeight: "calc(100vh - 2rem)",
+          cursor: isLoading ? "wait" : "default",
         }}
       >
         <div
@@ -156,6 +166,7 @@ export function TimelineBar({
 
             // Determine marker state
             const isLoaded = loadedDates.has(dateMarker.date)
+            const isVisible = visibleDatesSet.has(dateMarker.date)
             const isFiltered = hasActiveFilter && !activeDateSet.has(dateMarker.date)
             const isActive = !isFiltered
 
@@ -165,21 +176,35 @@ export function TimelineBar({
               return (
                 <div
                   key={dateMarker.date}
-                  className="absolute left-1/2 -translate-x-1/2 w-2 h-2 rounded-full transition-all bg-gray-400 cursor-not-allowed"
-                  style={{ top: `${topPercent}%`, opacity: 0.4 }}
+                  className="absolute left-1/2 -translate-x-1/2 rounded-full transition-all bg-gray-400 cursor-not-allowed"
+                  style={{ top: `${topPercent}%`, width: "8px", height: "8px", opacity: 0.4 }}
                   title={`${dateMarker.date} (${dateMarker.imageCount} images)${isLoaded ? " - loaded" : ""}${isFiltered ? " - outside filter" : ""}`}
                   onClick={(e) => {
                     e.stopPropagation()
                   }}
                 />
               )
-            } else if (isLoaded) {
-              // Loaded and active - solid but slightly transparent for label visibility
+            } else if (isVisible) {
+              // Currently visible on page - larger and fully opaque
               return (
                 <div
                   key={dateMarker.date}
-                  className="absolute left-1/2 -translate-x-1/2 w-2 h-2 rounded-full transition-all bg-blue-500 cursor-pointer hover:scale-150"
-                  style={{ top: `${topPercent}%`, opacity: 0.75 }}
+                  className="absolute left-1/2 -translate-x-1/2 rounded-full transition-all bg-blue-500 cursor-pointer hover:scale-125"
+                  style={{ top: `${topPercent}%`, width: "12px", height: "12px", opacity: 1 }}
+                  title={`${dateMarker.date} (${dateMarker.imageCount} images) - visible`}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onNavigateToDate(dateMarker.date)
+                  }}
+                />
+              )
+            } else if (isLoaded) {
+              // Loaded but not currently visible - solid but smaller
+              return (
+                <div
+                  key={dateMarker.date}
+                  className="absolute left-1/2 -translate-x-1/2 rounded-full transition-all bg-blue-500 cursor-pointer hover:scale-150"
+                  style={{ top: `${topPercent}%`, width: "8px", height: "8px", opacity: 0.75 }}
                   title={`${dateMarker.date} (${dateMarker.imageCount} images)${isLoaded ? " - loaded" : ""}${isFiltered ? " - outside filter" : ""}`}
                   onClick={(e) => {
                     e.stopPropagation()
@@ -192,8 +217,8 @@ export function TimelineBar({
               return (
                 <div
                   key={dateMarker.date}
-                  className="absolute left-1/2 -translate-x-1/2 w-2 h-2 rounded-full transition-all bg-blue-400 cursor-pointer hover:scale-125"
-                  style={{ top: `${topPercent}%`, opacity: 0.5 }}
+                  className="absolute left-1/2 -translate-x-1/2 rounded-full transition-all bg-blue-400 cursor-pointer hover:scale-125"
+                  style={{ top: `${topPercent}%`, width: "8px", height: "8px", opacity: 0.5 }}
                   title={`${dateMarker.date} (${dateMarker.imageCount} images)${isLoaded ? " - loaded" : ""}${isFiltered ? " - outside filter" : ""}`}
                   onClick={(e) => {
                     e.stopPropagation()
