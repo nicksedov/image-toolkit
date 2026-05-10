@@ -271,6 +271,7 @@ export interface CalendarMonthInfo {
 export interface TimelineDateMarker {
   date: string       // "YYYY-MM-DD"
   imageCount: number // Number of images on this date
+  page: number       // Page number (1-based) where this date first appears
 }
 
 export interface CalendarAllDatesResponse {

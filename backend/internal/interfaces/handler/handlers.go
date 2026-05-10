@@ -1383,6 +1383,11 @@ func (s *Server) handleGetGalleryCalendar(c *gin.Context) {
 
 // handleGetCalendarAllDates returns all dates that have images with their counts (lightweight, no thumbnails)
 func (s *Server) handleGetCalendarAllDates(c *gin.Context) {
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("pageSize", "50"))
+	if pageSize < 1 || pageSize > 200 {
+		pageSize = 50
+	}
+
 	// Get min/max dates
 	var minDate, maxDate *time.Time
 	s.db.Raw("SELECT MIN(date_taken), MAX(date_taken) FROM image_metadata WHERE date_taken IS NOT NULL").Row().Scan(&minDate, &maxDate)
@@ -1399,7 +1404,7 @@ func (s *Server) handleGetCalendarAllDates(c *gin.Context) {
 	minDateStr := minDate.Format("2006-01-02")
 	maxDateStr := maxDate.Format("2006-01-02")
 
-	// Get all dates with image counts, ordered by date
+	// Get all dates with image counts, ordered by date ASC (oldest first, matches calendar pagination)
 	type dateCount struct {
 		Date  time.Time
 		Count int64
@@ -1413,12 +1418,19 @@ func (s *Server) handleGetCalendarAllDates(c *gin.Context) {
 		ORDER BY date ASC
 	`).Scan(&dateCounts)
 
+	// Compute page number for each date.
+	// The calendar API paginates by images (not dates), ordered ASC.
+	// We track a running total of images to determine which page each date falls on.
 	dates := make([]dto.TimelineDateMarker, 0, len(dateCounts))
+	imageIndex := 0
 	for _, dc := range dateCounts {
+		page := (imageIndex / pageSize) + 1
 		dates = append(dates, dto.TimelineDateMarker{
 			Date:       dc.Date.Format("2006-01-02"),
 			ImageCount: int(dc.Count),
+			Page:       page,
 		})
+		imageIndex += int(dc.Count)
 	}
 
 	c.JSON(http.StatusOK, dto.CalendarAllDatesResponse{

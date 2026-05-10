@@ -311,6 +311,7 @@ type CalendarMonthInfo struct {
 type TimelineDateMarker struct {
 	Date       string `json:"date"`       // "YYYY-MM-DD"
 	ImageCount int    `json:"imageCount"` // Number of images on this date
+	Page       int    `json:"page"`       // Page number (1-based) where this date first appears
 }
 
 // CalendarAllDatesResponse is the JSON response for GET /api/gallery/calendar/dates

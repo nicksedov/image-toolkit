@@ -325,47 +325,57 @@ export function GalleryCalendarView({ onImageClick, onImageView, onImageOcr, onI
       return
     }
 
-    // Otherwise, load the page that contains this date
+    // Find the page for this date from allDates
+    const dateInfo = allDates.find((d) => d.date === date)
+    if (!dateInfo) {
+      setError(`No images found for date ${date}`)
+      return
+    }
+
     setIsLoading(true)
     setError(null)
     try {
-      let currentPage = 1
-      let found = false
-      const allGroups: CalendarDateGroup[] = []
-      const maxPages = 200
+      // Load the target page directly, plus one page before and after for context
+      const targetPage = dateInfo.page
+      const pagesToLoad = []
+      if (targetPage > 1) pagesToLoad.push(targetPage - 1)
+      pagesToLoad.push(targetPage)
+      pagesToLoad.push(targetPage + 1)
 
-      while (currentPage <= maxPages && !found) {
+      const allGroups: CalendarDateGroup[] = []
+
+      for (const page of pagesToLoad) {
+        if (page < 1) continue
         const result = await fetchGalleryCalendar(
-          currentPage,
+          page,
           PAGE_SIZE,
           dateRangeFilter.start ?? undefined,
           dateRangeFilter.end ?? undefined,
           calendarMonthKey
         )
-
-        if (result.groups.length === 0) break
-
-        allGroups.push(...result.groups)
-
-        for (const group of result.groups) {
-          if (group.date === date) {
-            found = true
-            break
-          }
-          if (group.date > date) break
+        if (result.groups.length > 0) {
+          allGroups.push(...result.groups)
         }
-
-        if (!result.hasMore) break
-        currentPage++
       }
 
-      if (found) {
-        setGroups(allGroups)
-        setTotalImages(allGroups.reduce((sum, g) => sum + g.imageCount, 0))
-        setHasMore(false)
+      // Deduplicate groups by date (adjacent pages might share boundary dates)
+      const groupMap = new Map<string, CalendarDateGroup>()
+      for (const g of allGroups) {
+        if (!groupMap.has(g.date)) {
+          groupMap.set(g.date, g)
+        }
+      }
+      const uniqueGroups = Array.from(groupMap.values())
+        .sort((a, b) => a.date.localeCompare(b.date))
+
+      if (uniqueGroups.length > 0) {
+        setGroups(uniqueGroups)
+        setTotalImages(uniqueGroups.reduce((sum, g) => sum + g.imageCount, 0))
+        setHasMore(true) // Allow infinite scroll to continue from here
         const newLoaded = new Set(loadedDates)
-        allGroups.forEach((g) => newLoaded.add(g.date))
+        uniqueGroups.forEach((g) => newLoaded.add(g.date))
         setLoadedDates(newLoaded)
+        pageRef.current = targetPage + 1
 
         setTimeout(() => {
           const element = document.getElementById(`date-group-${date}`)
