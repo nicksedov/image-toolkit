@@ -5,6 +5,7 @@ import type { OcrDataResponse } from "@/types"
 interface OcrImagePanelProps {
   imageUrl: string
   ocrData: OcrDataResponse | null
+  isTextDocument: boolean
   loading: boolean
   imageRef: React.RefObject<HTMLImageElement | null>
   displayDimensions: { width: number; height: number } | null
@@ -15,6 +16,7 @@ interface OcrImagePanelProps {
 export function OcrImagePanel({
   imageUrl,
   ocrData,
+  isTextDocument,
   loading,
   imageRef,
   displayDimensions,
@@ -53,7 +55,7 @@ export function OcrImagePanel({
           </div>
         )}
 
-        {ocrData && ocrData.boxes.length > 0 && imageLoaded && displayDimensions && (
+        {isTextDocument && ocrData && ocrData.boxes.length > 0 && imageLoaded && displayDimensions && (
           <div
             className="absolute inset-0 pointer-events-none"
             style={{

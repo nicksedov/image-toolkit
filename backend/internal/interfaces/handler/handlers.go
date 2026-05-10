@@ -1993,6 +1993,7 @@ func (s *Server) handleGetOcrData(c *gin.Context) {
 		ImagePath:         imagePath,
 		Angle:             classification.Angle,
 		ScaleFactor:       classification.ScaleFactor,
+		IsTextDocument:    classification.IsTextDocument,
 		BoundingBoxWidth:  classification.BoundingBoxWidth,
 		BoundingBoxHeight: classification.BoundingBoxHeight,
 		Boxes:             boxDTOs,

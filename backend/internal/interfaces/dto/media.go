@@ -415,6 +415,7 @@ type OcrDataResponse struct {
 	ImagePath         string           `json:"imagePath"`
 	Angle             int              `json:"angle"`
 	ScaleFactor       float32          `json:"scaleFactor"`
+	IsTextDocument    bool             `json:"isTextDocument"`
 	BoundingBoxWidth  int              `json:"boundingBoxWidth"`
 	BoundingBoxHeight int              `json:"boundingBoxHeight"`
 	Boxes             []BoundingBoxDTO `json:"boxes"`

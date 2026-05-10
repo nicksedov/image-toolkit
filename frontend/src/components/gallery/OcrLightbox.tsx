@@ -17,9 +17,14 @@ export function OcrLightbox({ imagePath, onClose }: OcrLightboxProps) {
   const { t } = useTranslation()
   const { ocrData, llmData, loading, recognizing, resetState, handleRecognize } = useOcrState(imagePath)
 
-  const angle = ocrData?.angle
-  const imageUrl = imagePath && angle !== undefined
-    ? buildImageUrl(imagePath, "/api/ocr-image", { angle })
+  // Build image URL based on whether the image is a text document
+  // Text documents: use /api/ocr-image with rotation angle
+  // Non-text documents: use /api/image without transformations
+  const isTextDocument = ocrData?.isTextDocument ?? false
+  const imageUrl = imagePath
+    ? isTextDocument && ocrData?.angle !== undefined
+      ? buildImageUrl(imagePath, "/api/ocr-image", { angle: ocrData.angle })
+      : buildImageUrl(imagePath, "/api/image")
     : ""
 
   const { imageRef, displayDimensions, imageLoaded, handleImageLoad } = useImageDimensions(imageUrl)
@@ -47,6 +52,7 @@ export function OcrLightbox({ imagePath, onClose }: OcrLightboxProps) {
         <OcrImagePanel
           imageUrl={imageUrl}
           ocrData={ocrData}
+          isTextDocument={isTextDocument}
           loading={loading}
           imageRef={imageRef}
           displayDimensions={displayDimensions}
