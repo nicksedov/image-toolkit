@@ -45,10 +45,12 @@ export function GalleryCalendarView({ onImageClick, onImageView, onImageOcr, onI
     return new Date()
   })
 
-  const pageRef = useRef(1)
-  const prefetchedPageRef = useRef(0)
-  const sentinelRef = useRef<HTMLDivElement>(null)
+  const nextPageRef = useRef(1)
+  const prevPageRef = useRef(0)
+  const topSentinelRef = useRef<HTMLDivElement>(null)
+  const bottomSentinelRef = useRef<HTMLDivElement>(null)
   const mainContentRef = useRef<HTMLDivElement>(null)
+  const loadedPagesRef = useRef<Set<number>>(new Set()) // track which pages are already in groups
   
   // Image preloading
   const preloadImageCache = useRef<Map<string, HTMLImageElement>>(new Map())
@@ -59,9 +61,9 @@ export function GalleryCalendarView({ onImageClick, onImageView, onImageOcr, onI
     return `${y}-${String(m).padStart(2, "0")}`
   }, [calendarViewDate])
 
-  // Fetch calendar data
+  // Fetch calendar data - bidirectional loading
   const loadingRef = useRef(false)
-  const loadPage = useCallback(async (page: number, reset = false) => {
+  const loadPage = useCallback(async (page: number, direction: "append" | "prepend" | "reset" = "reset") => {
     if (loadingRef.current) return
     loadingRef.current = true
     setIsLoading(true)
@@ -75,19 +77,23 @@ export function GalleryCalendarView({ onImageClick, onImageView, onImageOcr, onI
         calendarMonthKey
       )
 
-      if (reset) {
+      if (direction === "reset") {
         setGroups(result.groups)
-      } else {
+        loadedPagesRef.current = new Set([page])
+      } else if (direction === "append") {
         setGroups((prev) => [...prev, ...result.groups])
+        loadedPagesRef.current.add(page)
+      } else {
+        // prepend
+        setGroups((prev) => [...result.groups, ...prev])
+        loadedPagesRef.current.add(page)
       }
       setTotalImages(result.totalImages)
       setHasMore(result.hasMore)
 
       // Update date range on first load
-      if (page === 1) {
+      if (page === 1 || direction === "reset") {
         setDateRange(result.dateRange)
-        // Set calendar to the month of the oldest image (minDate) only on initial load
-        // when no calendar month has been explicitly selected by the user
         if (!dateRangeFilter.start && !initialized && result.dateRange.minDate) {
           const minDate = new Date(result.dateRange.minDate + "T00:00:00")
           setCalendarViewDate(new Date(minDate.getFullYear(), minDate.getMonth(), 1))
@@ -100,7 +106,6 @@ export function GalleryCalendarView({ onImageClick, onImageView, onImageOcr, onI
       }
 
       setInitialized(true)
-      pageRef.current = page + 1
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load images")
     } finally {
@@ -144,57 +149,15 @@ export function GalleryCalendarView({ onImageClick, onImageView, onImageOcr, onI
     return () => clearTimeout(timer)
   }, [groups, preloadImages])
 
-  // Preload next page images when approaching end of current content
-  useEffect(() => {
-    if (!hasMore) return
-    
-    const checkAndPreloadNextPage = () => {
-      if (!mainContentRef.current || isLoading) return
-      
-      const scrollHeight = mainContentRef.current.scrollHeight
-      const scrollTop = mainContentRef.current.scrollTop || window.scrollY
-      const clientHeight = window.innerHeight
-      
-      // If user has scrolled past 50% of content, preload next page (once per page)
-      if (scrollTop + clientHeight > scrollHeight * 0.5) {
-        const nextPage = pageRef.current
-        
-        // Only prefetch if this page hasn't been prefetched yet
-        if (nextPage <= prefetchedPageRef.current) return
-        
-        prefetchedPageRef.current = nextPage
-        fetchGalleryCalendar(
-          nextPage,
-          PAGE_SIZE,
-          dateRangeFilter.start ?? undefined,
-          dateRangeFilter.end ?? undefined,
-          calendarMonthKey
-        )
-          .then((result) => {
-            const imageUrls = result.groups.flatMap((group) =>
-              group.images.map((img) => img.thumbnail).filter(Boolean) as string[]
-            )
-            preloadImages(imageUrls)
-          })
-          .catch(() => {
-            // Silently fail - next page will load normally when needed
-            prefetchedPageRef.current = nextPage - 1 // allow retry on failure
-          })
-      }
-    }
-    
-    window.addEventListener("scroll", checkAndPreloadNextPage, { passive: true })
-    return () => window.removeEventListener("scroll", checkAndPreloadNextPage)
-  }, [hasMore, isLoading, dateRangeFilter.start, dateRangeFilter.end, calendarMonthKey, preloadImages])
-
   // Initial load on mount
   useEffect(() => {
     const initialize = async () => {
-      pageRef.current = 1
-      prefetchedPageRef.current = 0
+      nextPageRef.current = 1
+      prevPageRef.current = 0
       setGroups([])
       setInitialized(false)
-      await loadPage(1, true)
+      loadedPagesRef.current = new Set()
+      await loadPage(1, "reset")
     }
     initialize()
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -233,13 +196,14 @@ export function GalleryCalendarView({ onImageClick, onImageView, onImageOcr, onI
   // Reload calendar data with thumbnails when month/year changes
   useEffect(() => {
     const initialize = async () => {
-      pageRef.current = 1
-      prefetchedPageRef.current = 0
+      nextPageRef.current = 1
+      prevPageRef.current = 0
       setGroups([])
       setInitialized(false)
       setDateRangeFilter({ start: null, end: null })
       setRangeSelecting(false)
-      await loadPage(1, true)
+      loadedPagesRef.current = new Set()
+      await loadPage(1, "reset")
     }
     initialize()
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -254,25 +218,30 @@ export function GalleryCalendarView({ onImageClick, onImageView, onImageOcr, onI
       // Skip if not yet initialized
       if (!initialized) return
       
-      pageRef.current = 1
-      prefetchedPageRef.current = 0
+      nextPageRef.current = 1
+      prevPageRef.current = 0
       setGroups([])
       setInitialized(false)
-      await loadPage(1, true)
+      loadedPagesRef.current = new Set()
+      await loadPage(1, "reset")
     }
     initialize()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dateRangeFilter.start, dateRangeFilter.end])
 
-  // Infinite scroll
+  // Bottom sentinel - load next page when scrolling down
   useEffect(() => {
-    const sentinel = sentinelRef.current
+    const sentinel = bottomSentinelRef.current
     if (!sentinel) return
 
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting && hasMore && !isLoading) {
-          loadPage(pageRef.current)
+          const page = nextPageRef.current
+          if (!loadedPagesRef.current.has(page)) {
+            loadPage(page, "append")
+            nextPageRef.current = page + 1
+          }
         }
       },
       { threshold: 0.1 }
@@ -281,6 +250,28 @@ export function GalleryCalendarView({ onImageClick, onImageView, onImageOcr, onI
     observer.observe(sentinel)
     return () => observer.disconnect()
   }, [hasMore, isLoading, loadPage])
+
+  // Top sentinel - load previous page when scrolling up
+  useEffect(() => {
+    const sentinel = topSentinelRef.current
+    if (!sentinel) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && prevPageRef.current > 0 && !isLoading) {
+          const page = prevPageRef.current
+          if (!loadedPagesRef.current.has(page)) {
+            loadPage(page, "prepend")
+            prevPageRef.current = page - 1
+          }
+        }
+      },
+      { threshold: 0.1 }
+    )
+
+    observer.observe(sentinel)
+    return () => observer.disconnect()
+  }, [isLoading, loadPage])
 
   const handleDateSelect = (date: string) => {
     if (!rangeSelecting) {
@@ -335,47 +326,29 @@ export function GalleryCalendarView({ onImageClick, onImageView, onImageOcr, onI
     setIsLoading(true)
     setError(null)
     try {
-      // Load the target page directly, plus one page before and after for context
       const targetPage = dateInfo.page
-      const pagesToLoad = []
-      if (targetPage > 1) pagesToLoad.push(targetPage - 1)
-      pagesToLoad.push(targetPage)
-      pagesToLoad.push(targetPage + 1)
 
-      const allGroups: CalendarDateGroup[] = []
+      // Load only the target page
+      const result = await fetchGalleryCalendar(
+        targetPage,
+        PAGE_SIZE,
+        dateRangeFilter.start ?? undefined,
+        dateRangeFilter.end ?? undefined,
+        calendarMonthKey
+      )
 
-      for (const page of pagesToLoad) {
-        if (page < 1) continue
-        const result = await fetchGalleryCalendar(
-          page,
-          PAGE_SIZE,
-          dateRangeFilter.start ?? undefined,
-          dateRangeFilter.end ?? undefined,
-          calendarMonthKey
-        )
-        if (result.groups.length > 0) {
-          allGroups.push(...result.groups)
-        }
-      }
-
-      // Deduplicate groups by date (adjacent pages might share boundary dates)
-      const groupMap = new Map<string, CalendarDateGroup>()
-      for (const g of allGroups) {
-        if (!groupMap.has(g.date)) {
-          groupMap.set(g.date, g)
-        }
-      }
-      const uniqueGroups = Array.from(groupMap.values())
-        .sort((a, b) => a.date.localeCompare(b.date))
-
-      if (uniqueGroups.length > 0) {
-        setGroups(uniqueGroups)
-        setTotalImages(uniqueGroups.reduce((sum, g) => sum + g.imageCount, 0))
-        setHasMore(true) // Allow infinite scroll to continue from here
+      if (result.groups.length > 0) {
+        setGroups(result.groups)
+        setTotalImages(result.totalImages)
+        setHasMore(result.hasMore)
+        loadedPagesRef.current = new Set([targetPage])
         const newLoaded = new Set(loadedDates)
-        uniqueGroups.forEach((g) => newLoaded.add(g.date))
+        result.groups.forEach((g) => newLoaded.add(g.date))
         setLoadedDates(newLoaded)
-        pageRef.current = targetPage + 1
+
+        // Set up bidirectional scroll: prev page above, next page below
+        prevPageRef.current = targetPage - 1
+        nextPageRef.current = targetPage + 1
 
         setTimeout(() => {
           const element = document.getElementById(`date-group-${date}`)
@@ -468,13 +441,17 @@ export function GalleryCalendarView({ onImageClick, onImageView, onImageOcr, onI
                 }}
               />
 
-              <div ref={sentinelRef} className="h-4" />
+              {/* Top sentinel - for loading previous pages when scrolling up */}
+              <div ref={topSentinelRef} className="h-1" />
 
               {isLoading && (
                 <div className="flex justify-center py-4">
                   <div className="text-sm text-muted-foreground">{t("gallery.loadingMore")}</div>
                 </div>
               )}
+
+              {/* Bottom sentinel - for loading next pages when scrolling down */}
+              <div ref={bottomSentinelRef} className="h-4" />
 
               {!hasMore && groups.length > 0 && (
                 <div className="text-center text-xs text-muted-foreground py-4">
