@@ -108,11 +108,11 @@ export function TimelineBar({
               markers.push(
                 <div
                   key={`year-${current.getFullYear()}`}
-                  className="absolute left-0 right-0 border-t border-primary/50"
+                  className="absolute left-0 right-0 border-t border-muted/30"
                   style={{ top: `${topPercent}%` }}
                 >
                   <span
-                    className="absolute left-0 text-[9px] font-semibold text-foreground whitespace-nowrap -translate-x-1/2"
+                    className="absolute left-0 text-[9px] font-semibold text-foreground whitespace-nowrap -translate-x-1/2 px-1 rounded bg-background/80"
                     style={{ left: "50%" }}
                   >
                     {current.getFullYear()}
@@ -163,14 +163,14 @@ export function TimelineBar({
             let markerClasses = "absolute left-1/2 -translate-x-1/2 w-2 h-2 rounded-full transition-all"
 
             if (!isActive) {
-              // Inactive (outside filter range)
-              markerClasses += " bg-muted/30 cursor-not-allowed opacity-40"
+              // Inactive (outside filter range) - always visible but dimmed
+              markerClasses += " bg-muted/50 cursor-not-allowed opacity-60"
             } else if (isLoaded) {
-              // Loaded and active
-              markerClasses += " bg-primary/70 cursor-pointer hover:scale-150"
+              // Loaded and active - more visible
+              markerClasses += " bg-primary/80 cursor-pointer hover:scale-150"
             } else {
-              // Active but not loaded yet
-              markerClasses += " bg-primary/30 cursor-pointer hover:scale-125 hover:bg-primary/60"
+              // Active but not loaded yet - semi-transparent but visible
+              markerClasses += " bg-primary/50 cursor-pointer hover:scale-125 hover:bg-primary/70"
             }
 
             return (
