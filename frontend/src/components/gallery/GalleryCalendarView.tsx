@@ -51,6 +51,7 @@ export function GalleryCalendarView({ onImageClick, onImageView, onImageOcr, onI
   const bottomSentinelRef = useRef<HTMLDivElement>(null)
   const mainContentRef = useRef<HTMLDivElement>(null)
   const loadedPagesRef = useRef<Set<number>>(new Set()) // track which pages are already in groups
+  const prevGroupsLengthRef = useRef(0) // track previous groups length for scroll restoration
   
   // Image preloading
   const preloadImageCache = useRef<Map<string, HTMLImageElement>>(new Map())
@@ -148,6 +149,30 @@ export function GalleryCalendarView({ onImageClick, onImageView, onImageOcr, onI
     
     return () => clearTimeout(timer)
   }, [groups, preloadImages])
+
+  // Restore scroll position when groups are prepended
+  useEffect(() => {
+    const prevLength = prevGroupsLengthRef.current
+    const currentLength = groups.length
+    
+    // If groups increased and we loaded a previous page (detected by checking if first group changed)
+    if (currentLength > prevLength && prevLength > 0) {
+      // Scroll to maintain position - scroll down by approximate height of new content
+      const scrollContainer = mainContentRef.current
+      if (scrollContainer) {
+        // Find the scrollable parent
+        const scrollableParent = scrollContainer.parentElement?.closest('.overflow-y-auto') || window
+        if ('scrollTop' in (scrollableParent as HTMLElement)) {
+          // Approximate: each group has ~100px height, scroll down by the new groups
+          const newGroupsCount = currentLength - prevLength
+          const estimatedHeight = newGroupsCount * 150
+          ;(scrollableParent as HTMLElement).scrollTop += estimatedHeight
+        }
+      }
+    }
+    
+    prevGroupsLengthRef.current = currentLength
+  }, [groups])
 
   // Initial load on mount
   useEffect(() => {
@@ -423,6 +448,9 @@ export function GalleryCalendarView({ onImageClick, onImageView, onImageOcr, onI
             </div>
           ) : (
             <>
+              {/* Top sentinel - for loading previous pages when scrolling up */}
+              <div ref={topSentinelRef} className="h-4" />
+
               <CalendarImageGrid
                 groups={groups}
                 onImageClick={onImageClick}
@@ -440,9 +468,6 @@ export function GalleryCalendarView({ onImageClick, onImageView, onImageOcr, onI
                   })
                 }}
               />
-
-              {/* Top sentinel - for loading previous pages when scrolling up */}
-              <div ref={topSentinelRef} className="h-1" />
 
               {isLoading && (
                 <div className="flex justify-center py-4">
