@@ -49,6 +49,7 @@ export function GalleryCalendarView({ onImageClick, onImageView, onImageOcr, onI
   const prefetchedPageRef = useRef(0)
   const sentinelRef = useRef<HTMLDivElement>(null)
   const mainContentRef = useRef<HTMLDivElement>(null)
+  const navigatingToPageRef = useRef(false) // Track if we're in timeline navigation mode
   
   // Image preloading
   const preloadImageCache = useRef<Map<string, HTMLImageElement>>(new Map())
@@ -238,6 +239,12 @@ export function GalleryCalendarView({ onImageClick, onImageView, onImageOcr, onI
 
   // Reload calendar data with thumbnails when month/year changes
   useEffect(() => {
+    // Skip if we're in timeline navigation mode (month changed programmatically)
+    if (navigatingToPageRef.current) {
+      navigatingToPageRef.current = false
+      return
+    }
+    
     const initialize = async () => {
       pageRef.current = 1
       prefetchedPageRef.current = 0
@@ -386,6 +393,7 @@ export function GalleryCalendarView({ onImageClick, onImageView, onImageOcr, onI
 
         // Update calendar widget to the month of the navigated date
         const navDate = new Date(date + "T00:00:00")
+        navigatingToPageRef.current = true // Prevent calendar month change effect from resetting data
         setCalendarViewDate(new Date(navDate.getFullYear(), navDate.getMonth(), 1))
 
         setTimeout(() => {
