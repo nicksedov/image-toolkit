@@ -61,6 +61,7 @@ export function GalleryCalendarView({ onImageClick, onImageView, onImageOcr, onI
 
   // Fetch calendar data
   const loadingRef = useRef(false)
+  const loadPageRef = useRef<((page: number, reset?: boolean) => Promise<void>) | null>(null)
   const loadPage = useCallback(async (page: number, reset = false) => {
     if (loadingRef.current) return
     loadingRef.current = true
@@ -108,6 +109,11 @@ export function GalleryCalendarView({ onImageClick, onImageView, onImageOcr, onI
       setIsLoading(false)
     }
   }, [dateRangeFilter.start, dateRangeFilter.end, calendarMonthKey, initialized])
+
+  // Keep ref in sync
+  useEffect(() => {
+    loadPageRef.current = loadPage
+  }, [loadPage])
 
   // Preload images for smoother scrolling
   const preloadImages = useCallback((imageUrls: string[]) => {
@@ -271,8 +277,8 @@ export function GalleryCalendarView({ onImageClick, onImageView, onImageOcr, onI
 
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && hasMore && !isLoading) {
-          loadPage(pageRef.current)
+        if (entries[0].isIntersecting && hasMore && !isLoading && loadPageRef.current) {
+          loadPageRef.current(pageRef.current)
         }
       },
       { threshold: 0.1 }
@@ -280,7 +286,7 @@ export function GalleryCalendarView({ onImageClick, onImageView, onImageOcr, onI
 
     observer.observe(sentinel)
     return () => observer.disconnect()
-  }, [hasMore, isLoading, loadPage])
+  }, [hasMore, isLoading])
 
   const handleDateSelect = (date: string) => {
     if (!rangeSelecting) {
