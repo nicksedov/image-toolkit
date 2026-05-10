@@ -384,6 +384,10 @@ export function GalleryCalendarView({ onImageClick, onImageView, onImageOcr, onI
         setLoadedDates(newLoaded)
         pageRef.current = targetPage + 1
 
+        // Update calendar widget to the month of the navigated date
+        const navDate = new Date(date + "T00:00:00")
+        setCalendarViewDate(new Date(navDate.getFullYear(), navDate.getMonth(), 1))
+
         setTimeout(() => {
           const element = document.getElementById(`date-group-${date}`)
           if (element) {
