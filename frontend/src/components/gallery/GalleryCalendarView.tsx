@@ -52,7 +52,6 @@ export function GalleryCalendarView({ onImageClick, onImageView, onImageOcr, onI
   const mainContentRef = useRef<HTMLDivElement>(null)
   const loadedPagesRef = useRef<Set<number>>(new Set()) // track which pages are already in groups
   const prevGroupsLengthRef = useRef(0) // track previous groups length for scroll restoration
-  const allowPrependRef = useRef(false) // only allow prepend after user actually scrolls up
   
   // Image preloading
   const preloadImageCache = useRef<Map<string, HTMLImageElement>>(new Map())
@@ -180,7 +179,6 @@ export function GalleryCalendarView({ onImageClick, onImageView, onImageOcr, onI
     const initialize = async () => {
       nextPageRef.current = 1
       prevPageRef.current = 0
-      allowPrependRef.current = false // Reset on initial load
       setGroups([])
       setInitialized(false)
       loadedPagesRef.current = new Set()
@@ -225,7 +223,6 @@ export function GalleryCalendarView({ onImageClick, onImageView, onImageOcr, onI
     const initialize = async () => {
       nextPageRef.current = 1
       prevPageRef.current = 0
-      allowPrependRef.current = false // Reset on month change
       setGroups([])
       setInitialized(false)
       setDateRangeFilter({ start: null, end: null })
@@ -248,7 +245,6 @@ export function GalleryCalendarView({ onImageClick, onImageView, onImageOcr, onI
       
       nextPageRef.current = 1
       prevPageRef.current = 0
-      allowPrependRef.current = false // Reset on date filter change
       setGroups([])
       setInitialized(false)
       loadedPagesRef.current = new Set()
@@ -287,7 +283,7 @@ export function GalleryCalendarView({ onImageClick, onImageView, onImageOcr, onI
 
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && prevPageRef.current > 0 && !isLoading && allowPrependRef.current) {
+        if (entries[0].isIntersecting && prevPageRef.current > 0 && !isLoading) {
           const page = prevPageRef.current
           if (!loadedPagesRef.current.has(page)) {
             loadPage(page, "prepend")
@@ -295,32 +291,12 @@ export function GalleryCalendarView({ onImageClick, onImageView, onImageOcr, onI
           }
         }
       },
-      { threshold: 0.1 }
+      { threshold: 0.1, rootMargin: '-20% 0px 0px 0px' }
     )
 
     observer.observe(sentinel)
     return () => observer.disconnect()
   }, [isLoading, loadPage])
-
-  // Track scroll position to enable prepend only when user actually scrolls up
-  useEffect(() => {
-    const container = mainContentRef.current
-    if (!container) return
-
-    const scrollableParent = container.parentElement
-    
-    const handleScroll = () => {
-      // If user scrolls to the very top (or near top), allow prepend
-      if (scrollableParent && scrollableParent.scrollTop <= 50) {
-        allowPrependRef.current = true
-      }
-    }
-
-    if (scrollableParent) {
-      scrollableParent.addEventListener('scroll', handleScroll, { passive: true })
-      return () => scrollableParent.removeEventListener('scroll', handleScroll)
-    }
-  }, [])
 
   const handleDateSelect = (date: string) => {
     if (!rangeSelecting) {
@@ -374,7 +350,6 @@ export function GalleryCalendarView({ onImageClick, onImageView, onImageOcr, onI
 
     setIsLoading(true)
     setError(null)
-    allowPrependRef.current = false // Reset on navigation
     try {
       const targetPage = dateInfo.page
 
