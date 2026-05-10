@@ -159,34 +159,49 @@ export function TimelineBar({
             const isFiltered = hasActiveFilter && !activeDateSet.has(dateMarker.date)
             const isActive = !isFiltered
 
-            // Style based on state
-            let markerClasses = "absolute left-1/2 -translate-x-1/2 w-2 h-2 rounded-full transition-all"
-
+            // Style based on state - always visible, semi-transparent so labels show through
             if (!isActive) {
-              // Inactive (outside filter range) - always visible but dimmed
-              markerClasses += " bg-muted/50 cursor-not-allowed opacity-60"
+              // Inactive (outside filter range) - dimmed but visible
+              return (
+                <div
+                  key={dateMarker.date}
+                  className="absolute left-1/2 -translate-x-1/2 w-2 h-2 rounded-full transition-all bg-gray-400 cursor-not-allowed"
+                  style={{ top: `${topPercent}%`, opacity: 0.4 }}
+                  title={`${dateMarker.date} (${dateMarker.imageCount} images)${isLoaded ? " - loaded" : ""}${isFiltered ? " - outside filter" : ""}`}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                  }}
+                />
+              )
             } else if (isLoaded) {
-              // Loaded and active - more visible
-              markerClasses += " bg-primary/80 cursor-pointer hover:scale-150"
-            } else {
-              // Active but not loaded yet - semi-transparent but visible
-              markerClasses += " bg-primary/50 cursor-pointer hover:scale-125 hover:bg-primary/70"
-            }
-
-            return (
-              <div
-                key={dateMarker.date}
-                className={markerClasses}
-                style={{ top: `${topPercent}%` }}
-                title={`${dateMarker.date} (${dateMarker.imageCount} images)${isLoaded ? " - loaded" : ""}${isFiltered ? " - outside filter" : ""}`}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  if (isActive) {
+              // Loaded and active - solid but slightly transparent for label visibility
+              return (
+                <div
+                  key={dateMarker.date}
+                  className="absolute left-1/2 -translate-x-1/2 w-2 h-2 rounded-full transition-all bg-blue-500 cursor-pointer hover:scale-150"
+                  style={{ top: `${topPercent}%`, opacity: 0.75 }}
+                  title={`${dateMarker.date} (${dateMarker.imageCount} images)${isLoaded ? " - loaded" : ""}${isFiltered ? " - outside filter" : ""}`}
+                  onClick={(e) => {
+                    e.stopPropagation()
                     onNavigateToDate(dateMarker.date)
-                  }
-                }}
-              />
-            )
+                  }}
+                />
+              )
+            } else {
+              // Active but not loaded yet - more transparent but still visible
+              return (
+                <div
+                  key={dateMarker.date}
+                  className="absolute left-1/2 -translate-x-1/2 w-2 h-2 rounded-full transition-all bg-blue-400 cursor-pointer hover:scale-125"
+                  style={{ top: `${topPercent}%`, opacity: 0.5 }}
+                  title={`${dateMarker.date} (${dateMarker.imageCount} images)${isLoaded ? " - loaded" : ""}${isFiltered ? " - outside filter" : ""}`}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onNavigateToDate(dateMarker.date)
+                  }}
+                />
+              )
+            }
           })}
         </div>
       </div>
