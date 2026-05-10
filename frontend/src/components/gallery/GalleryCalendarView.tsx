@@ -322,19 +322,20 @@ export function GalleryCalendarView({ onImageClick, onImageView, onImageOcr, onI
   }
 
   const handleNavigateToDate = async (date: string) => {
-    // If the date is already loaded (visible in groups), just scroll to it
-    if (loadedDates.has(date)) {
-      const element = document.getElementById(`date-group-${date}`)
-      if (element) {
-        element.scrollIntoView({ behavior: "smooth", block: "start" })
-      }
-      return
-    }
-
     // Find the page for this date from allDates
     const dateInfo = allDates.find((d) => d.date === date)
     if (!dateInfo) {
       setError(`No images found for date ${date}`)
+      return
+    }
+
+    // If the date is already in the current groups, just scroll to it
+    const isInCurrentGroups = groups.some((g) => g.date === date)
+    if (isInCurrentGroups) {
+      const element = document.getElementById(`date-group-${date}`)
+      if (element) {
+        element.scrollIntoView({ behavior: "smooth", block: "start" })
+      }
       return
     }
 
@@ -378,7 +379,7 @@ export function GalleryCalendarView({ onImageClick, onImageView, onImageOcr, onI
         setGroups(uniqueGroups)
         setTotalImages(uniqueGroups.reduce((sum, g) => sum + g.imageCount, 0))
         setHasMore(true) // Allow infinite scroll to continue from here
-        const newLoaded = new Set(loadedDates)
+        const newLoaded = new Set<string>()
         uniqueGroups.forEach((g) => newLoaded.add(g.date))
         setLoadedDates(newLoaded)
         pageRef.current = targetPage + 1
