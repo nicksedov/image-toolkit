@@ -11,6 +11,7 @@ import {
   AlertCircle,
 } from "lucide-react"
 import type { AiActionType, AiActionResponse } from "@/types"
+import { OcrMarkdownRenderer } from "./OcrMarkdownRenderer"
 
 interface AiActionPanelProps {
   imagePath: string | null
@@ -65,8 +66,8 @@ export function AiActionPanel({
               <FileText className="h-4 w-4" />
               <span>{t("ai.description_result")}</span>
             </div>
-            <div className="p-3 rounded-lg bg-muted text-sm whitespace-pre-wrap">
-              {result.result}
+            <div className="p-3 rounded-lg bg-muted text-sm">
+              <OcrMarkdownRenderer content={result.result || ""} />
             </div>
           </div>
         )
@@ -98,8 +99,8 @@ export function AiActionPanel({
               <ScanText className="h-4 w-4" />
               <span>{t("ai.textRecognized")}</span>
             </div>
-            <div className="p-3 rounded-lg bg-muted text-sm whitespace-pre-wrap font-mono">
-              {result.result}
+            <div className="p-3 rounded-lg bg-muted text-sm">
+              <OcrMarkdownRenderer content={result.result || ""} />
             </div>
           </div>
         )
@@ -111,8 +112,8 @@ export function AiActionPanel({
               <MessageSquare className="h-4 w-4" />
               <span>{t("ai.answer")}</span>
             </div>
-            <div className="p-3 rounded-lg bg-muted text-sm whitespace-pre-wrap">
-              {result.result}
+            <div className="p-3 rounded-lg bg-muted text-sm">
+              <OcrMarkdownRenderer content={result.result || ""} />
             </div>
           </div>
         )
