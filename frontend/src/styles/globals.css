@@ -444,7 +444,7 @@ body {
 }
 
 /* Global loading cursor - applies wait cursor during page loads */
-.loading-cursor,
-.loading-cursor * {
+body.loading-cursor,
+body.loading-cursor * {
   cursor: wait !important;
 }

@@ -57,13 +57,15 @@ export function GalleryCalendarView({ onImageClick, onImageView, onImageOcr, onI
 
   // Global cursor style when loading
   useEffect(() => {
+    const body = document.body
     if (isLoading) {
-      document.body.classList.add('loading-cursor')
+      body.classList.add('loading-cursor')
     } else {
-      document.body.classList.remove('loading-cursor')
+      body.classList.remove('loading-cursor')
     }
+    // Cleanup on unmount
     return () => {
-      document.body.classList.remove('loading-cursor')
+      body.classList.remove('loading-cursor')
     }
   }, [isLoading])
 
