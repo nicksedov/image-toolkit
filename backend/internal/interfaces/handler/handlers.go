@@ -2427,7 +2427,7 @@ func (s *Server) handleAiAction(c *gin.Context) {
 		return
 	}
 
-	result, err := s.llmOcrService.ExecuteAiAction(imageFile.ID, string(req.Action), req.Question, llmClient, settings)
+	result, err := s.llmOcrService.ExecuteAiAction(imageFile.ID, string(req.Action), req.Question, req.Language, llmClient, settings)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, dto.AiActionResponse{
 			Success: false,

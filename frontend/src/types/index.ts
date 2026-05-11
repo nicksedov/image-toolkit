@@ -580,6 +580,7 @@ export interface AiActionRequest {
   imagePath: string
   action: AiActionType
   question?: string  // Only for "askQuestion" action
+  language?: string  // UI language code (e.g. "en", "ru")
 }
 
 export interface AiActionResponse {

@@ -13,7 +13,7 @@ interface AiLightboxProps {
 }
 
 export function AiLightbox({ imagePath, onClose }: AiLightboxProps) {
-  const { t } = useTranslation()
+  const { t, language } = useTranslation()
   const [loading, setLoading] = useState(false)
   const [currentAction, setCurrentAction] = useState<AiActionType | null>(null)
   const [result, setResult] = useState<AiActionResponse | null>(null)
@@ -36,6 +36,7 @@ export function AiLightbox({ imagePath, onClose }: AiLightboxProps) {
         imagePath,
         action,
         question,
+        language,
       })
 
       if (response.success) {
@@ -49,7 +50,7 @@ export function AiLightbox({ imagePath, onClose }: AiLightboxProps) {
     } finally {
       setLoading(false)
     }
-  }, [imagePath, t])
+  }, [imagePath, t, language])
 
   const handleClose = useCallback(() => {
     setCurrentAction(null)

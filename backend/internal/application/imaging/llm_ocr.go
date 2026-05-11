@@ -12,6 +12,25 @@ import (
 	"gorm.io/gorm"
 )
 
+// Prompt template data types
+
+type ocrPromptData struct {
+	Language string
+}
+
+type actionPromptData struct {
+	ResponseLanguage string
+}
+
+type recognizeTextPromptData struct {
+	NoTextMessage string
+}
+
+type askQuestionPromptData struct {
+	Question         string
+	QuestionLanguage string
+}
+
 // LlmRecognitionStatus represents the status of an async recognition task
 type LlmRecognitionStatus struct {
 	Status string           // "processing", "completed", "failed"
@@ -226,19 +245,7 @@ func buildOcrSystemPrompt(language string) string {
 		langName = "Russian"
 	}
 
-	return fmt.Sprintf(`You are an OCR model. Convert the document in %s language to markdown format, preserving formatting for headings, paragraphs, tables, and formulas.
-
-Rules:
-1. Output ONLY the document content - NO comments, explanations, or meta-text
-2. Preserve the original structure: headings, lists, tables, formulas
-3. Use proper markdown syntax (# for H1, ## for H2, etc.)
-4. For tables, use markdown table format (| column | column |)
-5. For formulas, use LaTeX format ($formula$ for inline, $$formula$$ for block)
-6. Maintain the original language - do NOT translate
-7. If text is unclear, mark it as [unclear]
-8. Do NOT add "Here is the document" or "This document contains" - just output the content
-
-Return only the markdown content, nothing else.`, langName)
+	return renderPrompt("prompts/ocr_system.txt", ocrPromptData{Language: langName})
 }
 
 // AiActionResult holds the result of an AI action
@@ -253,7 +260,7 @@ type AiActionResult struct {
 }
 
 // ExecuteAiAction performs an AI action (describe, tags, recognizeText, askQuestion)
-func (s *LlmOcrService) ExecuteAiAction(imageFileID uint, action string, question string, client llm.Client, settings domain.LlmSettings) (*AiActionResult, error) {
+func (s *LlmOcrService) ExecuteAiAction(imageFileID uint, action string, question string, language string, client llm.Client, settings domain.LlmSettings) (*AiActionResult, error) {
 	// Get image file
 	var imageFile domain.ImageFile
 	if err := s.db.First(&imageFile, imageFileID).Error; err != nil {
@@ -261,7 +268,7 @@ func (s *LlmOcrService) ExecuteAiAction(imageFileID uint, action string, questio
 	}
 
 	// Build system prompt based on action
-	systemPrompt := buildAiActionPrompt(action, question)
+	systemPrompt := buildAiActionPrompt(action, question, language)
 
 	// Call LLM
 	startTime := time.Now()
@@ -294,50 +301,28 @@ func (s *LlmOcrService) ExecuteAiAction(imageFileID uint, action string, questio
 }
 
 // buildAiActionPrompt creates the system prompt for AI actions
-func buildAiActionPrompt(action string, question string) string {
+func buildAiActionPrompt(action string, question string, language string) string {
+	responseLang := languageCodeToName(language)
+
 	switch action {
 	case "describe":
-		return `You are an AI assistant that describes images in detail. Describe what you see in the image, including:
-- Main objects and subjects
-- Background and setting
-- Colors and lighting
-- Actions or activities
-- Mood or atmosphere
-
-Provide a comprehensive description in natural language. Be specific and detailed.`
-
+		return renderPrompt("prompts/action_describe.txt", actionPromptData{ResponseLanguage: responseLang})
 	case "tags":
-		return `You are an AI assistant that generates relevant tags for images. Analyze the image and provide a list of descriptive tags for:
-- Objects and items visible
-- Actions or activities
-- Setting and environment
-- Mood and atmosphere
-- Colors and styles
-- Categories and themes
-
-Return the tags as a comma-separated list. Use single words or short phrases. Do NOT include explanations, just the tags.`
-
+		return loadPrompt("prompts/action_tags.txt")
 	case "recognizeText":
-		return `You are an OCR (Optical Character Recognition) model. Extract and recognize all text from this image.
-
-Rules:
-1. Extract ALL visible text in the image
-2. Preserve the original language and formatting where possible
-3. If text is unclear, mark it as [unclear]
-4. Return ONLY the recognized text, no explanations
-5. If there is no text in the image, respond with "No text detected."
-
-Recognize and output the text content.`
-
+		noTextMsg := "No text detected."
+		if language == "ru" {
+			noTextMsg = "Текст не обнаружен."
+		}
+		return renderPrompt("prompts/action_recognize_text.txt", recognizeTextPromptData{NoTextMessage: noTextMsg})
 	case "askQuestion":
-		return fmt.Sprintf(`You are an AI assistant that answers questions about images. The user will ask you a question about this image.
-
-Question: %s
-
-Provide a clear and helpful answer based on what you can see in the image. Be specific and accurate. If you cannot determine the answer from the image, say so clearly.`, question)
-
+		questionLang := detectQuestionLanguage(question)
+		return renderPrompt("prompts/action_ask_question.txt", askQuestionPromptData{
+			Question:         question,
+			QuestionLanguage: questionLang,
+		})
 	default:
-		return "Analyze this image and provide your observations."
+		return loadPrompt("prompts/action_default.txt")
 	}
 }
 

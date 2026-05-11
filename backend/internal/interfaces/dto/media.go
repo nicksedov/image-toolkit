@@ -531,6 +531,7 @@ type AiActionRequest struct {
 	ImagePath string       `json:"imagePath" binding:"required"`
 	Action    AiActionType `json:"action" binding:"required"`
 	Question  string       `json:"question,omitempty"` // Only for askQuestion
+	Language  string       `json:"language,omitempty"` // UI language code (e.g. "en", "ru")
 }
 
 // AiActionResponse for POST /api/ai/action
