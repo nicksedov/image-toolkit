@@ -152,6 +152,7 @@ export const translations = {
     "gallery.overlay.download": "Download",
     "gallery.overlay.view": "View",
     "gallery.overlay.ocr": "OCR",
+    "gallery.overlay.ai": "AI",
     "gallery.overlay.delete": "Delete",
 
     // Gallery delete confirmation dialog
@@ -564,6 +565,30 @@ export const translations = {
     "llm_ocr.milliseconds": "{ms} ms",
     "llm_ocr.enableRecognition": "Enable LLM Recognition",
     "llm_ocr.enableDescription": "Allow using VL LLM for text recognition in OCR Lightbox",
+
+    // AI Assistant
+    "ai.title": "AI Assistant",
+    "ai.description": "Use AI to analyze and understand your images",
+    "ai.describeImage": "Describe Image",
+    "ai.describeImageDescription": "Generate a detailed text description of what's shown in the image",
+    "ai.generateTags": "Generate Tags",
+    "ai.generateTagsDescription": "Create a list of relevant tags describing objects and actions in the image",
+    "ai.recognizeText": "Recognize Text",
+    "ai.recognizeTextDescription": "Extract and recognize text from the image using AI",
+    "ai.askQuestion": "Ask a Question",
+    "ai.askQuestionDescription": "Ask any question about the image and get an AI-powered answer",
+    "ai.questionPlaceholder": "Type your question about the image...",
+    "ai.submitQuestion": "Submit Question",
+    "ai.processing": "Processing...",
+    "ai.result": "AI Result",
+    "ai.tags": "Tags",
+    "ai.description_result": "Description",
+    "ai.textRecognized": "Recognized Text",
+    "ai.answer": "Answer",
+    "ai.startAction": "Start",
+    "ai.actionCompleted": "Complete",
+    "ai.actionFailed": "Failed",
+    "ai.notEnabled": "AI features not enabled. Contact administrator to configure LLM settings.",
   },
 
   ru: {
@@ -738,6 +763,7 @@ export const translations = {
     "gallery.overlay.download": "Скачать",
     "gallery.overlay.view": "Просмотр",
     "gallery.overlay.ocr": "OCR",
+    "gallery.overlay.ai": "ИИ",
     "gallery.overlay.delete": "Удалить",
 
     // Gallery delete confirmation dialog
@@ -1106,6 +1132,30 @@ export const translations = {
     "llm_ocr.milliseconds": "{ms} мс",
     "llm_ocr.enableRecognition": "Включить LLM распознавание",
     "llm_ocr.enableDescription": "Разрешить использование VL LLM для распознавания текста в OCR Lightbox",
+
+    // AI Assistant
+    "ai.title": "ИИ-помощник",
+    "ai.description": "Используйте ИИ для анализа и понимания ваших изображений",
+    "ai.describeImage": "Описать изображение",
+    "ai.describeImageDescription": "Создать подробное текстовое описание того, что изображено на картинке",
+    "ai.generateTags": "Создать теги",
+    "ai.generateTagsDescription": "Составить список релевантных тегов, описывающих предметы и действия на изображении",
+    "ai.recognizeText": "Распознать текст",
+    "ai.recognizeTextDescription": "Извлечь и распознать текст на изображении с помощью ИИ",
+    "ai.askQuestion": "Задать вопрос",
+    "ai.askQuestionDescription": "Задайте любой вопрос об изображении и получите ответ от ИИ",
+    "ai.questionPlaceholder": "Введите ваш вопрос об изображении...",
+    "ai.submitQuestion": "Отправить вопрос",
+    "ai.processing": "Обработка...",
+    "ai.result": "Результат ИИ",
+    "ai.tags": "Теги",
+    "ai.description_result": "Описание",
+    "ai.textRecognized": "Распознанный текст",
+    "ai.answer": "Ответ",
+    "ai.startAction": "Начать",
+    "ai.actionCompleted": "Завершено",
+    "ai.actionFailed": "Ошибка",
+    "ai.notEnabled": "ИИ-функции не включены. Обратитесь к администратору для настройки LLM.",
 
     // Admin Panel - Thumbnail Cache
     "adminPanel.thumbnailCache.title": "Кэш миниатюр",

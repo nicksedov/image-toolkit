@@ -513,3 +513,34 @@ type LlmRecognizeStatusResponse struct {
 	ProcessingTimeMs int    `json:"processingTimeMs,omitempty"`
 	Error            string `json:"error,omitempty"`
 }
+
+// --- AI Assistant API ---
+
+// AiActionType represents the type of AI action
+type AiActionType string
+
+const (
+	AiActionDescribe      AiActionType = "describe"
+	AiActionTags          AiActionType = "tags"
+	AiActionRecognizeText AiActionType = "recognizeText"
+	AiActionAskQuestion   AiActionType = "askQuestion"
+)
+
+// AiActionRequest for POST /api/ai/action
+type AiActionRequest struct {
+	ImagePath string       `json:"imagePath" binding:"required"`
+	Action    AiActionType `json:"action" binding:"required"`
+	Question  string       `json:"question,omitempty"` // Only for askQuestion
+}
+
+// AiActionResponse for POST /api/ai/action
+type AiActionResponse struct {
+	Success          bool         `json:"success"`
+	Action           AiActionType `json:"action"`
+	Result           string       `json:"result,omitempty"`
+	Tags             []string     `json:"tags,omitempty"` // Only for tags action
+	Error            string       `json:"error,omitempty"`
+	Provider         string       `json:"provider,omitempty"`
+	Model            string       `json:"model,omitempty"`
+	ProcessingTimeMs int          `json:"processingTimeMs,omitempty"`
+}

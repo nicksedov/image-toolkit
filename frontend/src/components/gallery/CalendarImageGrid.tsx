@@ -8,11 +8,12 @@ interface CalendarImageGridProps {
   onImageClick: (image: GalleryImageDTO) => void
   onImageView?: (image: GalleryImageDTO) => void
   onImageOcr?: (image: GalleryImageDTO) => void
+  onImageAi?: (image: GalleryImageDTO) => void
   onImageDownload?: (image: GalleryImageDTO) => void
   onImageDelete?: (image: GalleryImageDTO, removeThumbnail: () => void) => void
 }
 
-export function CalendarImageGrid({ groups, onImageClick, onImageView, onImageOcr, onImageDownload, onImageDelete }: CalendarImageGridProps) {
+export function CalendarImageGrid({ groups, onImageClick, onImageView, onImageOcr, onImageAi, onImageDownload, onImageDelete }: CalendarImageGridProps) {
   const handleDelete = (image: GalleryImageDTO) => {
     const removeThumbnail = () => {
       // Find the group and remove the image from it
@@ -48,6 +49,7 @@ export function CalendarImageGrid({ groups, onImageClick, onImageView, onImageOc
                 onClick={onImageClick}
                 onImageView={onImageView}
                 onImageOcr={onImageOcr}
+                onImageAi={onImageAi}
                 onImageDownload={onImageDownload}
                 onImageDelete={handleDelete}
               />

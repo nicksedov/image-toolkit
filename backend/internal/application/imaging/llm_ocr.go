@@ -240,3 +240,126 @@ Rules:
 
 Return only the markdown content, nothing else.`, langName)
 }
+
+// AiActionResult holds the result of an AI action
+type AiActionResult struct {
+	Success          bool
+	Result           string
+	Tags             []string
+	Provider         string
+	Model            string
+	ProcessingTimeMs int
+	Error            string
+}
+
+// ExecuteAiAction performs an AI action (describe, tags, recognizeText, askQuestion)
+func (s *LlmOcrService) ExecuteAiAction(imageFileID uint, action string, question string, client llm.Client, settings domain.LlmSettings) (*AiActionResult, error) {
+	// Get image file
+	var imageFile domain.ImageFile
+	if err := s.db.First(&imageFile, imageFileID).Error; err != nil {
+		return nil, fmt.Errorf("failed to get image file: %w", err)
+	}
+
+	// Build system prompt based on action
+	systemPrompt := buildAiActionPrompt(action, question)
+
+	// Call LLM
+	startTime := time.Now()
+	response, err := client.Recognize(imageFile.Path, systemPrompt)
+	processingTime := int(time.Since(startTime).Milliseconds())
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute AI action: %w", err)
+	}
+
+	result := &AiActionResult{
+		Success:          true,
+		Provider:         settings.Provider,
+		Model:            settings.Model,
+		ProcessingTimeMs: processingTime,
+	}
+
+	// Parse response based on action
+	switch action {
+	case "tags":
+		// Split comma-separated or newline-separated tags
+		tags := parseTags(response)
+		result.Tags = tags
+		result.Result = response
+	default:
+		result.Result = response
+	}
+
+	return result, nil
+}
+
+// buildAiActionPrompt creates the system prompt for AI actions
+func buildAiActionPrompt(action string, question string) string {
+	switch action {
+	case "describe":
+		return `You are an AI assistant that describes images in detail. Describe what you see in the image, including:
+- Main objects and subjects
+- Background and setting
+- Colors and lighting
+- Actions or activities
+- Mood or atmosphere
+
+Provide a comprehensive description in natural language. Be specific and detailed.`
+
+	case "tags":
+		return `You are an AI assistant that generates relevant tags for images. Analyze the image and provide a list of descriptive tags for:
+- Objects and items visible
+- Actions or activities
+- Setting and environment
+- Mood and atmosphere
+- Colors and styles
+- Categories and themes
+
+Return the tags as a comma-separated list. Use single words or short phrases. Do NOT include explanations, just the tags.`
+
+	case "recognizeText":
+		return `You are an OCR (Optical Character Recognition) model. Extract and recognize all text from this image.
+
+Rules:
+1. Extract ALL visible text in the image
+2. Preserve the original language and formatting where possible
+3. If text is unclear, mark it as [unclear]
+4. Return ONLY the recognized text, no explanations
+5. If there is no text in the image, respond with "No text detected."
+
+Recognize and output the text content.`
+
+	case "askQuestion":
+		return fmt.Sprintf(`You are an AI assistant that answers questions about images. The user will ask you a question about this image.
+
+Question: %s
+
+Provide a clear and helpful answer based on what you can see in the image. Be specific and accurate. If you cannot determine the answer from the image, say so clearly.`, question)
+
+	default:
+		return "Analyze this image and provide your observations."
+	}
+}
+
+// parseTags parses a comma-separated or newline-separated list of tags
+func parseTags(input string) []string {
+	// Split by comma first
+	parts := strings.Split(input, ",")
+
+	// If only one part, try splitting by newline
+	if len(parts) == 1 {
+		parts = strings.Split(input, "\n")
+	}
+
+	var tags []string
+	for _, part := range parts {
+		tag := strings.TrimSpace(part)
+		// Remove leading/trailing quotes
+		tag = strings.Trim(tag, `"'`)
+		if tag != "" {
+			tags = append(tags, tag)
+		}
+	}
+
+	return tags
+}

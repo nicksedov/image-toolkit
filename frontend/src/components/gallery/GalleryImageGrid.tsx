@@ -9,6 +9,7 @@ interface GalleryImageGridProps {
   onImageClick: (image: GalleryImageDTO) => void
   onImageView?: (image: GalleryImageDTO) => void
   onImageOcr?: (image: GalleryImageDTO) => void
+  onImageAi?: (image: GalleryImageDTO) => void
   onImageDownload?: (image: GalleryImageDTO) => void
   onImageDelete?: (image: GalleryImageDTO) => void
 }
@@ -19,7 +20,7 @@ function getFolderName(dirPath: string): string {
   return lastSlash >= 0 ? normalized.substring(lastSlash + 1) : normalized
 }
 
-export function GalleryImageGrid({ images, onImageClick, onImageView, onImageOcr, onImageDownload, onImageDelete }: GalleryImageGridProps) {
+export function GalleryImageGrid({ images, onImageClick, onImageView, onImageOcr, onImageAi, onImageDownload, onImageDelete }: GalleryImageGridProps) {
   const { t } = useTranslation()
 
   const groupedByFolder = useMemo(() => {
@@ -68,6 +69,7 @@ export function GalleryImageGrid({ images, onImageClick, onImageView, onImageOcr
                 onClick={onImageClick}
                 onImageView={onImageView}
                 onImageOcr={onImageOcr}
+                onImageAi={onImageAi}
                 onImageDownload={onImageDownload}
                 onImageDelete={onImageDelete}
               />

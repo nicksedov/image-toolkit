@@ -4,6 +4,7 @@ import { GalleryCalendarView } from "@/components/gallery/GalleryCalendarView"
 import { GalleryGeolocationView } from "@/components/gallery/GalleryGeolocationView"
 import { ImageLightbox } from "@/components/gallery/ImageLightbox"
 import { OcrLightbox } from "@/components/gallery/OcrLightbox"
+import { AiLightbox } from "@/components/gallery/AiLightbox"
 import {
   Dialog,
   DialogContent,
@@ -29,6 +30,7 @@ export function GalleryTab({ galleryMode }: GalleryTabProps) {
   const { t } = useTranslation()
   const [selectedImage, setSelectedImage] = useState<string | null>(null)
   const [ocrImage, setOcrImage] = useState<string | null>(null)
+  const [aiImage, setAiImage] = useState<string | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<{ image: GalleryImageDTO; removeThumbnail: () => void } | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
 
@@ -42,6 +44,10 @@ export function GalleryTab({ galleryMode }: GalleryTabProps) {
 
   const handleImageOcr = useCallback((image: GalleryImageDTO) => {
     setOcrImage(image.path)
+  }, [])
+
+  const handleImageAi = useCallback((image: GalleryImageDTO) => {
+    setAiImage(image.path)
   }, [])
 
   const handleImageDownload = useCallback((image: GalleryImageDTO) => {
@@ -81,6 +87,7 @@ export function GalleryTab({ galleryMode }: GalleryTabProps) {
           onImageClick={handleImageClick}
           onImageView={handleImageView}
           onImageOcr={handleImageOcr}
+          onImageAi={handleImageAi}
           onImageDownload={handleImageDownload}
           onImageDelete={handleImageDelete}
         />
@@ -89,6 +96,7 @@ export function GalleryTab({ galleryMode }: GalleryTabProps) {
           onImageClick={handleImageClick}
           onImageView={handleImageView}
           onImageOcr={handleImageOcr}
+          onImageAi={handleImageAi}
           onImageDownload={handleImageDownload}
           onImageDelete={handleImageDelete}
         />
@@ -97,6 +105,7 @@ export function GalleryTab({ galleryMode }: GalleryTabProps) {
           onImageClick={handleImageClick}
           onImageView={handleImageView}
           onImageOcr={handleImageOcr}
+          onImageAi={handleImageAi}
           onImageDownload={handleImageDownload}
           onImageDelete={handleImageDelete}
         />
@@ -110,6 +119,11 @@ export function GalleryTab({ galleryMode }: GalleryTabProps) {
       <OcrLightbox
         imagePath={ocrImage}
         onClose={() => setOcrImage(null)}
+      />
+
+      <AiLightbox
+        imagePath={aiImage}
+        onClose={() => setAiImage(null)}
       />
 
       <Dialog open={!!deleteConfirm} onOpenChange={(open) => !open && setDeleteConfirm(null)}>

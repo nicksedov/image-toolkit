@@ -571,3 +571,24 @@ export interface ThumbnailCacheStatusResponse {
 export interface WarmupThumbnailsRequest {
   filePaths: string[]
 }
+
+// --- AI Assistant Types ---
+
+export type AiActionType = "describe" | "tags" | "recognizeText" | "askQuestion"
+
+export interface AiActionRequest {
+  imagePath: string
+  action: AiActionType
+  question?: string  // Only for "askQuestion" action
+}
+
+export interface AiActionResponse {
+  success: boolean
+  action: AiActionType
+  result?: string
+  tags?: string[]  // Only for "tags" action
+  error?: string
+  provider?: string
+  model?: string
+  processingTimeMs?: number
+}

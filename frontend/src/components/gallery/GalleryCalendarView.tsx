@@ -12,13 +12,14 @@ interface GalleryCalendarViewProps {
   onImageClick: (image: GalleryImageDTO) => void
   onImageView?: (image: GalleryImageDTO) => void
   onImageOcr?: (image: GalleryImageDTO) => void
+  onImageAi?: (image: GalleryImageDTO) => void
   onImageDownload?: (image: GalleryImageDTO) => void
   onImageDelete?: (image: GalleryImageDTO, removeThumbnail: () => void) => void
 }
 
 const PAGE_SIZE = 50
 
-export function GalleryCalendarView({ onImageClick, onImageView, onImageOcr, onImageDownload, onImageDelete }: GalleryCalendarViewProps) {
+export function GalleryCalendarView({ onImageClick, onImageView, onImageOcr, onImageAi, onImageDownload, onImageDelete }: GalleryCalendarViewProps) {
   const { t } = useTranslation()
 
   const [groups, setGroups] = useState<CalendarDateGroup[]>([])
@@ -474,6 +475,7 @@ export function GalleryCalendarView({ onImageClick, onImageView, onImageOcr, onI
                 onImageClick={onImageClick}
                 onImageView={onImageView}
                 onImageOcr={onImageOcr}
+                onImageAi={onImageAi}
                 onImageDownload={onImageDownload}
                 onImageDelete={(image) => {
                   onImageDelete?.(image, () => {

@@ -10,11 +10,12 @@ interface GalleryFoldersViewProps {
   onImageClick: (image: GalleryImageDTO) => void
   onImageView?: (image: GalleryImageDTO) => void
   onImageOcr?: (image: GalleryImageDTO) => void
+  onImageAi?: (image: GalleryImageDTO) => void
   onImageDownload?: (image: GalleryImageDTO) => void
   onImageDelete?: (image: GalleryImageDTO, removeThumbnail: () => void) => void
 }
 
-export function GalleryFoldersView({ onImageClick, onImageView, onImageOcr, onImageDownload, onImageDelete }: GalleryFoldersViewProps) {
+export function GalleryFoldersView({ onImageClick, onImageView, onImageOcr, onImageAi, onImageDownload, onImageDelete }: GalleryFoldersViewProps) {
   const { images, totalImages, hasMore, isLoading, error, initialized, loadMore, removeImage } =
     useGalleryImages("folders")
   const { t } = useTranslation()
@@ -84,6 +85,7 @@ export function GalleryFoldersView({ onImageClick, onImageView, onImageOcr, onIm
             onImageClick={onImageClick}
             onImageView={onImageView}
             onImageOcr={onImageOcr}
+            onImageAi={onImageAi}
             onImageDownload={onImageDownload}
             onImageDelete={(image) => onImageDelete?.(image, () => removeImage(image.id))}
           />

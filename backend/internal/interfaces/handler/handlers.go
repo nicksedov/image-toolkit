@@ -2366,6 +2366,95 @@ func (s *Server) handleGetLlmModels(c *gin.Context) {
 	})
 }
 
+// handleAiAction executes an AI action (describe, tags, recognizeText, askQuestion)
+func (s *Server) handleAiAction(c *gin.Context) {
+	var req dto.AiActionRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, i18n.ErrorResponse(i18n.ValidationError))
+		return
+	}
+
+	// Get LLM settings
+	var settings domain.LlmSettings
+	if err := s.db.First(&settings).Error; err != nil || !settings.Enabled {
+		c.JSON(http.StatusServiceUnavailable, dto.AiActionResponse{
+			Success: false,
+			Action:  req.Action,
+			Error:   "AI features not enabled",
+		})
+		return
+	}
+
+	// Get image file ID from path
+	var imageFile domain.ImageFile
+	if err := s.db.Where("path = ?", req.ImagePath).First(&imageFile).Error; err != nil {
+		c.JSON(http.StatusNotFound, dto.AiActionResponse{
+			Success: false,
+			Action:  req.Action,
+			Error:   "Image not found",
+		})
+		return
+	}
+
+	// Validate action
+	if req.Action == dto.AiActionAskQuestion && req.Question == "" {
+		c.JSON(http.StatusBadRequest, dto.AiActionResponse{
+			Success: false,
+			Action:  req.Action,
+			Error:   "Question is required for askQuestion action",
+		})
+		return
+	}
+
+	// Create LLM client
+	llmClient, err := llm.NewClient(settings.Provider, settings.ApiUrl, settings.ApiKey, settings.Model)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, dto.AiActionResponse{
+			Success: false,
+			Action:  req.Action,
+			Error:   "Failed to initialize AI service",
+		})
+		return
+	}
+
+	// Execute AI action
+	if s.llmOcrService == nil {
+		c.JSON(http.StatusServiceUnavailable, dto.AiActionResponse{
+			Success: false,
+			Action:  req.Action,
+			Error:   "AI service not available",
+		})
+		return
+	}
+
+	result, err := s.llmOcrService.ExecuteAiAction(imageFile.ID, string(req.Action), req.Question, llmClient, settings)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, dto.AiActionResponse{
+			Success: false,
+			Action:  req.Action,
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	// Build response
+	response := dto.AiActionResponse{
+		Success:          result.Success,
+		Action:           req.Action,
+		Provider:         result.Provider,
+		Model:            result.Model,
+		ProcessingTimeMs: result.ProcessingTimeMs,
+	}
+
+	if req.Action == dto.AiActionTags {
+		response.Tags = result.Tags
+	} else {
+		response.Result = result.Result
+	}
+
+	c.JSON(http.StatusOK, response)
+}
+
 // handleThumbnailCacheStats возвращает статистику кэша миниатюр
 func (s *Server) handleThumbnailCacheStats(c *gin.Context) {
 	if s.thumbnailService == nil {

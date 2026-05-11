@@ -100,6 +100,9 @@ func (s *Server) SetupRouter(authMiddleware *middleware.AuthMiddleware, csrfProt
 			protected.GET("/llm/recognition", s.handleGetLlmRecognition)
 			protected.GET("/llm/models", s.handleGetLlmModels)
 
+			// AI Assistant endpoints
+			protected.POST("/ai/action", s.handleAiAction)
+
 			// Admin routes
 			admin := protected.Group("/admin")
 			admin.Use(middleware.RequireAdmin())

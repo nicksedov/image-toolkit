@@ -777,7 +777,7 @@ export function AdminSettingsTab() {
               <Wand2 className="h-5 w-5" />
               {t("llm_ocr.settings")}
             </CardTitle>
-            <CardDescription>{t("llm_ocr.description")}</CardDescription>
+            <CardDescription>Configure AI-powered features: image description, tag generation, text recognition, and visual question answering</CardDescription>
           </CardHeader>
           <CardContent>
             {isLlmLoading ? (

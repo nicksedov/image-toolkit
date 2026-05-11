@@ -400,3 +400,9 @@ export function enableThumbnailCache(): Promise<{ message: string }> {
 export function disableThumbnailCache(): Promise<{ message: string }> {
   return apiPost<{ message: string }>("/api/thumbnail/cache/disable")
 }
+
+// --- AI Assistant ---
+
+export function executeAiAction(req: import("@/types").AiActionRequest): Promise<import("@/types").AiActionResponse> {
+  return apiPost<import("@/types").AiActionResponse>("/api/ai/action", req)
+}
