@@ -55,6 +55,18 @@ export function GalleryCalendarView({ onImageClick, onImageView, onImageOcr, onI
   // Image preloading
   const preloadImageCache = useRef<Map<string, HTMLImageElement>>(new Map())
 
+  // Global cursor style when loading
+  useEffect(() => {
+    if (isLoading) {
+      document.body.classList.add('loading-cursor')
+    } else {
+      document.body.classList.remove('loading-cursor')
+    }
+    return () => {
+      document.body.classList.remove('loading-cursor')
+    }
+  }, [isLoading])
+
   const calendarMonthKey = useMemo(() => {
     const y = calendarViewDate.getFullYear()
     const m = calendarViewDate.getMonth() + 1

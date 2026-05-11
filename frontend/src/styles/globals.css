@@ -442,3 +442,9 @@ body {
 .calendar-days-no-scrollbar::-webkit-scrollbar {
   display: none;  /* Chrome, Safari and Opera */
 }
+
+/* Global loading cursor - applies wait cursor during page loads */
+.loading-cursor,
+.loading-cursor * {
+  cursor: wait !important;
+}
