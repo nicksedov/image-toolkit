@@ -49,7 +49,7 @@ type ollamaResponse struct {
 }
 
 // Recognize performs OCR using Ollama
-func (c *OllamaClient) Recognize(imagePath string, systemPrompt string) (string, error) {
+func (c *OllamaClient) Recognize(imagePath string, systemPrompt string, userMessage string) (string, error) {
 	// Read image file
 	imgData, err := os.ReadFile(imagePath)
 	if err != nil {
@@ -71,7 +71,7 @@ func (c *OllamaClient) Recognize(imagePath string, systemPrompt string) (string,
 			},
 			{
 				Role:    "user",
-				Content: "Perform OCR on this image and return markdown content.",
+				Content: userMessage,
 				Images:  []string{base64Img},
 			},
 		},

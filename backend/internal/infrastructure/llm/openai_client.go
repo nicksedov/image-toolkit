@@ -61,7 +61,7 @@ type openAIResponse struct {
 }
 
 // Recognize performs OCR using OpenAI-compatible API
-func (c *OpenAIClient) Recognize(imagePath string, systemPrompt string) (string, error) {
+func (c *OpenAIClient) Recognize(imagePath string, systemPrompt string, userMessage string) (string, error) {
 	// Read image file
 	imgData, err := os.ReadFile(imagePath)
 	if err != nil {
@@ -107,7 +107,7 @@ func (c *OpenAIClient) Recognize(imagePath string, systemPrompt string) (string,
 				Content: []openAIContent{
 					{
 						Type: "text",
-						Text: "Perform OCR on this image and return markdown content.",
+						Text: userMessage,
 					},
 					{
 						Type: "image_url",

@@ -86,7 +86,7 @@ func (s *LlmOcrService) RecognizeWithLlm(imageFileID uint, client llm.Client, se
 
 	// Step 5: Call LLM
 	startTime := time.Now()
-	markdownContent, err := client.Recognize(imageFile.Path, systemPrompt)
+	markdownContent, err := client.Recognize(imageFile.Path, systemPrompt, "Perform OCR on this image and return markdown content.")
 	processingTime := int(time.Since(startTime).Milliseconds())
 
 	if err != nil {
@@ -269,10 +269,11 @@ func (s *LlmOcrService) ExecuteAiAction(imageFileID uint, action string, questio
 
 	// Build system prompt based on action
 	systemPrompt := buildAiActionPrompt(action, question, language)
+	userMessage := buildAiActionUserMessage(action)
 
 	// Call LLM
 	startTime := time.Now()
-	response, err := client.Recognize(imageFile.Path, systemPrompt)
+	response, err := client.Recognize(imageFile.Path, systemPrompt, userMessage)
 	processingTime := int(time.Since(startTime).Milliseconds())
 
 	if err != nil {
@@ -323,6 +324,22 @@ func buildAiActionPrompt(action string, question string, language string) string
 		})
 	default:
 		return loadPrompt("prompts/action_default.txt")
+	}
+}
+
+// buildAiActionUserMessage returns the user message for the LLM based on action type
+func buildAiActionUserMessage(action string) string {
+	switch action {
+	case "describe":
+		return "Describe this image in detail."
+	case "tags":
+		return "Generate tags for this image."
+	case "recognizeText":
+		return "Recognize and extract all text from this image."
+	case "askQuestion":
+		return "Answer the question about this image."
+	default:
+		return "Analyze this image."
 	}
 }
 

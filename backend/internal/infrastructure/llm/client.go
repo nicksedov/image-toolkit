@@ -2,9 +2,9 @@ package llm
 
 // Client interface for VL LLM communication
 type Client interface {
-	// Recognize performs OCR recognition on an image with given system prompt
-	// Returns markdown content and error
-	Recognize(imagePath string, systemPrompt string) (string, error)
+	// Recognize performs image recognition with given system and user prompts
+	// Returns response content and error
+	Recognize(imagePath string, systemPrompt string, userMessage string) (string, error)
 
 	// ListModels returns a list of available models from the LLM server
 	ListModels() ([]ModelInfo, error)
