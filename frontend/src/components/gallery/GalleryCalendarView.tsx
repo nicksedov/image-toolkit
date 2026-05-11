@@ -528,7 +528,6 @@ export function GalleryCalendarView({ onImageClick, onImageView, onImageOcr, onI
           allDates={allDates}
           dateRangeFilter={dateRangeFilter}
           loadedDates={loadedDates}
-          isLoading={isLoading}
           onNavigateToDate={handleNavigateToDate}
         />
       </div>

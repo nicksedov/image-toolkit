@@ -7,7 +7,6 @@ interface TimelineBarProps {
   allDates: TimelineDateMarker[]
   dateRangeFilter: { start: string | null; end: string | null }
   loadedDates: Set<string>
-  isLoading: boolean
   onNavigateToDate: (date: string) => void
 }
 
@@ -19,7 +18,6 @@ export function TimelineBar({
   allDates,
   dateRangeFilter,
   loadedDates,
-  isLoading,
   onNavigateToDate,
 }: TimelineBarProps) {
   const visibleDateRange = useMemo(() => {
