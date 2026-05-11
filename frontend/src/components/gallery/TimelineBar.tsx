@@ -159,7 +159,9 @@ export function TimelineBar({
           )}
 
           {/* Date markers for ALL dates (not just visible groups) */}
-          {allDates.map((dateMarker) => {
+          {allDates
+            .filter((dateMarker) => dateMarker.imageCount > 0)
+            .map((dateMarker) => {
             const offset = daysBetween(dateRange.minDate, dateMarker.date)
             const totalDays = daysBetween(dateRange.minDate, dateRange.maxDate)
             const topPercent = totalDays > 0 ? (offset / totalDays) * 100 : 0
