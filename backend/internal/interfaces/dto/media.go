@@ -316,8 +316,8 @@ type TimelineDateMarker struct {
 
 // CalendarAllDatesResponse is the JSON response for GET /api/gallery/calendar/dates
 type CalendarAllDatesResponse struct {
-	MinDate string              `json:"minDate"` // "YYYY-MM-DD" or empty
-	MaxDate string              `json:"maxDate"` // "YYYY-MM-DD" or empty
+	MinDate string               `json:"minDate"` // "YYYY-MM-DD" or empty
+	MaxDate string               `json:"maxDate"` // "YYYY-MM-DD" or empty
 	Dates   []TimelineDateMarker `json:"dates"`   // All dates that have images
 }
 
