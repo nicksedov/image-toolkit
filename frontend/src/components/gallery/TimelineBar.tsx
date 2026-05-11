@@ -72,7 +72,6 @@ export function TimelineBar({
           pointerEvents: "auto",
           height: "calc(100vh - 2rem)",
           maxHeight: "calc(100vh - 2rem)",
-          cursor: isLoading ? "wait" : "default",
         }}
       >
         <div

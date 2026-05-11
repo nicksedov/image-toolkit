@@ -414,7 +414,22 @@ export function GalleryCalendarView({ onImageClick, onImageView, onImageOcr, onI
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" style={{ cursor: isLoading ? "wait" : "auto" }}>
+      {/* Global loading overlay */}
+      {isLoading && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 9999,
+            pointerEvents: "none",
+            cursor: "wait",
+          }}
+        />
+      )}
       {/* Header with image count */}
       <div className="flex items-center gap-2">
         <CalendarIcon className="h-5 w-5 text-muted-foreground" />
