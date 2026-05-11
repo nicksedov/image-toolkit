@@ -23,6 +23,7 @@ import (
 	"image-toolkit/internal/interfaces/middleware"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -2366,7 +2367,7 @@ func (s *Server) handleGetLlmModels(c *gin.Context) {
 	})
 }
 
-// handleAiAction executes an AI action (describe, tags, recognizeText, askQuestion)
+// handleAiAction executes an AI action (describe, tags, recognizeText, askQuestion) asynchronously
 func (s *Server) handleAiAction(c *gin.Context) {
 	var req dto.AiActionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -2417,7 +2418,7 @@ func (s *Server) handleAiAction(c *gin.Context) {
 		return
 	}
 
-	// Execute AI action
+	// Start async AI action
 	if s.llmOcrService == nil {
 		c.JSON(http.StatusServiceUnavailable, dto.AiActionResponse{
 			Success: false,
@@ -2427,29 +2428,66 @@ func (s *Server) handleAiAction(c *gin.Context) {
 		return
 	}
 
-	result, err := s.llmOcrService.ExecuteAiAction(imageFile.ID, string(req.Action), req.Question, req.Language, llmClient, settings)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, dto.AiActionResponse{
-			Success: false,
-			Action:  req.Action,
-			Error:   err.Error(),
+	// Generate unique task ID
+	taskID := uuid.New().String()
+
+	// Start async processing
+	s.llmOcrService.StartAiActionAsync(taskID, imageFile.ID, string(req.Action), req.Question, req.Language, llmClient, settings)
+
+	// Return 202 Accepted with task ID
+	c.JSON(http.StatusAccepted, dto.AiActionStartResponse{
+		TaskID: taskID,
+		Action: req.Action,
+		Status: "processing",
+	})
+}
+
+// handleAiActionStatus returns the status of an async AI action task
+func (s *Server) handleAiActionStatus(c *gin.Context) {
+	taskID := c.Param("taskId")
+	if taskID == "" {
+		c.JSON(http.StatusBadRequest, dto.AiActionStatusResponse{
+			Status: "failed",
+			Error:  "Task ID is required",
 		})
 		return
 	}
 
-	// Build response
-	response := dto.AiActionResponse{
-		Success:          result.Success,
-		Action:           req.Action,
-		Provider:         result.Provider,
-		Model:            result.Model,
-		ProcessingTimeMs: result.ProcessingTimeMs,
+	if s.llmOcrService == nil {
+		c.JSON(http.StatusServiceUnavailable, dto.AiActionStatusResponse{
+			Status: "failed",
+			Error:  "AI service not available",
+		})
+		return
 	}
 
-	if req.Action == dto.AiActionTags {
-		response.Tags = result.Tags
-	} else {
-		response.Result = result.Result
+	taskStatus := s.llmOcrService.GetAiActionStatus(taskID)
+	if taskStatus == nil {
+		c.JSON(http.StatusNotFound, dto.AiActionStatusResponse{
+			Status: "failed",
+			Error:  "Task not found or expired",
+		})
+		return
+	}
+
+	response := dto.AiActionStatusResponse{
+		TaskID: taskID,
+		Status: taskStatus.Status,
+		Action: dto.AiActionType(taskStatus.Action),
+	}
+
+	if taskStatus.Status == "completed" && taskStatus.Result != nil {
+		response.Provider = taskStatus.Result.Provider
+		response.Model = taskStatus.Result.Model
+		response.ProcessingTimeMs = taskStatus.Result.ProcessingTimeMs
+
+		if taskStatus.Action == "tags" {
+			response.Tags = taskStatus.Result.Tags
+		} else {
+			response.Result = taskStatus.Result.Result
+		}
+	} else if taskStatus.Status == "failed" {
+		response.Error = taskStatus.Error
 	}
 
 	c.JSON(http.StatusOK, response)

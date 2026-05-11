@@ -403,6 +403,10 @@ export function disableThumbnailCache(): Promise<{ message: string }> {
 
 // --- AI Assistant ---
 
-export function executeAiAction(req: import("@/types").AiActionRequest): Promise<import("@/types").AiActionResponse> {
-  return apiPost<import("@/types").AiActionResponse>("/api/ai/action", req)
+export function startAiAction(req: import("@/types").AiActionRequest): Promise<import("@/types").AiActionStartResponse> {
+  return apiPost<import("@/types").AiActionStartResponse>("/api/ai/action", req)
+}
+
+export function fetchAiActionStatus(taskId: string): Promise<import("@/types").AiActionStatusResponse> {
+  return apiGet<import("@/types").AiActionStatusResponse>(`/api/ai/status/${taskId}`)
 }

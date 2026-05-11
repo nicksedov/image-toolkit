@@ -102,6 +102,7 @@ func (s *Server) SetupRouter(authMiddleware *middleware.AuthMiddleware, csrfProt
 
 			// AI Assistant endpoints
 			protected.POST("/ai/action", s.handleAiAction)
+			protected.GET("/ai/status/:taskId", s.handleAiActionStatus)
 
 			// Admin routes
 			admin := protected.Group("/admin")
