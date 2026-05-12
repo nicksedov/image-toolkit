@@ -1,9 +1,12 @@
-import { useEffect, useRef } from "react"
+import { useEffect } from "react"
 import { GalleryImageGrid } from "@/components/gallery/GalleryImageGrid"
 import { useGalleryImages } from "@/hooks/useGalleryImages"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ImageIcon } from "lucide-react"
 import { useTranslation } from "@/i18n"
+import { useIntersectionObserver } from "@/hooks/useIntersectionObserver"
+import { PaginationFooter } from "@/components/ui/pagination-footer"
+import { ViewHeader } from "@/components/ui/view-header"
 import type { GalleryImageDTO } from "@/types"
 
 interface GalleryFoldersViewProps {
@@ -20,7 +23,11 @@ export function GalleryFoldersView({ onImageClick, onImageView, onImageOcr, onIm
     useGalleryImages("folders")
   const { t } = useTranslation()
 
-  const sentinelRef = useRef<HTMLDivElement>(null)
+  const sentinelRef = useIntersectionObserver({
+    onIntersect: loadMore,
+    enabled: hasMore && !isLoading,
+    dependencies: [hasMore, isLoading, loadMore],
+  })
 
   useEffect(() => {
     if (!initialized && !isLoading) {
@@ -28,33 +35,13 @@ export function GalleryFoldersView({ onImageClick, onImageView, onImageOcr, onIm
     }
   }, [initialized, isLoading, loadMore])
 
-  useEffect(() => {
-    const sentinel = sentinelRef.current
-    if (!sentinel) return
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && hasMore && !isLoading) {
-          loadMore()
-        }
-      },
-      { threshold: 0.1 }
-    )
-
-    observer.observe(sentinel)
-    return () => observer.disconnect()
-  }, [hasMore, isLoading, loadMore])
-
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        <ImageIcon className="h-5 w-5 text-muted-foreground" />
-        <span className="text-sm text-muted-foreground">
-          {totalImages === 1
-            ? t("gallery.imageCountOne", { count: totalImages.toLocaleString() })
-            : t("gallery.imageCount", { count: totalImages.toLocaleString() })}
-        </span>
-      </div>
+      <ViewHeader
+        icon={ImageIcon}
+        textKey={totalImages === 1 ? "gallery.imageCountOne" : "gallery.imageCount"}
+        textValues={{ count: totalImages.toLocaleString() }}
+      />
 
       {error && (
         <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
@@ -92,17 +79,11 @@ export function GalleryFoldersView({ onImageClick, onImageView, onImageOcr, onIm
 
           <div ref={sentinelRef} className="h-4" />
 
-          {isLoading && (
-            <div className="flex justify-center py-4">
-              <div className="text-sm text-muted-foreground">{t("gallery.loadingMore")}</div>
-            </div>
-          )}
-
-          {!hasMore && images.length > 0 && (
-            <div className="text-center text-xs text-muted-foreground py-4">
-              {t("gallery.allLoaded", { count: totalImages.toLocaleString() })}
-            </div>
-          )}
+          <PaginationFooter
+            isLoading={isLoading}
+            hasMore={hasMore}
+            totalCount={totalImages}
+          />
         </>
       )}
     </div>
