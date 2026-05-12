@@ -1,4 +1,5 @@
-import { AlertCircle, CheckCircle2, Info, Loader2, LucideIcon } from "lucide-react"
+import { AlertCircle, CheckCircle2, Info, Loader2 } from "lucide-react"
+import type { LucideIcon } from "lucide-react"
 
 export type StatusAlertVariant = "info" | "success" | "warning" | "error" | "loading"
 

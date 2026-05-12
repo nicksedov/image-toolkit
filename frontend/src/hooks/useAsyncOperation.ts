@@ -15,7 +15,7 @@ export interface UseAsyncOperationResult<T> {
   /** Error message if any */
   error: string | null
   /** Execute the operation */
-  execute: (...args: unknown[]) => Promise<void>
+  execute: (...args: unknown[]) => Promise<T | void>
   /** Reset state */
   reset: () => void
 }
@@ -85,10 +85,9 @@ export function useSyncRef<T>(value: T): React.MutableRefObject<T> {
 /**
  * Hook for managing array item removal.
  */
-export function useArrayRemoval<T>(
-  items: T[],
+export function useArrayRemoval<T extends { id: string | number }>(
   setItems: (items: T[] | ((prev: T[]) => T[])) => void,
-  keyExtractor: (item: T) => string | number = (item: T & { id: string | number }) => item.id
+  keyExtractor: (item: T) => string | number = (item) => item.id
 ) {
   const removeItem = useCallback(
     (key: string | number) => {

@@ -1,7 +1,6 @@
 import { useRef, useState } from "react"
 import { ImageOff, Loader2 } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
-import { useTranslation } from "@/i18n"
 
 export type ImageLoadingMode = "skeleton" | "spinner" | "none"
 
@@ -46,7 +45,6 @@ export function ImageWithState({
   onError,
   fadeOnLoad = true,
 }: ImageWithStateProps) {
-  const { t } = useTranslation()
   const imageRef = useRef<HTMLImageElement>(null)
   const [imageLoaded, setImageLoaded] = useState(false)
   const [imageError, setImageError] = useState(false)
@@ -91,7 +89,7 @@ export function ImageWithState({
     return (
       <div className={errorClassName}>
         <ImageOff className="h-16 w-16 mb-4 opacity-50" />
-        <p className="text-sm">{t("common.imageLoadError") || "Failed to load image"}</p>
+        <p className="text-sm">Failed to load image</p>
       </div>
     )
   }
