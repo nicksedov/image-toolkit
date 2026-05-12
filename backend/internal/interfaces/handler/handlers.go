@@ -1389,9 +1389,9 @@ func (s *Server) handleGetCalendarAllDates(c *gin.Context) {
 		pageSize = 50
 	}
 
-	// Get min/max dates
+	// Get min/max dates using the same JOIN as calendar API for consistency
 	var minDate, maxDate *time.Time
-	s.db.Raw("SELECT MIN(date_taken), MAX(date_taken) FROM image_metadata WHERE date_taken IS NOT NULL").Row().Scan(&minDate, &maxDate)
+	s.db.Raw("SELECT MIN(im.date_taken), MAX(im.date_taken) FROM image_files f INNER JOIN image_metadata im ON im.image_file_id = f.id WHERE im.date_taken IS NOT NULL").Row().Scan(&minDate, &maxDate)
 
 	if minDate == nil || maxDate == nil {
 		c.JSON(http.StatusOK, dto.CalendarAllDatesResponse{
@@ -1405,17 +1405,19 @@ func (s *Server) handleGetCalendarAllDates(c *gin.Context) {
 	minDateStr := minDate.Format("2006-01-02")
 	maxDateStr := maxDate.Format("2006-01-02")
 
-	// Get all dates with image counts, ordered by date ASC (oldest first, matches calendar pagination)
+	// Get all dates with image counts, ordered by date ASC (oldest first)
+	// Use the same JOIN as the calendar API to ensure consistent counts
 	type dateCount struct {
 		Date  time.Time
 		Count int64
 	}
 	var dateCounts []dateCount
 	s.db.Raw(`
-		SELECT DATE(date_taken) as date, COUNT(*) as count
-		FROM image_metadata
-		WHERE date_taken IS NOT NULL
-		GROUP BY DATE(date_taken)
+		SELECT DATE(im.date_taken) as date, COUNT(*) as count
+		FROM image_files f
+		INNER JOIN image_metadata im ON im.image_file_id = f.id
+		WHERE im.date_taken IS NOT NULL
+		GROUP BY DATE(im.date_taken)
 		ORDER BY date ASC
 	`).Scan(&dateCounts)
 
