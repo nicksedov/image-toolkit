@@ -583,6 +583,24 @@ export interface AiActionRequest {
   language?: string  // UI language code (e.g. "en", "ru")
 }
 
+export interface AiActionStartResponse {
+  taskId: string
+  action: AiActionType
+  status: string  // "processing"
+}
+
+export interface AiActionStatusResponse {
+  taskId: string
+  status: string  // "processing", "completed", "failed"
+  action: AiActionType
+  result?: string
+  tags?: string[]  // Only for "tags" action
+  error?: string
+  provider?: string
+  model?: string
+  processingTimeMs?: number
+}
+
 export interface AiActionResponse {
   success: boolean
   action: AiActionType

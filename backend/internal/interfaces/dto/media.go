@@ -534,6 +534,26 @@ type AiActionRequest struct {
 	Language  string       `json:"language,omitempty"` // UI language code (e.g. "en", "ru")
 }
 
+// AiActionStartResponse for POST /api/ai/action (async start)
+type AiActionStartResponse struct {
+	TaskID string       `json:"taskId"`
+	Action AiActionType `json:"action"`
+	Status string       `json:"status"` // "processing"
+}
+
+// AiActionStatusResponse for GET /api/ai/status/:taskId
+type AiActionStatusResponse struct {
+	TaskID           string       `json:"taskId"`
+	Status           string       `json:"status"` // "processing", "completed", "failed"
+	Action           AiActionType `json:"action"`
+	Result           string       `json:"result,omitempty"`
+	Tags             []string     `json:"tags,omitempty"`
+	Error            string       `json:"error,omitempty"`
+	Provider         string       `json:"provider,omitempty"`
+	Model            string       `json:"model,omitempty"`
+	ProcessingTimeMs int          `json:"processingTimeMs,omitempty"`
+}
+
 // AiActionResponse for POST /api/ai/action
 type AiActionResponse struct {
 	Success          bool         `json:"success"`

@@ -124,8 +124,8 @@ export function AiActionPanel({
   }
 
   return (
-    <div className="w-full md:w-[400px] lg:w-[450px] md:min-w-[350px] border-l bg-card overflow-y-auto max-h-[90vh] shrink-0 flex flex-col">
-      <div className="p-4 flex-1">
+    <div className="w-full md:w-[400px] lg:w-[450px] md:min-w-[350px] border-l bg-card max-h-[90vh] shrink-0 flex flex-col">
+      <div className="p-4 flex-shrink-0">
         <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
           <Sparkles className="h-4 w-4" />
           {t("ai.title")}
@@ -218,17 +218,9 @@ export function AiActionPanel({
 
         {/* Error state */}
         {error && (
-          <div className="flex items-start gap-2 p-3 rounded-lg bg-destructive/10 text-destructive text-sm mb-4">
+          <div className="flex items-start gap-2 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
             <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
             <span>{error}</span>
-          </div>
-        )}
-
-        {/* Result */}
-        {result && !loading && (
-          <div className="space-y-4">
-            <div className="h-px bg-border" />
-            {renderResult()}
           </div>
         )}
 
@@ -240,6 +232,13 @@ export function AiActionPanel({
           </div>
         )}
       </div>
+
+      {/* Result - scrollable independently */}
+      {result && !loading && (
+        <div className="flex-1 min-h-0 overflow-y-auto border-t px-4 py-4">
+          {renderResult()}
+        </div>
+      )}
     </div>
   )
 }

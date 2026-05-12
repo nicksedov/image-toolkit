@@ -38,11 +38,21 @@ type LlmRecognitionStatus struct {
 	Error  string           // non-empty when Status == "failed"
 }
 
+// AiTaskStatus represents the status of an async AI action task
+type AiTaskStatus struct {
+	Status string          // "processing", "completed", "failed"
+	Result *AiActionResult // non-nil when Status == "completed"
+	Error  string          // non-empty when Status == "failed"
+	Action string          // the action type (describe, tags, etc.)
+}
+
 // LlmOcrService handles VL LLM-based OCR recognition
 type LlmOcrService struct {
 	db              *gorm.DB
 	processingTasks map[uint]*LlmRecognitionStatus
 	taskMu          sync.Mutex
+	aiActionTasks   map[string]*AiTaskStatus // key: task ID
+	aiTaskMu        sync.Mutex
 }
 
 // NewLlmOcrService creates a new LLM OCR service
@@ -50,6 +60,7 @@ func NewLlmOcrService(db *gorm.DB) *LlmOcrService {
 	return &LlmOcrService{
 		db:              db,
 		processingTasks: make(map[uint]*LlmRecognitionStatus),
+		aiActionTasks:   make(map[string]*AiTaskStatus),
 	}
 }
 
@@ -364,4 +375,55 @@ func parseTags(input string) []string {
 	}
 
 	return tags
+}
+
+// StartAiActionAsync starts an AI action in a background goroutine.
+// Returns a unique task ID that can be used to poll for status.
+func (s *LlmOcrService) StartAiActionAsync(taskID string, imageFileID uint, action string, question string, language string, client llm.Client, settings domain.LlmSettings) {
+	s.aiTaskMu.Lock()
+	s.aiActionTasks[taskID] = &AiTaskStatus{
+		Status: "processing",
+		Action: action,
+	}
+	s.aiTaskMu.Unlock()
+
+	go func() {
+		result, err := s.ExecuteAiAction(imageFileID, action, question, language, client, settings)
+
+		s.aiTaskMu.Lock()
+		defer s.aiTaskMu.Unlock()
+
+		if err != nil {
+			s.aiActionTasks[taskID] = &AiTaskStatus{
+				Status: "failed",
+				Error:  err.Error(),
+				Action: action,
+			}
+		} else {
+			s.aiActionTasks[taskID] = &AiTaskStatus{
+				Status: "completed",
+				Result: result,
+				Action: action,
+			}
+		}
+	}()
+}
+
+// GetAiActionStatus returns the current status of an async AI action task.
+// Returns nil if no task exists for this task ID.
+func (s *LlmOcrService) GetAiActionStatus(taskID string) *AiTaskStatus {
+	s.aiTaskMu.Lock()
+	defer s.aiTaskMu.Unlock()
+
+	task, exists := s.aiActionTasks[taskID]
+	if !exists {
+		return nil
+	}
+
+	// Clean up completed/failed tasks after reading
+	if task.Status != "processing" {
+		delete(s.aiActionTasks, taskID)
+	}
+
+	return task
 }
