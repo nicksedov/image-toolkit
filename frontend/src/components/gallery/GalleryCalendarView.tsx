@@ -364,6 +364,10 @@ export function GalleryCalendarView({ onImageClick, onImageView, onImageOcr, onI
     setIsLoading(true)
     setError(null)
     try {
+      // Compute the correct monthYear from the navigated date
+      const navDate = new Date(date + "T00:00:00")
+      const navMonthKey = `${navDate.getFullYear()}-${String(navDate.getMonth() + 1).padStart(2, "0")}`
+
       // Load the target page directly, plus one page before and after for context
       const targetPage = dateInfo.page
       const pagesToLoad = []
@@ -380,7 +384,7 @@ export function GalleryCalendarView({ onImageClick, onImageView, onImageOcr, onI
           PAGE_SIZE,
           dateRangeFilter.start ?? undefined,
           dateRangeFilter.end ?? undefined,
-          calendarMonthKey
+          navMonthKey
         )
         if (result.groups.length > 0) {
           allGroups.push(...result.groups)
@@ -407,7 +411,6 @@ export function GalleryCalendarView({ onImageClick, onImageView, onImageOcr, onI
         pageRef.current = targetPage + 1
 
         // Update calendar widget to the month of the navigated date
-        const navDate = new Date(date + "T00:00:00")
         navigatingToPageRef.current = true // Prevent calendar month change effect from resetting data
         setCalendarViewDate(new Date(navDate.getFullYear(), navDate.getMonth(), 1))
 
