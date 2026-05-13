@@ -342,9 +342,9 @@ type CalendarSeekRequest struct {
 
 // CalendarSeekResponse is the response for GET /api/gallery/calendar/seek
 type CalendarSeekResponse struct {
-	Cursor      string `json:"cursor"`       // Cursor pointing to the requested date
-	ActualDate  string `json:"actualDate"`   // The actual date found (may differ if requested date has no images)
-	ImageCount  int    `json:"imageCount"`   // Number of images on this date
+	Cursor     string `json:"cursor"`     // Cursor pointing to the requested date
+	ActualDate string `json:"actualDate"` // The actual date found (may differ if requested date has no images)
+	ImageCount int    `json:"imageCount"` // Number of images on this date
 }
 
 // --- Gallery Geolocation / Map Clustering API ---

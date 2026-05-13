@@ -156,7 +156,7 @@ func DecodeCursor(cursor string) (string, uint, error) {
 // Falls back to page-based pagination if cursor is not provided.
 func ParseCursorPagination(c *gin.Context, defaultLimit int) (CursorParams, bool) {
 	cursor := c.Query("cursor")
-	
+
 	// If no cursor, fall back to page-based pagination
 	if cursor == "" {
 		return CursorParams{}, false
@@ -185,7 +185,10 @@ func ParseCursorPagination(c *gin.Context, defaultLimit int) (CursorParams, bool
 
 // CalcCursorPagination determines the next cursor from the last item in the result set.
 // If resultCount > limit, the last item is used to build the next cursor.
-func CalcCursorPagination(items []struct{ Date string; ID uint }, limit int) CursorResult {
+func CalcCursorPagination(items []struct {
+	Date string
+	ID   uint
+}, limit int) CursorResult {
 	if len(items) <= limit {
 		return CursorResult{
 			NextCursor: nil,

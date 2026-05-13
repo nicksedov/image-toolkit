@@ -1263,11 +1263,11 @@ func (s *Server) handleGetCalendarAllDates(c *gin.Context) {
 		// Generate a synthetic cursor pointing to the start of this date
 		// Using ID 1 as a placeholder - the cursor pagination will find the first image >= this date
 		cursor := helpers.EncodeCursor(dc.Date.Format(helpers.DateOnlyFormat), 1)
-		
+
 		dates = append(dates, dto.TimelineDateMarker{
 			Date:       dc.Date.Format(helpers.DateOnlyFormat),
 			ImageCount: int(dc.Count),
-			Page:       page,         // Deprecated, kept for backward compatibility
+			Page:       page, // Deprecated, kept for backward compatibility
 			Cursor:     cursor,
 		})
 		imageIndex += int(dc.Count)
@@ -1358,7 +1358,7 @@ func (s *Server) handleGetCalendarSeek(c *gin.Context) {
 		ID        uint
 		DateTaken time.Time
 	}
-	
+
 	// Query: find the minimum ID for images on this date
 	err = s.db.Table("image_files").
 		Select("image_files.id, image_metadata.date_taken").
@@ -1380,7 +1380,7 @@ func (s *Server) handleGetCalendarSeek(c *gin.Context) {
 	// Try next date first, then previous
 	var nearestDate time.Time
 	var nearestID uint
-	
+
 	// Find next date with images
 	var nextResult struct {
 		ID        uint

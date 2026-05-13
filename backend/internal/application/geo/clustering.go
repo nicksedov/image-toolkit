@@ -138,7 +138,7 @@ func ComputeClusters(db *gorm.DB, params ClusterParams) ([]dto.GeoCluster, int, 
 
 	// Build cluster index
 	cl := goclusterlib.NewCluster()
-	
+
 	// Viewport-aware point size: adapt clustering density to viewport dimensions
 	// Smaller viewports get tighter clusters, larger viewports get more spread
 	basePointSize := 40.0
