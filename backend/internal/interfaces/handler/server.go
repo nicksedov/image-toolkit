@@ -11,9 +11,9 @@ import (
 	"image-toolkit/internal/application/thumbnail"
 	"image-toolkit/internal/infrastructure/config"
 	"image-toolkit/internal/infrastructure/ocr"
-	"image-toolkit/internal/interfaces/i18n"
 	"image-toolkit/internal/interfaces/dto"
 	"image-toolkit/internal/interfaces/handler/helpers"
+	"image-toolkit/internal/interfaces/i18n"
 	"image-toolkit/internal/interfaces/middleware"
 
 	"github.com/gin-gonic/gin"
