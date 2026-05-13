@@ -425,6 +425,7 @@ func (s *Server) handleGetGalleryImages(c *gin.Context) {
 	pageSize := params.PageSize
 	offset := params.Offset
 	view := c.DefaultQuery("view", "list")
+	sortOrder := c.DefaultQuery("sortOrder", "newest")
 
 	var totalImages int64
 	s.db.Model(&domain.ImageFile{}).Count(&totalImages)
@@ -432,7 +433,11 @@ func (s *Server) handleGetGalleryImages(c *gin.Context) {
 	pag := helpers.CalcPagination(page, pageSize, totalImages)
 
 	var files []domain.ImageFile
-	s.db.Order("path").Offset(offset).Limit(pageSize).Find(&files)
+	orderClause := "mod_time DESC"
+	if sortOrder == "oldest" {
+		orderClause = "mod_time ASC"
+	}
+	s.db.Order(orderClause).Offset(offset).Limit(pageSize).Find(&files)
 
 	imageDTOs := make([]dto.GalleryImageDTO, len(files))
 	for i, f := range files {

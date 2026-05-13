@@ -110,12 +110,14 @@ export function removeFolder(id: number): Promise<RemoveFolderResponse> {
 export function fetchGalleryImages(
   page: number,
   pageSize: number,
-  view: string
+  view: string,
+  sortOrder: string = "newest"
 ): Promise<GalleryImagesResponse> {
   return apiGet<GalleryImagesResponse>("/api/gallery", {
     page: String(page),
     pageSize: String(pageSize),
     view,
+    sortOrder,
   })
 }
 
