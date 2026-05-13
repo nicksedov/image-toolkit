@@ -43,6 +43,11 @@ export function GalleryCalendarView({ onImageClick, onImageView, onImageOcr, onI
     initialMonthYear: calendarMonthKey,
   })
 
+  // Initial load on mount
+  useEffect(() => {
+    calendar.loadMore()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Update monthYear ref when calendar widget changes month
   useEffect(() => {
     calendar.setMonthYear(calendarMonthKey)
