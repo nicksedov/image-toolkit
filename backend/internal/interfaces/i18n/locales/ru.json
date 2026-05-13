@@ -143,7 +143,8 @@
   "description_calendar": "Сообщения календаря",
   "calendar": {
     "month_year_required": "Требуется месяц и год",
-    "invalid_month_year": "Неверный месяц или год"
+    "invalid_month_year": "Неверный месяц или год",
+    "invalid_cursor": "Неверный курсор пагинации"
   },
 
   "description_geo": "Сообщения геолокации",

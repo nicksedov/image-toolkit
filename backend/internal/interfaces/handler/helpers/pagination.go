@@ -1,6 +1,13 @@
 package helpers
 
-import "github.com/gin-gonic/gin"
+import (
+	"encoding/base64"
+	"fmt"
+	"strconv"
+	"strings"
+
+	"github.com/gin-gonic/gin"
+)
 
 // PaginationMode determines how page size is validated.
 type PaginationMode int
@@ -99,4 +106,99 @@ func parseInt(s string) (int, bool) {
 		result = result*10 + int(ch-'0')
 	}
 	return result, true
+}
+
+// CursorParams holds parsed cursor-based pagination parameters.
+type CursorParams struct {
+	Cursor    string
+	Limit     int
+	Direction string // "forward" or "backward"
+}
+
+// CursorResult holds cursor-based pagination metadata.
+type CursorResult struct {
+	NextCursor *string
+	HasMore    bool
+}
+
+// EncodeCursor creates a cursor from a date string and image ID.
+// Format: base64("YYYY-MM-DD:imageID")
+func EncodeCursor(dateStr string, imageID uint) string {
+	raw := fmt.Sprintf("%s:%06d", dateStr, imageID)
+	return base64.StdEncoding.EncodeToString([]byte(raw))
+}
+
+// DecodeCursor decodes a cursor into its date string and image ID components.
+// Returns error if cursor is malformed.
+func DecodeCursor(cursor string) (string, uint, error) {
+	decoded, err := base64.StdEncoding.DecodeString(cursor)
+	if err != nil {
+		return "", 0, fmt.Errorf("invalid cursor encoding: %w", err)
+	}
+
+	parts := strings.SplitN(string(decoded), ":", 2)
+	if len(parts) != 2 {
+		return "", 0, fmt.Errorf("invalid cursor format: expected 'date:id', got '%s'", string(decoded))
+	}
+
+	dateStr := parts[0]
+	idStr := parts[1]
+
+	imageID, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		return "", 0, fmt.Errorf("invalid image ID in cursor: %w", err)
+	}
+
+	return dateStr, uint(imageID), nil
+}
+
+// ParseCursorPagination parses cursor, limit, and direction from query parameters.
+// Falls back to page-based pagination if cursor is not provided.
+func ParseCursorPagination(c *gin.Context, defaultLimit int) (CursorParams, bool) {
+	cursor := c.Query("cursor")
+	
+	// If no cursor, fall back to page-based pagination
+	if cursor == "" {
+		return CursorParams{}, false
+	}
+
+	limitStr := c.DefaultQuery("limit", strconv.Itoa(defaultLimit))
+	limit, err := strconv.Atoi(limitStr)
+	if err != nil || limit < 1 {
+		limit = defaultLimit
+	}
+	if limit > 200 {
+		limit = 200
+	}
+
+	direction := c.DefaultQuery("direction", "forward")
+	if direction != "forward" && direction != "backward" {
+		direction = "forward"
+	}
+
+	return CursorParams{
+		Cursor:    cursor,
+		Limit:     limit,
+		Direction: direction,
+	}, true
+}
+
+// CalcCursorPagination determines the next cursor from the last item in the result set.
+// If resultCount > limit, the last item is used to build the next cursor.
+func CalcCursorPagination(items []struct{ Date string; ID uint }, limit int) CursorResult {
+	if len(items) <= limit {
+		return CursorResult{
+			NextCursor: nil,
+			HasMore:    false,
+		}
+	}
+
+	// Use the last item (at index limit) to build cursor
+	lastItem := items[limit]
+	nextCursor := EncodeCursor(lastItem.Date, lastItem.ID)
+
+	return CursorResult{
+		NextCursor: &nextCursor,
+		HasMore:    true,
+	}
 }

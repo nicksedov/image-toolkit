@@ -311,7 +311,8 @@ type CalendarMonthInfo struct {
 type TimelineDateMarker struct {
 	Date       string `json:"date"`       // "YYYY-MM-DD"
 	ImageCount int    `json:"imageCount"` // Number of images on this date
-	Page       int    `json:"page"`       // Page number (1-based) where this date first appears
+	Page       int    `json:"page"`       // Page number (1-based) where this date first appears (deprecated)
+	Cursor     string `json:"cursor"`     // Cursor pointing to the start of this date
 }
 
 // CalendarAllDatesResponse is the JSON response for GET /api/gallery/calendar/dates
@@ -330,6 +331,20 @@ type GalleryCalendarResponse struct {
 	DateRange   CalendarDateRange   `json:"dateRange"`
 	// Month info for the calendar widget (current page's months)
 	Months []CalendarMonthInfo `json:"months"`
+	// Cursor-based pagination support
+	NextCursor *string `json:"nextCursor,omitempty"`
+}
+
+// CalendarSeekRequest is the request for GET /api/gallery/calendar/seek
+type CalendarSeekRequest struct {
+	Date string `form:"date" binding:"required"` // "YYYY-MM-DD"
+}
+
+// CalendarSeekResponse is the response for GET /api/gallery/calendar/seek
+type CalendarSeekResponse struct {
+	Cursor      string `json:"cursor"`       // Cursor pointing to the requested date
+	ActualDate  string `json:"actualDate"`   // The actual date found (may differ if requested date has no images)
+	ImageCount  int    `json:"imageCount"`   // Number of images on this date
 }
 
 // --- Gallery Geolocation / Map Clustering API ---

@@ -120,6 +120,7 @@ const (
 	// Calendar messages
 	MsgCalendarMonthYearRequired MessageKey = "calendar.month_year_required"
 	MsgCalendarInvalidMonthYear  MessageKey = "calendar.invalid_month_year"
+	MsgCalendarInvalidCursor     MessageKey = "calendar.invalid_cursor"
 
 	// Geo messages
 	MsgGeoInvalidZoom       MessageKey = "geo.invalid_zoom"

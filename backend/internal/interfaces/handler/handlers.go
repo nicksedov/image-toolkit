@@ -991,11 +991,8 @@ func (s *Server) handleGetImageMetadata(c *gin.Context) {
 }
 
 // handleGetGalleryCalendar returns paginated gallery images grouped by date taken
+// Supports both cursor-based pagination (new) and offset-based pagination (legacy)
 func (s *Server) handleGetGalleryCalendar(c *gin.Context) {
-	params := helpers.ParsePagination(c, helpers.ModeFlexible)
-	page := params.Page
-	pageSize := params.PageSize
-	offset := params.Offset
 	startDate := c.Query("startDate") // "YYYY-MM-DD" or empty
 	endDate := c.Query("endDate")     // "YYYY-MM-DD" or empty
 	monthYear := c.Query("monthYear") // "YYYY-MM" for calendar widget
@@ -1007,7 +1004,7 @@ func (s *Server) handleGetGalleryCalendar(c *gin.Context) {
 		DateTaken time.Time
 	}
 
-	query := s.db.Table("image_files").
+	baseQuery := s.db.Table("image_files").
 		Select("image_files.*, image_metadata.date_taken").
 		Joins("INNER JOIN image_metadata ON image_metadata.image_file_id = image_files.id").
 		Where("image_metadata.date_taken IS NOT NULL")
@@ -1015,28 +1012,93 @@ func (s *Server) handleGetGalleryCalendar(c *gin.Context) {
 	// Apply date range filter
 	if startDate != "" {
 		if t, err := time.Parse(helpers.DateOnlyFormat, startDate); err == nil {
-			query = query.Where("image_metadata.date_taken >= ?", t)
+			baseQuery = baseQuery.Where("image_metadata.date_taken >= ?", t)
 		}
 	}
 	if endDate != "" {
 		if t, err := time.Parse(helpers.DateOnlyFormat, endDate); err == nil {
 			// End of the end date
 			endOfDay := t.Add(24*time.Hour - time.Second)
-			query = query.Where("image_metadata.date_taken <= ?", endOfDay)
+			baseQuery = baseQuery.Where("image_metadata.date_taken <= ?", endOfDay)
 		}
 	}
 
 	// Count total
 	var totalImages int64
-	query.Count(&totalImages)
+	baseQuery.Count(&totalImages)
 
-	// Paginate
+	// Determine pagination mode: cursor or page-based
+	cursorParam := c.Query("cursor")
 	var results []imageWithDate
-	orderClause := "image_metadata.date_taken ASC"
-	if sortOrder == "newest" {
-		orderClause = "image_metadata.date_taken DESC"
+	var nextCursor *string
+
+	if cursorParam != "" {
+		// Cursor-based pagination
+		decodedDate, decodedID, err := helpers.DecodeCursor(cursorParam)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, i18n.ErrorResponse(i18n.MsgCalendarInvalidCursor))
+			return
+		}
+
+		// Parse the decoded date
+		cursorDate, err := time.Parse(helpers.DateOnlyFormat, decodedDate)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, i18n.ErrorResponse(i18n.MsgCalendarInvalidCursor))
+			return
+		}
+
+		pageSize := 50
+		if ps := c.Query("pageSize"); ps != "" {
+			if parsed, err := strconv.Atoi(ps); err == nil && parsed > 0 && parsed <= 200 {
+				pageSize = parsed
+			}
+		}
+
+		// Build order clause
+		orderClause := "image_metadata.date_taken ASC, image_files.id ASC"
+		if sortOrder == "newest" {
+			orderClause = "image_metadata.date_taken DESC, image_files.id DESC"
+		}
+
+		// Query with cursor: fetch limit+1 to detect if more exists
+		query := baseQuery.Order(orderClause).Limit(pageSize + 1)
+
+		if sortOrder == "newest" {
+			// For newest first: get items before the cursor
+			query = query.Where(
+				"(image_metadata.date_taken < ?) OR (image_metadata.date_taken = ? AND image_files.id < ?)",
+				cursorDate, cursorDate, decodedID,
+			)
+		} else {
+			// For oldest first: get items after the cursor
+			query = query.Where(
+				"(image_metadata.date_taken > ?) OR (image_metadata.date_taken = ? AND image_files.id > ?)",
+				cursorDate, cursorDate, decodedID,
+			)
+		}
+
+		query.Find(&results)
+
+		// If we got more than pageSize, the last item is used for next cursor
+		if len(results) > pageSize {
+			lastItem := results[pageSize]
+			cursorStr := helpers.EncodeCursor(lastItem.DateTaken.Format(helpers.DateOnlyFormat), lastItem.ID)
+			nextCursor = &cursorStr
+			results = results[:pageSize] // Drop the extra item
+		}
+	} else {
+		// Legacy offset-based pagination
+		params := helpers.ParsePagination(c, helpers.ModeFlexible)
+		pageSize := params.PageSize
+		offset := params.Offset
+
+		orderClause := "image_metadata.date_taken ASC"
+		if sortOrder == "newest" {
+			orderClause = "image_metadata.date_taken DESC"
+		}
+
+		baseQuery.Order(orderClause).Offset(offset).Limit(pageSize).Find(&results)
 	}
-	query.Order(orderClause).Offset(offset).Limit(pageSize).Find(&results)
 
 	// Group by date
 	type dateGroup struct {
@@ -1131,15 +1193,23 @@ func (s *Server) handleGetGalleryCalendar(c *gin.Context) {
 		}
 	}
 
-	pag := helpers.CalcPagination(page, pageSize, totalImages)
+	// Calculate hasMore for legacy mode or use cursor result
+	hasMore := nextCursor != nil
+	if cursorParam == "" {
+		// Legacy mode: calculate from page
+		params := helpers.ParsePagination(c, helpers.ModeFlexible)
+		pag := helpers.CalcPagination(params.Page, params.PageSize, totalImages)
+		hasMore = pag.HasNextPage
+	}
 
 	c.JSON(http.StatusOK, dto.GalleryCalendarResponse{
 		Groups:      groupDTOs,
 		TotalImages: int(totalImages),
 		TotalGroups: len(groupDTOs),
-		HasMore:     pag.HasNextPage,
+		HasMore:     hasMore,
 		DateRange:   dateRange,
 		Months:      months,
+		NextCursor:  nextCursor,
 	})
 }
 
@@ -1182,17 +1252,23 @@ func (s *Server) handleGetCalendarAllDates(c *gin.Context) {
 		ORDER BY date ASC
 	`).Scan(&dateCounts)
 
-	// Compute page number for each date.
+	// Compute page number and cursor for each date.
 	// The calendar API paginates by images (not dates), ordered ASC.
 	// We track a running total of images to determine which page each date falls on.
+	// We also generate a cursor pointing to the start of each date.
 	dates := make([]dto.TimelineDateMarker, 0, len(dateCounts))
 	imageIndex := 0
 	for _, dc := range dateCounts {
 		page := (imageIndex / pageSize) + 1
+		// Generate a synthetic cursor pointing to the start of this date
+		// Using ID 1 as a placeholder - the cursor pagination will find the first image >= this date
+		cursor := helpers.EncodeCursor(dc.Date.Format(helpers.DateOnlyFormat), 1)
+		
 		dates = append(dates, dto.TimelineDateMarker{
 			Date:       dc.Date.Format(helpers.DateOnlyFormat),
 			ImageCount: int(dc.Count),
-			Page:       page,
+			Page:       page,         // Deprecated, kept for backward compatibility
+			Cursor:     cursor,
 		})
 		imageIndex += int(dc.Count)
 	}
@@ -1258,6 +1334,94 @@ func (s *Server) handleGetCalendarMonthInfo(c *gin.Context) {
 		"days":      days,
 		"dayCounts": dayCounts,
 		"total":     totalInMonth,
+	})
+}
+
+// handleGetCalendarSeek returns a cursor pointing to a specific date
+// If the requested date has no images, returns the nearest date's cursor
+func (s *Server) handleGetCalendarSeek(c *gin.Context) {
+	dateStr := c.Query("date")
+	if dateStr == "" {
+		c.JSON(http.StatusBadRequest, i18n.ErrorResponse(i18n.MsgCalendarMonthYearRequired))
+		return
+	}
+
+	// Parse the requested date
+	requestedDate, err := time.Parse(helpers.DateOnlyFormat, dateStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, i18n.ErrorResponse(i18n.MsgCalendarInvalidMonthYear))
+		return
+	}
+
+	// Try to find the first image on this exact date
+	var firstResult struct {
+		ID        uint
+		DateTaken time.Time
+	}
+	
+	// Query: find the minimum ID for images on this date
+	err = s.db.Table("image_files").
+		Select("image_files.id, image_metadata.date_taken").
+		Joins("INNER JOIN image_metadata ON image_metadata.image_file_id = image_files.id").
+		Where("DATE(image_metadata.date_taken) = ?", requestedDate).
+		Order("image_files.id ASC").
+		First(&firstResult).Error
+
+	if err == nil {
+		// Found images on this exact date
+		c.JSON(http.StatusOK, dto.CalendarSeekResponse{
+			Cursor:     helpers.EncodeCursor(firstResult.DateTaken.Format(helpers.DateOnlyFormat), firstResult.ID),
+			ActualDate: firstResult.DateTaken.Format(helpers.DateOnlyFormat),
+		})
+		return
+	}
+
+	// No images on this date - find nearest date with images
+	// Try next date first, then previous
+	var nearestDate time.Time
+	var nearestID uint
+	
+	// Find next date with images
+	var nextResult struct {
+		ID        uint
+		DateTaken time.Time
+	}
+	err = s.db.Table("image_files").
+		Select("image_files.id, image_metadata.date_taken").
+		Joins("INNER JOIN image_metadata ON image_metadata.image_file_id = image_files.id").
+		Where("image_metadata.date_taken > ?", requestedDate).
+		Order("image_metadata.date_taken ASC, image_files.id ASC").
+		First(&nextResult).Error
+
+	if err == nil {
+		nearestDate = nextResult.DateTaken
+		nearestID = nextResult.ID
+	} else {
+		// Try previous date
+		var prevResult struct {
+			ID        uint
+			DateTaken time.Time
+		}
+		err = s.db.Table("image_files").
+			Select("image_files.id, image_metadata.date_taken").
+			Joins("INNER JOIN image_metadata ON image_metadata.image_file_id = image_files.id").
+			Where("image_metadata.date_taken < ?", requestedDate).
+			Order("image_metadata.date_taken DESC, image_files.id ASC").
+			First(&prevResult).Error
+
+		if err == nil {
+			nearestDate = prevResult.DateTaken
+			nearestID = prevResult.ID
+		} else {
+			// No images at all
+			c.JSON(http.StatusNotFound, i18n.ErrorResponse(i18n.MsgImageNotFound))
+			return
+		}
+	}
+
+	c.JSON(http.StatusOK, dto.CalendarSeekResponse{
+		Cursor:     helpers.EncodeCursor(nearestDate.Format(helpers.DateOnlyFormat), nearestID),
+		ActualDate: nearestDate.Format(helpers.DateOnlyFormat),
 	})
 }
 

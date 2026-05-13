@@ -271,13 +271,20 @@ export interface CalendarMonthInfo {
 export interface TimelineDateMarker {
   date: string       // "YYYY-MM-DD"
   imageCount: number // Number of images on this date
-  page: number       // Page number (1-based) where this date first appears
+  page: number       // Page number (1-based) where this date first appears (deprecated)
+  cursor: string     // Cursor pointing to the start of this date
 }
 
 export interface CalendarAllDatesResponse {
   minDate: string    // "YYYY-MM-DD" or empty
   maxDate: string    // "YYYY-MM-DD" or empty
   dates: TimelineDateMarker[]
+}
+
+export interface CalendarSeekResponse {
+  cursor: string     // Cursor pointing to the requested date
+  actualDate: string // The actual date found (may differ if requested date has no images)
+  imageCount: number // Number of images on this date
 }
 
 export interface GalleryCalendarResponse {
@@ -287,6 +294,7 @@ export interface GalleryCalendarResponse {
   hasMore: boolean
   dateRange: CalendarDateRange
   months: CalendarMonthInfo[]
+  nextCursor?: string  // Cursor-based pagination support
 }
 
 // --- Gallery Geolocation Types ---

@@ -138,7 +138,17 @@ func ComputeClusters(db *gorm.DB, params ClusterParams) ([]dto.GeoCluster, int, 
 
 	// Build cluster index
 	cl := goclusterlib.NewCluster()
-	cl.PointSize = 40
+	
+	// Viewport-aware point size: adapt clustering density to viewport dimensions
+	// Smaller viewports get tighter clusters, larger viewports get more spread
+	basePointSize := 40.0
+	if params.ViewportWidth > 0 && params.ViewportHeight > 0 {
+		minDimension := math.Min(float64(params.ViewportWidth), float64(params.ViewportHeight))
+		scaleFactor := minDimension / 800.0 // 800px is baseline
+		basePointSize = 40.0 * scaleFactor
+	}
+	// Clamp point size to reasonable range [20, 80]
+	cl.PointSize = int(math.Max(20, math.Min(80, basePointSize)))
 	cl.MinZoom = 0
 	cl.MaxZoom = 18
 
@@ -165,7 +175,9 @@ func ComputeClusters(db *gorm.DB, params ClusterParams) ([]dto.GeoCluster, int, 
 			continue
 		}
 
-		clusterID := fmt.Sprintf("cluster_%d", cp.Id)
+		// Generate stable cluster ID based on geographic center + zoom level
+		// Round to 4 decimal places (~11m precision) for stability across requests
+		clusterID := fmt.Sprintf("cluster_%d_%.4f_%.4f", params.Zoom, lat, lng)
 
 		// Get image paths for storage (not returned to frontend)
 		var imagePaths []string

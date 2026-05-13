@@ -17,6 +17,7 @@ import type {
   GalleryImagesResponse,
   GalleryCalendarResponse,
   CalendarAllDatesResponse,
+  CalendarSeekResponse,
   GeoClustersResponse,
   GeoClusterRequest,
   GeoImagesResponse,
@@ -134,17 +135,29 @@ export function fetchGalleryCalendar(
   startDate?: string,
   endDate?: string,
   monthYear?: string,
-  sortOrder?: string
+  sortOrder?: string,
+  cursor?: string  // Cursor-based pagination support
 ): Promise<GalleryCalendarResponse> {
   const params: Record<string, string> = {
-    page: String(page),
     pageSize: String(pageSize),
   }
+  
+  // Use cursor if provided (overrides page)
+  if (cursor) {
+    params.cursor = cursor
+  } else {
+    params.page = String(page)
+  }
+  
   if (startDate) params.startDate = startDate
   if (endDate) params.endDate = endDate
   if (monthYear) params.monthYear = monthYear
   if (sortOrder) params.sortOrder = sortOrder
   return apiGet<GalleryCalendarResponse>("/api/gallery/calendar", params)
+}
+
+export function fetchCalendarSeek(date: string): Promise<CalendarSeekResponse> {
+  return apiGet<CalendarSeekResponse>("/api/gallery/calendar/seek", { date })
 }
 
 // --- Gallery Calendar Month Info (lightweight) ---

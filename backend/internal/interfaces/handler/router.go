@@ -71,6 +71,7 @@ func (s *Server) SetupRouter(authMiddleware *middleware.AuthMiddleware, csrfProt
 			protected.GET("/gallery/calendar", s.handleGetGalleryCalendar)
 			protected.GET("/gallery/calendar/month", s.handleGetCalendarMonthInfo)
 			protected.GET("/gallery/calendar/dates", s.handleGetCalendarAllDates)
+			protected.GET("/gallery/calendar/seek", s.handleGetCalendarSeek)
 			protected.GET("/gallery/clusters", s.handleGetGalleryClusters)
 			protected.GET("/gallery/geo-images", s.handleGetGeoImages)
 			protected.GET("/image", s.handleServeImage)
