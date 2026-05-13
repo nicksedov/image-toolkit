@@ -426,9 +426,19 @@ func (s *Server) handleGetGalleryImages(c *gin.Context) {
 	offset := params.Offset
 	view := c.DefaultQuery("view", "list")
 	sortOrder := c.DefaultQuery("sortOrder", "newest")
+	searchQuery := c.DefaultQuery("search", "")
+
+	// Build base query with optional search filter
+	query := s.db.Model(&domain.ImageFile{})
+	if searchQuery != "" {
+		// Search in filename or directory path (case-insensitive)
+		// PostgreSQL: ILIKE for case-insensitive matching
+		pattern := "%" + searchQuery + "%"
+		query = query.Where("path ILIKE ?", pattern)
+	}
 
 	var totalImages int64
-	s.db.Model(&domain.ImageFile{}).Count(&totalImages)
+	query.Count(&totalImages)
 
 	pag := helpers.CalcPagination(page, pageSize, totalImages)
 
@@ -437,7 +447,7 @@ func (s *Server) handleGetGalleryImages(c *gin.Context) {
 	if sortOrder == "oldest" {
 		orderClause = "mod_time ASC"
 	}
-	s.db.Order(orderClause).Offset(offset).Limit(pageSize).Find(&files)
+	query.Order(orderClause).Offset(offset).Limit(pageSize).Find(&files)
 
 	imageDTOs := make([]dto.GalleryImageDTO, len(files))
 	for i, f := range files {

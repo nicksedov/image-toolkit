@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react"
+import { useEffect, useState } from "react"
 import { GalleryImageGrid } from "@/components/gallery/GalleryImageGrid"
 import { useGalleryImages } from "@/hooks/useGalleryImages"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -20,38 +20,20 @@ interface GalleryFoldersViewProps {
 
 export function GalleryFoldersView({ onImageClick, onImageView, onImageOcr, onImageAi, onImageDownload, onImageDelete }: GalleryFoldersViewProps) {
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest")
+  const [searchInput, setSearchInput] = useState("")
   const [searchQuery, setSearchQuery] = useState("")
   const { images, totalImages, hasMore, isLoading, error, initialized, loadMore, removeImage } =
-    useGalleryImages("folders", sortOrder)
+    useGalleryImages("folders", sortOrder, searchQuery || undefined)
   const { t } = useTranslation()
 
-  // Filter images based on search query
-  const filteredImages = useMemo(() => {
-    if (!searchQuery.trim()) {
-      return images
-    }
+  // Debounce search input (500ms delay)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearchQuery(searchInput)
+    }, 500)
 
-    const query = searchQuery.toLowerCase().trim()
-    
-    // First pass: find all directories that match the search query
-    const matchingDirs = new Set<string>()
-    for (const image of images) {
-      const dirParts = image.dirPath.toLowerCase().split(/[\\/]/)
-      if (dirParts.some(part => part.includes(query))) {
-        matchingDirs.add(image.dirPath)
-      }
-    }
-
-    // Second pass: include all images from matching dirs + individual matching files
-    return images.filter(image => {
-      // Include if folder matches
-      if (matchingDirs.has(image.dirPath)) {
-        return true
-      }
-      // Include if file name matches
-      return image.fileName.toLowerCase().includes(query)
-    })
-  }, [images, searchQuery])
+    return () => clearTimeout(timer)
+  }, [searchInput])
 
   const sentinelRef = useIntersectionObserver({
     onIntersect: loadMore,
@@ -70,15 +52,13 @@ export function GalleryFoldersView({ onImageClick, onImageView, onImageOcr, onIm
   }
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchQuery(e.target.value)
+    setSearchInput(e.target.value)
   }
 
   const handleClearSearch = () => {
+    setSearchInput("")
     setSearchQuery("")
   }
-
-  // Count displayed images (after filtering)
-  const displayedCount = filteredImages.length
 
   return (
     <div className="space-y-4">
@@ -95,12 +75,12 @@ export function GalleryFoldersView({ onImageClick, onImageView, onImageOcr, onIm
             <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input
               type="text"
-              value={searchQuery}
+              value={searchInput}
               onChange={handleSearchChange}
               placeholder={t("gallery.search.placeholder")}
               className="h-9 w-48 rounded-md border bg-background pl-8 pr-8 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             />
-            {searchQuery && (
+            {searchInput && (
               <button
                 onClick={handleClearSearch}
                 className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 rounded-sm hover:bg-accent flex items-center justify-center"
@@ -151,7 +131,7 @@ export function GalleryFoldersView({ onImageClick, onImageView, onImageOcr, onIm
         </div>
       ) : (
         <>
-          {searchQuery && filteredImages.length === 0 && !isLoading ? (
+          {searchQuery && images.length === 0 && !isLoading ? (
             <div className="rounded-lg border border-dashed p-12 text-center">
               <Search className="mx-auto h-10 w-10 text-muted-foreground/50" />
               <p className="mt-2 text-sm font-medium text-muted-foreground">
@@ -165,11 +145,11 @@ export function GalleryFoldersView({ onImageClick, onImageView, onImageOcr, onIm
             <>
               {searchQuery && (
                 <div className="text-xs text-muted-foreground px-0.5">
-                  Found {displayedCount} of {totalImages} images
+                  Found {images.length} of {totalImages} images
                 </div>
               )}
               <GalleryImageGrid
-                images={filteredImages}
+                images={images}
                 onImageClick={onImageClick}
                 onImageView={onImageView}
                 onImageOcr={onImageOcr}

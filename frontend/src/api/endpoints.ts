@@ -111,14 +111,19 @@ export function fetchGalleryImages(
   page: number,
   pageSize: number,
   view: string,
-  sortOrder: string = "newest"
+  sortOrder: string = "newest",
+  search?: string
 ): Promise<GalleryImagesResponse> {
-  return apiGet<GalleryImagesResponse>("/api/gallery", {
+  const params: Record<string, string> = {
     page: String(page),
     pageSize: String(pageSize),
     view,
     sortOrder,
-  })
+  }
+  if (search) {
+    params.search = search
+  }
+  return apiGet<GalleryImagesResponse>("/api/gallery", params)
 }
 
 // --- Gallery Calendar ---
