@@ -122,24 +122,24 @@ type CursorResult struct {
 }
 
 // EncodeCursor creates a cursor from a date string and image ID.
-// Format: base64("YYYY-MM-DD HH:MM:SS:imageID")
+// Format: base64("YYYY-MM-DD HH:MM:SS|imageID")
 func EncodeCursor(dateStr string, imageID uint) string {
-	raw := fmt.Sprintf("%s:%06d", dateStr, imageID)
+	raw := fmt.Sprintf("%s|%06d", dateStr, imageID)
 	return base64.StdEncoding.EncodeToString([]byte(raw))
 }
 
 // DecodeCursor decodes a cursor into its date string and image ID components.
 // Returns error if cursor is malformed.
-// Supports both old format (YYYY-MM-DD:id) and new format (YYYY-MM-DD HH:MM:SS:id)
+// Supports both old format (YYYY-MM-DD|id) and new format (YYYY-MM-DD HH:MM:SS|id)
 func DecodeCursor(cursor string) (string, uint, error) {
 	decoded, err := base64.StdEncoding.DecodeString(cursor)
 	if err != nil {
 		return "", 0, fmt.Errorf("invalid cursor encoding: %w", err)
 	}
 
-	parts := strings.SplitN(string(decoded), ":", 2)
+	parts := strings.SplitN(string(decoded), "|", 2)
 	if len(parts) != 2 {
-		return "", 0, fmt.Errorf("invalid cursor format: expected 'date:id', got '%s'", string(decoded))
+		return "", 0, fmt.Errorf("invalid cursor format: expected 'date|id', got '%s'", string(decoded))
 	}
 
 	dateStr := parts[0]
