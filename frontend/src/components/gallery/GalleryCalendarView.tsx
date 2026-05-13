@@ -440,6 +440,16 @@ export function GalleryCalendarView({ onImageClick, onImageView, onImageOcr, onI
     setSortOrder(prev => prev === "oldest" ? "newest" : "oldest")
   }
 
+  // Reload data when sort order changes
+  useEffect(() => {
+    if (!initialized) return
+    pageRef.current = 1
+    prefetchedPageRef.current = 0
+    setGroups([])
+    setInitialized(false)
+    loadPage(1, true)
+  }, [sortOrder, initialized, loadPage])
+
   return (
     <div className="space-y-4" style={{ cursor: isLoading ? "wait" : "auto" }}>
       {/* Global loading overlay */}
