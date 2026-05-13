@@ -2,12 +2,11 @@ import { useEffect, useState } from "react"
 import { GalleryImageGrid } from "@/components/gallery/GalleryImageGrid"
 import { useGalleryImages } from "@/hooks/useGalleryImages"
 import { Skeleton } from "@/components/ui/skeleton"
-import { ImageIcon } from "lucide-react"
+import { ImageIcon, ArrowDown, ArrowUp } from "lucide-react"
 import { useTranslation } from "@/i18n"
 import { useIntersectionObserver } from "@/hooks/useIntersectionObserver"
 import { PaginationFooter } from "@/components/ui/pagination-footer"
 import { ViewHeader } from "@/components/ui/view-header"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import type { GalleryImageDTO } from "@/types"
 
 interface GalleryFoldersViewProps {
@@ -37,8 +36,8 @@ export function GalleryFoldersView({ onImageClick, onImageView, onImageOcr, onIm
     }
   }, [initialized, isLoading, loadMore])
 
-  const handleSortChange = (value: string) => {
-    setSortOrder(value as "newest" | "oldest")
+  const handleSortToggle = () => {
+    setSortOrder(prev => prev === "newest" ? "oldest" : "newest")
   }
 
   return (
@@ -50,15 +49,18 @@ export function GalleryFoldersView({ onImageClick, onImageView, onImageOcr, onIm
           textValues={{ count: totalImages.toLocaleString() }}
         />
 
-        <Select value={sortOrder} onValueChange={handleSortChange}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder={t("gallery.sortOrder")} />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="newest">{t("gallery.sortNewest")}</SelectItem>
-            <SelectItem value="oldest">{t("gallery.sortOldest")}</SelectItem>
-          </SelectContent>
-        </Select>
+        <button
+          onClick={handleSortToggle}
+          className="inline-flex items-center gap-2 rounded-md border border-input bg-transparent px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+          title={sortOrder === "newest" ? t("gallery.sortNewest") : t("gallery.sortOldest")}
+        >
+          {sortOrder === "newest" ? (
+            <ArrowDown className="h-4 w-4" />
+          ) : (
+            <ArrowUp className="h-4 w-4" />
+          )}
+          <span>{sortOrder === "newest" ? t("gallery.sortNewest") : t("gallery.sortOldest")}</span>
+        </button>
       </div>
 
       {error && (
