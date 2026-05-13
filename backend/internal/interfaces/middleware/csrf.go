@@ -13,10 +13,11 @@ import (
 type CSRFProtection struct {
 	// Paths that don't require CSRF validation (safe methods + login)
 	skipPaths []string
+	i18n      *i18n.Service
 }
 
 // NewCSRFProtection creates a new CSRF protection middleware
-func NewCSRFProtection() *CSRFProtection {
+func NewCSRFProtection(i18nSvc *i18n.Service) *CSRFProtection {
 	return &CSRFProtection{
 		skipPaths: []string{
 			"/api/auth/login",
@@ -32,7 +33,16 @@ func NewCSRFProtection() *CSRFProtection {
 			"/api/delete-files",
 			"/api/batch-delete",
 		},
+		i18n: i18nSvc,
 	}
+}
+
+// resolveMessage translates a message key using the i18n service
+func (p *CSRFProtection) resolveMessage(msg i18n.MessageKey) string {
+	if p.i18n != nil {
+		return p.i18n.GetMessage(msg, "en")
+	}
+	return string(msg)
 }
 
 // ShouldSkipCSRF checks if a path should skip CSRF validation

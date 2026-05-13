@@ -40,6 +40,7 @@ func (s *Server) SetupRouter(authMiddleware *middleware.AuthMiddleware, csrfProt
 		// Protected routes (require auth)
 		protected := api.Group("")
 		protected.Use(authMiddleware.RequireAuth())
+		protected.Use(middleware.LanguageMiddleware(s.db))
 		{
 			protected.POST("/auth/logout", authHandlers.handleLogout)
 			protected.GET("/auth/me", authHandlers.handleMe)

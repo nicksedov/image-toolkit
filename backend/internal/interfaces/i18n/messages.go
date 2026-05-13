@@ -1,7 +1,6 @@
 package i18n
 
 // MessageKey represents a unique key for i18n messages
-// These keys are used by the frontend to look up translations in i18n resources
 type MessageKey string
 
 const (
@@ -173,4 +172,32 @@ func ErrorResponse(msg MessageKey) map[string]interface{} {
 // CreateValidationError creates a validation error response
 func CreateValidationError(msg MessageKey) map[string]interface{} {
 	return map[string]interface{}{"error": msg, "type": "validation"}
+}
+
+// ResolveMessage translates a message key to human-readable text using the i18n service
+// This function should be called when sending responses to the client
+func ResolveMessage(svc *Service, msg MessageKey, lang string) string {
+	if svc == nil {
+		return string(msg)
+	}
+	return svc.GetMessage(msg, lang)
+}
+
+// SuccessResponseResolved creates a success response with a resolved (translated) message
+func SuccessResponseResolved(svc *Service, msg MessageKey, lang string, data ...interface{}) map[string]interface{} {
+	resp := map[string]interface{}{"message": svc.GetMessage(msg, lang)}
+	if len(data) > 0 {
+		resp["data"] = data[0]
+	}
+	return resp
+}
+
+// ErrorResponseResolved creates an error response with a resolved (translated) message
+func ErrorResponseResolved(svc *Service, msg MessageKey, lang string) map[string]interface{} {
+	return map[string]interface{}{"error": svc.GetMessage(msg, lang)}
+}
+
+// ValidationErrorResolved creates a validation error response with a resolved message
+func ValidationErrorResolved(svc *Service, msg MessageKey, lang string) map[string]interface{} {
+	return map[string]interface{}{"error": svc.GetMessage(msg, lang), "type": "validation"}
 }

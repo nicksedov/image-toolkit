@@ -18,6 +18,7 @@ import (
 	"image-toolkit/internal/infrastructure/geocoder"
 	"image-toolkit/internal/infrastructure/ocr"
 	"image-toolkit/internal/interfaces/handler"
+	"image-toolkit/internal/interfaces/i18n"
 	"image-toolkit/internal/interfaces/middleware"
 )
 
@@ -171,6 +172,13 @@ func main() {
 		}
 	}
 
+	// Initialize i18n service
+	i18nSvc, err := i18n.NewService()
+	if err != nil {
+		log.Fatalf("Failed to initialize i18n service: %v", err)
+	}
+	fmt.Println("i18n service initialized with English and Russian translations")
+
 	// Initialize authentication components
 	sessionConfig := &auth.SessionConfig{
 		IdleTimeout:     time.Duration(cfg.SessionIdleHours) * time.Hour,
@@ -184,10 +192,9 @@ func main() {
 	loginLimiter := auth.NewLoginRateLimiter(10, 15*time.Minute, 30*time.Minute)
 	authService := auth.NewAuthService(db, bootstrap, sessionRepo, loginLimiter)
 	userService := auth.NewUserService(db, sessionRepo)
-	authMiddleware := middleware.NewAuthMiddleware(sessionRepo, authService)
-	csrfProtection := middleware.NewCSRFProtection()
-	authHandlers := handler.NewAuthHandlers(authService, bootstrap, userService, sessionRepo, db)
-
+	authMiddleware := middleware.NewAuthMiddleware(sessionRepo, authService, i18nSvc)
+	csrfProtection := middleware.NewCSRFProtection(i18nSvc)
+	authHandlers := handler.NewAuthHandlers(authService, bootstrap, userService, sessionRepo, db, i18nSvc)
 	// Start session cleanup job
 	sessionCleanup := auth.NewSessionCleanupJob(sessionRepo, 1*time.Hour)
 	sessionCleanup.Start()

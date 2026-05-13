@@ -11,9 +11,12 @@ import (
 	"image-toolkit/internal/application/thumbnail"
 	"image-toolkit/internal/infrastructure/config"
 	"image-toolkit/internal/infrastructure/ocr"
+	"image-toolkit/internal/interfaces/i18n"
 	"image-toolkit/internal/interfaces/dto"
 	"image-toolkit/internal/interfaces/handler/helpers"
+	"image-toolkit/internal/interfaces/middleware"
 
+	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
 
@@ -34,6 +37,7 @@ type Server struct {
 	settingsLoader   *helpers.SettingsLoader
 	llmFactory       *helpers.LLMFactory
 	fileMover        *helpers.FileMover
+	i18n             *i18n.Service
 }
 
 // NewServer creates a new server instance
@@ -42,6 +46,13 @@ func NewServer(db *gorm.DB, scanManager *imaging.ScanManager, ocrManager *imagin
 	if cfg.OCREnabled {
 		ocrClient = ocr.NewClient(cfg.OCRHost, cfg.OCRPort)
 	}
+
+	// Initialize i18n service
+	i18nSvc, err := i18n.NewService()
+	if err != nil {
+		panic(fmt.Sprintf("Failed to initialize i18n service: %v", err))
+	}
+
 	s := &Server{
 		db:               db,
 		thumbnailCache:   imaging.NewThumbnailCache(),
@@ -53,6 +64,7 @@ func NewServer(db *gorm.DB, scanManager *imaging.ScanManager, ocrManager *imagin
 		config:           cfg,
 		ocrClient:        ocrClient,
 		clusterStorage:   geo.NewClusterStorage(),
+		i18n:             i18nSvc,
 	}
 	s.thumbnailBatch = helpers.NewThumbnailBatch(thumbnailService, s.thumbnailCache)
 	s.galleryAccess = helpers.NewGalleryAccess(db)
@@ -120,4 +132,28 @@ func sortPatternsByCount(patterns []dto.FolderPattern) {
 // createPatternID creates a unique ID from sorted folder paths
 func createPatternID(folders []string) string {
 	return strings.Join(folders, "|")
+}
+
+// respondSuccess sends a success response with the message translated to the user's language
+func (s *Server) respondSuccess(c *gin.Context, code int, msg i18n.MessageKey, data ...interface{}) {
+	lang := middleware.GetLanguage(c)
+	resp := i18n.SuccessResponseResolved(s.i18n, msg, lang, data...)
+	c.JSON(code, resp)
+}
+
+// respondError sends an error response with the message translated to the user's language
+func (s *Server) respondError(c *gin.Context, code int, msg i18n.MessageKey) {
+	lang := middleware.GetLanguage(c)
+	c.JSON(code, i18n.ErrorResponseResolved(s.i18n, msg, lang))
+}
+
+// respondValidationError sends a validation error response with the message translated
+func (s *Server) respondValidationError(c *gin.Context, code int, msg i18n.MessageKey) {
+	lang := middleware.GetLanguage(c)
+	c.JSON(code, i18n.ValidationErrorResolved(s.i18n, msg, lang))
+}
+
+// respondJSON sends a raw JSON response (for complex responses not fitting standard patterns)
+func (s *Server) respondJSON(c *gin.Context, code int, data interface{}) {
+	c.JSON(code, data)
 }

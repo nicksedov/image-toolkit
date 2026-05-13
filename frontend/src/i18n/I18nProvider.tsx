@@ -1,8 +1,7 @@
-import { useCallback, useEffect, type ReactNode } from "react"
+import { useCallback, type ReactNode } from "react"
 import { translations } from "./translations"
 import { I18nContext } from "./context"
 import type { Language, TranslationKey } from "./types"
-import { setGlobalTranslate } from "@/api/client"
 
 interface I18nProviderProps {
   language: Language
@@ -23,12 +22,6 @@ export function I18nProvider({ language, children }: I18nProviderProps) {
     },
     [language]
   )
-
-  // Register global translate function for API calls
-  useEffect(() => {
-    const wrapperT = (key: string) => t(key as any)
-    setGlobalTranslate(wrapperT)
-  }, [t])
 
   return (
     <I18nContext.Provider value={{ language, t }}>
