@@ -2146,7 +2146,7 @@ func (s *Server) handleThumbnailCacheInvalidate(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": i18n.MsgThumbnailCacheInvalidated})
+	s.respondSuccess(c, http.StatusOK, i18n.MsgThumbnailCacheInvalidated)
 }
 
 // handleThumbnailCacheInvalidateAll удаляет все миниатюры из кэша
@@ -2161,7 +2161,7 @@ func (s *Server) handleThumbnailCacheInvalidateAll(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": i18n.MsgThumbnailCacheAllInvalidated})
+	s.respondSuccess(c, http.StatusOK, i18n.MsgThumbnailCacheAllInvalidated)
 }
 
 // handleThumbnailCacheWarmup предварительно генерирует миниатюры для файлов
@@ -2186,7 +2186,7 @@ func (s *Server) handleThumbnailCacheWarmup(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": i18n.MsgThumbnailCacheWarmedUp})
+	s.respondSuccess(c, http.StatusOK, i18n.MsgThumbnailCacheWarmedUp)
 }
 
 // handleThumbnailCacheEnable включает кэш миниатюр
@@ -2197,7 +2197,7 @@ func (s *Server) handleThumbnailCacheEnable(c *gin.Context) {
 	}
 
 	s.thumbnailService.Enable()
-	c.JSON(http.StatusOK, gin.H{"message": i18n.MsgThumbnailCacheEnabled})
+	s.respondSuccess(c, http.StatusOK, i18n.MsgThumbnailCacheEnabled)
 }
 
 // handleThumbnailCacheDisable выключает кэш миниатюр
@@ -2208,5 +2208,5 @@ func (s *Server) handleThumbnailCacheDisable(c *gin.Context) {
 	}
 
 	s.thumbnailService.Disable()
-	c.JSON(http.StatusOK, gin.H{"message": i18n.MsgThumbnailCacheDisabled})
+	s.respondSuccess(c, http.StatusOK, i18n.MsgThumbnailCacheDisabled)
 }
