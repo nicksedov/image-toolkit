@@ -1040,8 +1040,15 @@ func (s *Server) handleGetGalleryCalendar(c *gin.Context) {
 			return
 		}
 
-		// Parse the decoded date
-		cursorDate, err := time.Parse(helpers.DateOnlyFormat, decodedDate)
+		// Parse the decoded date/timestamp (supports both "YYYY-MM-DD" and "YYYY-MM-DD HH:MM:SS")
+		var cursorDate time.Time
+		if len(decodedDate) > 10 {
+			// New format with time: "YYYY-MM-DD HH:MM:SS"
+			cursorDate, err = time.Parse(helpers.DateTimeFormat, decodedDate)
+		} else {
+			// Old format without time: "YYYY-MM-DD" (backward compatibility)
+			cursorDate, err = time.Parse(helpers.DateOnlyFormat, decodedDate)
+		}
 		if err != nil {
 			c.JSON(http.StatusBadRequest, i18n.ErrorResponse(i18n.MsgCalendarInvalidCursor))
 			return
@@ -1113,7 +1120,8 @@ func (s *Server) handleGetGalleryCalendar(c *gin.Context) {
 		// If we got more than pageSize, the last item is used for next cursor
 		if len(results) > pageSize {
 			lastItem := results[pageSize]
-			cursorStr := helpers.EncodeCursor(lastItem.DateTaken.Format(helpers.DateOnlyFormat), lastItem.ID)
+			// Encode with full timestamp for precise cursor positioning
+			cursorStr := helpers.EncodeCursor(lastItem.DateTaken.Format(helpers.DateTimeFormat), lastItem.ID)
 			nextCursor = &cursorStr
 			results = results[:pageSize] // Drop the extra item
 
@@ -1136,7 +1144,8 @@ func (s *Server) handleGetGalleryCalendar(c *gin.Context) {
 		// If we got more than pageSize, generate a next cursor from the last item
 		if len(results) > pageSize {
 			lastItem := results[pageSize]
-			cursorStr := helpers.EncodeCursor(lastItem.DateTaken.Format(helpers.DateOnlyFormat), lastItem.ID)
+			// Encode with full timestamp for precise cursor positioning
+			cursorStr := helpers.EncodeCursor(lastItem.DateTaken.Format(helpers.DateTimeFormat), lastItem.ID)
 			nextCursor = &cursorStr
 			results = results[:pageSize] // Drop the extra item
 		}
@@ -1303,8 +1312,8 @@ func (s *Server) handleGetCalendarAllDates(c *gin.Context) {
 	for _, dc := range dateCounts {
 		page := (imageIndex / pageSize) + 1
 		// Generate a synthetic cursor pointing to the start of this date
-		// Using ID 1 as a placeholder - the cursor pagination will find the first image >= this date
-		cursor := helpers.EncodeCursor(dc.Date.Format(helpers.DateOnlyFormat), 1)
+		// Using a midnight timestamp as the cursor start point
+		cursor := helpers.EncodeCursor(dc.Date.Format(helpers.DateTimeFormat), 1)
 
 		dates = append(dates, dto.TimelineDateMarker{
 			Date:       dc.Date.Format(helpers.DateOnlyFormat),
@@ -1412,7 +1421,7 @@ func (s *Server) handleGetCalendarSeek(c *gin.Context) {
 	if err == nil {
 		// Found images on this exact date
 		c.JSON(http.StatusOK, dto.CalendarSeekResponse{
-			Cursor:     helpers.EncodeCursor(firstResult.DateTaken.Format(helpers.DateOnlyFormat), firstResult.ID),
+			Cursor:     helpers.EncodeCursor(firstResult.DateTaken.Format(helpers.DateTimeFormat), firstResult.ID),
 			ActualDate: firstResult.DateTaken.Format(helpers.DateOnlyFormat),
 		})
 		return
@@ -1462,7 +1471,7 @@ func (s *Server) handleGetCalendarSeek(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, dto.CalendarSeekResponse{
-		Cursor:     helpers.EncodeCursor(nearestDate.Format(helpers.DateOnlyFormat), nearestID),
+		Cursor:     helpers.EncodeCursor(nearestDate.Format(helpers.DateTimeFormat), nearestID),
 		ActualDate: nearestDate.Format(helpers.DateOnlyFormat),
 	})
 }
