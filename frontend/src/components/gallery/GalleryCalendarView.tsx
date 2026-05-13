@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { fetchGalleryCalendar, fetchCalendarMonthInfo, fetchCalendarAllDates } from "@/api/endpoints"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Calendar as CalendarIcon } from "lucide-react"
+import { Calendar as CalendarIcon, ArrowDown, ArrowUp } from "lucide-react"
 import { useTranslation } from "@/i18n"
 import type { GalleryImageDTO, CalendarDateGroup, CalendarDateRange, CalendarMonthInfo, TimelineDateMarker } from "@/types"
 import { CalendarImageGrid } from "./CalendarImageGrid"
@@ -40,6 +40,9 @@ export function GalleryCalendarView({ onImageClick, onImageView, onImageOcr, onI
     end: null,
   })
   const [rangeSelecting, setRangeSelecting] = useState(false)
+
+  // Sort order state
+  const [sortOrder, setSortOrder] = useState<"oldest" | "newest">("oldest")
 
   // Calendar widget state
   const [calendarViewDate, setCalendarViewDate] = useState(() => {
@@ -89,7 +92,8 @@ export function GalleryCalendarView({ onImageClick, onImageView, onImageOcr, onI
         PAGE_SIZE,
         dateRangeFilter.start ?? undefined,
         dateRangeFilter.end ?? undefined,
-        calendarMonthKey
+        calendarMonthKey,
+        sortOrder
       )
 
       if (reset) {
@@ -124,7 +128,7 @@ export function GalleryCalendarView({ onImageClick, onImageView, onImageOcr, onI
       loadingRef.current = false
       setIsLoading(false)
     }
-  }, [dateRangeFilter.start, dateRangeFilter.end, calendarMonthKey, initialized])
+  }, [dateRangeFilter.start, dateRangeFilter.end, calendarMonthKey, initialized, sortOrder])
 
   // Keep ref in sync
   useEffect(() => {
@@ -190,7 +194,8 @@ export function GalleryCalendarView({ onImageClick, onImageView, onImageOcr, onI
           PAGE_SIZE,
           dateRangeFilter.start ?? undefined,
           dateRangeFilter.end ?? undefined,
-          calendarMonthKey
+          calendarMonthKey,
+          sortOrder
         )
           .then((result) => {
             const imageUrls = result.groups.flatMap((group) =>
@@ -207,7 +212,7 @@ export function GalleryCalendarView({ onImageClick, onImageView, onImageOcr, onI
     
     window.addEventListener("scroll", checkAndPreloadNextPage, { passive: true })
     return () => window.removeEventListener("scroll", checkAndPreloadNextPage)
-  }, [hasMore, isLoading, dateRangeFilter.start, dateRangeFilter.end, calendarMonthKey, preloadImages])
+  }, [hasMore, isLoading, dateRangeFilter.start, dateRangeFilter.end, calendarMonthKey, preloadImages, sortOrder])
 
   // Initial load on mount
   useEffect(() => {
@@ -384,7 +389,8 @@ export function GalleryCalendarView({ onImageClick, onImageView, onImageOcr, onI
           PAGE_SIZE,
           dateRangeFilter.start ?? undefined,
           dateRangeFilter.end ?? undefined,
-          navMonthKey
+          navMonthKey,
+          sortOrder
         )
         if (result.groups.length > 0) {
           allGroups.push(...result.groups)
@@ -399,7 +405,7 @@ export function GalleryCalendarView({ onImageClick, onImageView, onImageOcr, onI
         }
       }
       const uniqueGroups = Array.from(groupMap.values())
-        .sort((a, b) => a.date.localeCompare(b.date))
+        .sort((a, b) => sortOrder === "newest" ? b.date.localeCompare(a.date) : a.date.localeCompare(b.date))
 
       if (uniqueGroups.length > 0) {
         setGroups(uniqueGroups)
@@ -430,6 +436,10 @@ export function GalleryCalendarView({ onImageClick, onImageView, onImageOcr, onI
     }
   }
 
+  const handleSortToggle = () => {
+    setSortOrder(prev => prev === "oldest" ? "newest" : "oldest")
+  }
+
   return (
     <div className="space-y-4" style={{ cursor: isLoading ? "wait" : "auto" }}>
       {/* Global loading overlay */}
@@ -447,17 +457,32 @@ export function GalleryCalendarView({ onImageClick, onImageView, onImageOcr, onI
           }}
         />
       )}
-      {/* Header with image count */}
-      <div className="flex items-center gap-2">
-        <CalendarIcon className="h-5 w-5 text-muted-foreground" />
-        <span className="text-sm text-muted-foreground">
-          {dateRange.totalWithDate > 0
-            ? (dateRange.totalWithDate === 1
-              ? t("gallery.imageCountOne", { count: dateRange.totalWithDate.toLocaleString() })
-              : t("gallery.imageCount", { count: dateRange.totalWithDate.toLocaleString() }))
-            : t("gallery.calendar.noDateInfo")
-          }
-        </span>
+      {/* Header with image count and sort toggle */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <CalendarIcon className="h-5 w-5 text-muted-foreground" />
+          <span className="text-sm text-muted-foreground">
+            {dateRange.totalWithDate > 0
+              ? (dateRange.totalWithDate === 1
+                ? t("gallery.imageCountOne", { count: dateRange.totalWithDate.toLocaleString() })
+                : t("gallery.imageCount", { count: dateRange.totalWithDate.toLocaleString() }))
+              : t("gallery.calendar.noDateInfo")
+            }
+          </span>
+        </div>
+
+        <button
+          onClick={handleSortToggle}
+          className="inline-flex items-center gap-2 rounded-md bg-transparent px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+          title={sortOrder === "newest" ? t("gallery.sortNewest") : t("gallery.sortOldest")}
+        >
+          {sortOrder === "newest" ? (
+            <ArrowDown className="h-4 w-4" />
+          ) : (
+            <ArrowUp className="h-4 w-4" />
+          )}
+          <span>{sortOrder === "newest" ? t("gallery.sortNewest") : t("gallery.sortOldest")}</span>
+        </button>
       </div>
 
       {/* Horizontal Calendar Widget */}

@@ -51,7 +51,7 @@ export function GalleryFoldersView({ onImageClick, onImageView, onImageOcr, onIm
 
         <button
           onClick={handleSortToggle}
-          className="inline-flex items-center gap-2 rounded-md border border-input bg-transparent px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+          className="inline-flex items-center gap-2 rounded-md bg-transparent px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
           title={sortOrder === "newest" ? t("gallery.sortNewest") : t("gallery.sortOldest")}
         >
           {sortOrder === "newest" ? (

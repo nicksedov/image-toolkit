@@ -989,9 +989,9 @@ func (s *Server) handleGetGalleryCalendar(c *gin.Context) {
 	startDate := c.Query("startDate") // "YYYY-MM-DD" or empty
 	endDate := c.Query("endDate")     // "YYYY-MM-DD" or empty
 	monthYear := c.Query("monthYear") // "YYYY-MM" for calendar widget
+	sortOrder := c.DefaultQuery("sortOrder", "oldest")
 
 	// Query: join image_files with image_metadata where date_taken is not null
-	// Order by date_taken DESC (newest first)
 	type imageWithDate struct {
 		domain.ImageFile
 		DateTaken time.Time
@@ -1022,7 +1022,11 @@ func (s *Server) handleGetGalleryCalendar(c *gin.Context) {
 
 	// Paginate
 	var results []imageWithDate
-	query.Order("image_metadata.date_taken ASC").Offset(offset).Limit(pageSize).Find(&results)
+	orderClause := "image_metadata.date_taken ASC"
+	if sortOrder == "newest" {
+		orderClause = "image_metadata.date_taken DESC"
+	}
+	query.Order(orderClause).Offset(offset).Limit(pageSize).Find(&results)
 
 	// Group by date
 	type dateGroup struct {

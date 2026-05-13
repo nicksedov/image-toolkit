@@ -128,7 +128,8 @@ export function fetchGalleryCalendar(
   pageSize: number,
   startDate?: string,
   endDate?: string,
-  monthYear?: string
+  monthYear?: string,
+  sortOrder?: string
 ): Promise<GalleryCalendarResponse> {
   const params: Record<string, string> = {
     page: String(page),
@@ -137,6 +138,7 @@ export function fetchGalleryCalendar(
   if (startDate) params.startDate = startDate
   if (endDate) params.endDate = endDate
   if (monthYear) params.monthYear = monthYear
+  if (sortOrder) params.sortOrder = sortOrder
   return apiGet<GalleryCalendarResponse>("/api/gallery/calendar", params)
 }
 
