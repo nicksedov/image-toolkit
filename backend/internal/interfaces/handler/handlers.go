@@ -1087,7 +1087,7 @@ func (s *Server) handleGetGalleryCalendar(c *gin.Context) {
 			results = results[:pageSize] // Drop the extra item
 		}
 	} else {
-		// Legacy offset-based pagination
+		// Legacy offset-based pagination (first page or when no cursor provided)
 		params := helpers.ParsePagination(c, helpers.ModeFlexible)
 		pageSize := params.PageSize
 		offset := params.Offset
@@ -1097,7 +1097,16 @@ func (s *Server) handleGetGalleryCalendar(c *gin.Context) {
 			orderClause = "image_metadata.date_taken DESC"
 		}
 
-		baseQuery.Order(orderClause).Offset(offset).Limit(pageSize).Find(&results)
+		// Fetch pageSize + 1 to detect if there's more data and generate a cursor
+		baseQuery.Order(orderClause).Offset(offset).Limit(pageSize + 1).Find(&results)
+
+		// If we got more than pageSize, generate a next cursor from the last item
+		if len(results) > pageSize {
+			lastItem := results[pageSize]
+			cursorStr := helpers.EncodeCursor(lastItem.DateTaken.Format(helpers.DateOnlyFormat), lastItem.ID)
+			nextCursor = &cursorStr
+			results = results[:pageSize] // Drop the extra item
+		}
 	}
 
 	// Group by date
