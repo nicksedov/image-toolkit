@@ -48,6 +48,15 @@ export function GalleryCalendarView({ onImageClick, onImageView, onImageOcr, onI
     calendar.loadMore()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Sync calendar widget to show the month of loaded images
+  useEffect(() => {
+    if (calendar.initialized && calendar.dateRange.minDate && !calendar.dateRangeFilter.start) {
+      // Only set calendar to minDate month on initial load (no filter active)
+      const minDate = new Date(calendar.dateRange.minDate + "T00:00:00")
+      setCalendarViewDate(new Date(minDate.getFullYear(), minDate.getMonth(), 1))
+    }
+  }, [calendar.initialized, calendar.dateRange.minDate, calendar.dateRangeFilter.start])
+
   // Update monthYear ref when calendar widget changes month
   useEffect(() => {
     calendar.setMonthYear(calendarMonthKey)
