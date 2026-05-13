@@ -6,6 +6,9 @@ import { useGeoClusters } from "@/hooks/useGeoClusters"
 import { useGeoImages } from "@/hooks/useGeoImages"
 import { useTranslation } from "@/i18n"
 import { ArrowLeft, MapPin, ImageIcon } from "lucide-react"
+import { useIntersectionObserver } from "@/hooks/useIntersectionObserver"
+import { PaginationFooter } from "@/components/ui/pagination-footer"
+import { ViewHeader } from "@/components/ui/view-header"
 import type { GalleryImageDTO, GeoCluster } from "@/types"
 import "@/lib/leaflet-icon-fix"
 
@@ -163,25 +166,11 @@ export function GalleryGeolocationView({ onImageClick, onImageView, onImageOcr, 
   }, [])
 
   // Infinite scroll for grid view
-  const sentinelRef = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    if (viewMode !== "grid") return
-
-    const sentinel = sentinelRef.current
-    if (!sentinel) return
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && hasMore && !imagesLoading) {
-          loadMore()
-        }
-      },
-      { threshold: 0.1 }
-    )
-
-    observer.observe(sentinel)
-    return () => observer.disconnect()
-  }, [viewMode, hasMore, imagesLoading, loadMore])
+  const sentinelRef = useIntersectionObserver({
+    onIntersect: loadMore,
+    enabled: viewMode === "grid" && hasMore && !imagesLoading,
+    dependencies: [viewMode, hasMore, imagesLoading, loadMore],
+  })
 
   // MapEvents component to track zoom
   const MapZoomTracker = () => {
@@ -204,12 +193,11 @@ export function GalleryGeolocationView({ onImageClick, onImageView, onImageOcr, 
           {t("geolocation.backToMap")}
         </button>
 
-        <div className="flex items-center gap-2">
-          <MapPin className="h-5 w-5 text-muted-foreground" />
-          <span className="text-sm text-muted-foreground">
-            {t("geolocation.totalGeoImages", { count: images.length.toString() })}
-          </span>
-        </div>
+        <ViewHeader
+          icon={MapPin}
+          textKey="geolocation.totalGeoImages"
+          textValues={{ count: images.length.toString() }}
+        />
 
         {images.length === 0 && !imagesLoading ? (
           <div className="rounded-lg border border-dashed p-12 text-center">
@@ -233,16 +221,11 @@ export function GalleryGeolocationView({ onImageClick, onImageView, onImageOcr, 
               onImageDelete={(image) => onImageDelete?.(image, () => removeGeoImage(image.id))}
             />
             <div ref={sentinelRef} className="h-4" />
-            {imagesLoading && (
-              <div className="flex justify-center py-4">
-                <div className="text-sm text-muted-foreground">{t("gallery.loadingMore")}</div>
-              </div>
-            )}
-            {!hasMore && images.length > 0 && (
-              <div className="text-center text-xs text-muted-foreground py-4">
-                {t("gallery.allLoaded", { count: images.length.toString() })}
-              </div>
-            )}
+            <PaginationFooter
+              isLoading={imagesLoading}
+              hasMore={hasMore}
+              totalCount={images.length}
+            />
           </>
         )}
       </div>

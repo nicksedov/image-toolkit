@@ -1,41 +1,15 @@
 const API_BASE_URL = import.meta.env.VITE_API_URL || ""
-import { translations } from "../i18n/translations"
-
-// Global i18n registry for API calls outside React components
-let globalTranslate: ((key: string) => string) | null = null
-
-export function setGlobalTranslate(fn: (key: string) => string) {
-  globalTranslate = fn
-}
 
 function handleUnauthorized(): never {
   window.dispatchEvent(new CustomEvent("navigate-to-login"))
   throw new Error("Authorization required")
 }
 
-// Function to translate API response error/message keys
+// Function to handle API error messages
+// Backend now sends human-readable messages resolved from i18n keys
 export function translateApiMessage(message: string | undefined): string {
   if (!message) return "Unknown error"
-  
-  // If message contains dots (like "auth.invalid_credentials"), treat as i18n key
-  if (message.includes(".")) {
-    // Try global translate first
-    if (globalTranslate) {
-      const translated = globalTranslate(message)
-      if (translated !== message) {
-        return translated
-      }
-    }
-    // Fallback to translation if available
-    const lang = localStorage.getItem("language") as "en" | "ru" || "en"
-    const dict = translations[lang] || translations.en
-    const translated = (dict as Record<string, string>)[message] || message
-    if (translated !== message) {
-      return translated
-    }
-  }
-  
-  // Fallback to original message
+  // Backend sends translated messages directly, so we just return them
   return message
 }
 

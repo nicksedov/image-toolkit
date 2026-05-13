@@ -1,7 +1,9 @@
 package handler
 
 import (
+	"cmp"
 	"fmt"
+	"slices"
 	"strings"
 
 	"image-toolkit/internal/application/geo"
@@ -10,7 +12,11 @@ import (
 	"image-toolkit/internal/infrastructure/config"
 	"image-toolkit/internal/infrastructure/ocr"
 	"image-toolkit/internal/interfaces/dto"
+	"image-toolkit/internal/interfaces/handler/helpers"
+	"image-toolkit/internal/interfaces/i18n"
+	"image-toolkit/internal/interfaces/middleware"
 
+	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
 
@@ -19,6 +25,7 @@ type Server struct {
 	db               *gorm.DB
 	thumbnailCache   *imaging.ThumbnailCache
 	thumbnailService *thumbnail.Service
+	thumbnailBatch   *helpers.ThumbnailBatch
 	scanManager      *imaging.ScanManager
 	ocrManager       *imaging.OcrManager
 	llmOcrService    *imaging.LlmOcrService
@@ -26,6 +33,11 @@ type Server struct {
 	config           *config.AppConfig
 	ocrClient        ocr.Client
 	clusterStorage   *geo.ClusterStorage
+	galleryAccess    *helpers.GalleryAccess
+	settingsLoader   *helpers.SettingsLoader
+	llmFactory       *helpers.LLMFactory
+	fileMover        *helpers.FileMover
+	i18n             *i18n.Service
 }
 
 // NewServer creates a new server instance
@@ -34,7 +46,14 @@ func NewServer(db *gorm.DB, scanManager *imaging.ScanManager, ocrManager *imagin
 	if cfg.OCREnabled {
 		ocrClient = ocr.NewClient(cfg.OCRHost, cfg.OCRPort)
 	}
-	return &Server{
+
+	// Initialize i18n service
+	i18nSvc, err := i18n.NewService()
+	if err != nil {
+		panic(fmt.Sprintf("Failed to initialize i18n service: %v", err))
+	}
+
+	s := &Server{
 		db:               db,
 		thumbnailCache:   imaging.NewThumbnailCache(),
 		thumbnailService: thumbnailService,
@@ -45,7 +64,14 @@ func NewServer(db *gorm.DB, scanManager *imaging.ScanManager, ocrManager *imagin
 		config:           cfg,
 		ocrClient:        ocrClient,
 		clusterStorage:   geo.NewClusterStorage(),
+		i18n:             i18nSvc,
 	}
+	s.thumbnailBatch = helpers.NewThumbnailBatch(thumbnailService, s.thumbnailCache)
+	s.galleryAccess = helpers.NewGalleryAccess(db)
+	s.settingsLoader = helpers.NewSettingsLoader(db)
+	s.llmFactory = helpers.NewLLMFactory(db)
+	s.fileMover = helpers.NewFileMover(db)
+	return s
 }
 
 // StartOCRHealthCheck starts the OCR health check in background
@@ -96,29 +122,38 @@ func pathsConflict(a, b string) string {
 	return ""
 }
 
-// sortStrings sorts a slice of strings in place
-func sortStrings(s []string) {
-	for i := 0; i < len(s)-1; i++ {
-		for j := i + 1; j < len(s); j++ {
-			if s[i] > s[j] {
-				s[i], s[j] = s[j], s[i]
-			}
-		}
-	}
-}
-
 // sortPatternsByCount sorts patterns by duplicate count descending
 func sortPatternsByCount(patterns []dto.FolderPattern) {
-	for i := 0; i < len(patterns)-1; i++ {
-		for j := i + 1; j < len(patterns); j++ {
-			if patterns[i].DuplicateCount < patterns[j].DuplicateCount {
-				patterns[i], patterns[j] = patterns[j], patterns[i]
-			}
-		}
-	}
+	slices.SortFunc(patterns, func(a, b dto.FolderPattern) int {
+		return cmp.Compare(b.DuplicateCount, a.DuplicateCount)
+	})
 }
 
 // createPatternID creates a unique ID from sorted folder paths
 func createPatternID(folders []string) string {
 	return strings.Join(folders, "|")
+}
+
+// respondSuccess sends a success response with the message translated to the user's language
+func (s *Server) respondSuccess(c *gin.Context, code int, msg i18n.MessageKey, data ...interface{}) {
+	lang := middleware.GetLanguage(c)
+	resp := i18n.SuccessResponseResolved(s.i18n, msg, lang, data...)
+	c.JSON(code, resp)
+}
+
+// respondError sends an error response with the message translated to the user's language
+func (s *Server) respondError(c *gin.Context, code int, msg i18n.MessageKey) {
+	lang := middleware.GetLanguage(c)
+	c.JSON(code, i18n.ErrorResponseResolved(s.i18n, msg, lang))
+}
+
+// respondValidationError sends a validation error response with the message translated
+func (s *Server) respondValidationError(c *gin.Context, code int, msg i18n.MessageKey) {
+	lang := middleware.GetLanguage(c)
+	c.JSON(code, i18n.ValidationErrorResolved(s.i18n, msg, lang))
+}
+
+// respondJSON sends a raw JSON response (for complex responses not fitting standard patterns)
+func (s *Server) respondJSON(c *gin.Context, code int, data interface{}) {
+	c.JSON(code, data)
 }

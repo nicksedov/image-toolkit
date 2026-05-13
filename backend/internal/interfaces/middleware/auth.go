@@ -23,14 +23,24 @@ const (
 type AuthMiddleware struct {
 	sessionRepo *auth.SessionRepository
 	authService *auth.AuthService
+	i18n        *i18n.Service
 }
 
 // NewAuthMiddleware creates a new auth middleware
-func NewAuthMiddleware(sessionRepo *auth.SessionRepository, authService *auth.AuthService) *AuthMiddleware {
+func NewAuthMiddleware(sessionRepo *auth.SessionRepository, authService *auth.AuthService, i18nSvc *i18n.Service) *AuthMiddleware {
 	return &AuthMiddleware{
 		sessionRepo: sessionRepo,
 		authService: authService,
+		i18n:        i18nSvc,
 	}
+}
+
+// resolveMessage translates a message key using the i18n service, falling back to English if not set
+func (m *AuthMiddleware) resolveMessage(msg i18n.MessageKey) string {
+	if m.i18n != nil {
+		return m.i18n.GetMessage(msg, "en") // Default to English for auth errors
+	}
+	return string(msg)
 }
 
 // RequireAuth validates the session and loads the user into context
@@ -38,14 +48,14 @@ func (m *AuthMiddleware) RequireAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		token, err := c.Cookie(SessionCookieName)
 		if err != nil {
-			c.JSON(http.StatusUnauthorized, i18n.ErrorResponse(i18n.MsgMiddlewareUnauthorized))
+			c.JSON(http.StatusUnauthorized, gin.H{"error": m.resolveMessage(i18n.MsgMiddlewareUnauthorized)})
 			c.Abort()
 			return
 		}
 
 		user, err := m.authService.GetCurrentUser(token)
 		if err != nil {
-			c.JSON(http.StatusUnauthorized, i18n.ErrorResponse(i18n.MsgMiddlewareUnauthorized))
+			c.JSON(http.StatusUnauthorized, gin.H{"error": m.resolveMessage(i18n.MsgMiddlewareUnauthorized)})
 			c.Abort()
 			return
 		}
@@ -63,14 +73,14 @@ func RequireAdmin() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userVal, exists := c.Get(ContextKeyUser)
 		if !exists {
-			c.JSON(http.StatusForbidden, i18n.ErrorResponse(i18n.MsgMiddlewareForbidden))
+			c.JSON(http.StatusForbidden, gin.H{"error": "Insufficient permissions"})
 			c.Abort()
 			return
 		}
 
 		user, ok := userVal.(*domain.User)
 		if !ok || user.Role != domain.RoleAdmin {
-			c.JSON(http.StatusForbidden, i18n.ErrorResponse(i18n.MsgMiddlewareForbidden))
+			c.JSON(http.StatusForbidden, gin.H{"error": "Insufficient permissions"})
 			c.Abort()
 			return
 		}

@@ -22,17 +22,32 @@ type AuthHandlers struct {
 	userService *auth.UserService
 	sessionRepo *auth.SessionRepository
 	db          *gorm.DB
+	i18n        *i18n.Service
 }
 
 // NewAuthHandlers creates a new auth handlers instance
-func NewAuthHandlers(authService *auth.AuthService, bootstrap *auth.BootstrapService, userService *auth.UserService, sessionRepo *auth.SessionRepository, db *gorm.DB) *AuthHandlers {
+func NewAuthHandlers(authService *auth.AuthService, bootstrap *auth.BootstrapService, userService *auth.UserService, sessionRepo *auth.SessionRepository, db *gorm.DB, i18nSvc *i18n.Service) *AuthHandlers {
 	return &AuthHandlers{
 		authService: authService,
 		bootstrap:   bootstrap,
 		userService: userService,
 		sessionRepo: sessionRepo,
 		db:          db,
+		i18n:        i18nSvc,
 	}
+}
+
+// respondSuccess sends a success response with the message translated to the user's language
+func (h *AuthHandlers) respondSuccess(c *gin.Context, code int, msg i18n.MessageKey, data ...interface{}) {
+	lang := middleware.GetLanguage(c)
+	resp := i18n.SuccessResponseResolved(h.i18n, msg, lang, data...)
+	c.JSON(code, resp)
+}
+
+// respondError sends an error response with the message translated to the user's language
+func (h *AuthHandlers) respondError(c *gin.Context, code int, msg i18n.MessageKey) {
+	lang := middleware.GetLanguage(c)
+	c.JSON(code, i18n.ErrorResponseResolved(h.i18n, msg, lang))
 }
 
 // handleAuthStatus returns the current authentication status
