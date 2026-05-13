@@ -1,7 +1,9 @@
 package handler
 
 import (
+	"cmp"
 	"fmt"
+	"slices"
 	"strings"
 
 	"image-toolkit/internal/application/geo"
@@ -10,6 +12,7 @@ import (
 	"image-toolkit/internal/infrastructure/config"
 	"image-toolkit/internal/infrastructure/ocr"
 	"image-toolkit/internal/interfaces/dto"
+	"image-toolkit/internal/interfaces/handler/helpers"
 
 	"gorm.io/gorm"
 )
@@ -19,6 +22,7 @@ type Server struct {
 	db               *gorm.DB
 	thumbnailCache   *imaging.ThumbnailCache
 	thumbnailService *thumbnail.Service
+	thumbnailBatch   *helpers.ThumbnailBatch
 	scanManager      *imaging.ScanManager
 	ocrManager       *imaging.OcrManager
 	llmOcrService    *imaging.LlmOcrService
@@ -26,6 +30,10 @@ type Server struct {
 	config           *config.AppConfig
 	ocrClient        ocr.Client
 	clusterStorage   *geo.ClusterStorage
+	galleryAccess    *helpers.GalleryAccess
+	settingsLoader   *helpers.SettingsLoader
+	llmFactory       *helpers.LLMFactory
+	fileMover        *helpers.FileMover
 }
 
 // NewServer creates a new server instance
@@ -34,7 +42,7 @@ func NewServer(db *gorm.DB, scanManager *imaging.ScanManager, ocrManager *imagin
 	if cfg.OCREnabled {
 		ocrClient = ocr.NewClient(cfg.OCRHost, cfg.OCRPort)
 	}
-	return &Server{
+	s := &Server{
 		db:               db,
 		thumbnailCache:   imaging.NewThumbnailCache(),
 		thumbnailService: thumbnailService,
@@ -46,6 +54,12 @@ func NewServer(db *gorm.DB, scanManager *imaging.ScanManager, ocrManager *imagin
 		ocrClient:        ocrClient,
 		clusterStorage:   geo.NewClusterStorage(),
 	}
+	s.thumbnailBatch = helpers.NewThumbnailBatch(thumbnailService, s.thumbnailCache)
+	s.galleryAccess = helpers.NewGalleryAccess(db)
+	s.settingsLoader = helpers.NewSettingsLoader(db)
+	s.llmFactory = helpers.NewLLMFactory(db)
+	s.fileMover = helpers.NewFileMover(db)
+	return s
 }
 
 // StartOCRHealthCheck starts the OCR health check in background
@@ -96,26 +110,11 @@ func pathsConflict(a, b string) string {
 	return ""
 }
 
-// sortStrings sorts a slice of strings in place
-func sortStrings(s []string) {
-	for i := 0; i < len(s)-1; i++ {
-		for j := i + 1; j < len(s); j++ {
-			if s[i] > s[j] {
-				s[i], s[j] = s[j], s[i]
-			}
-		}
-	}
-}
-
 // sortPatternsByCount sorts patterns by duplicate count descending
 func sortPatternsByCount(patterns []dto.FolderPattern) {
-	for i := 0; i < len(patterns)-1; i++ {
-		for j := i + 1; j < len(patterns); j++ {
-			if patterns[i].DuplicateCount < patterns[j].DuplicateCount {
-				patterns[i], patterns[j] = patterns[j], patterns[i]
-			}
-		}
-	}
+	slices.SortFunc(patterns, func(a, b dto.FolderPattern) int {
+		return cmp.Compare(b.DuplicateCount, a.DuplicateCount)
+	})
 }
 
 // createPatternID creates a unique ID from sorted folder paths

@@ -2,15 +2,14 @@ package handler
 
 import (
 	"fmt"
-	"io"
 	"log"
 	"math"
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"image-toolkit/internal/application/geo"
@@ -19,6 +18,7 @@ import (
 	"image-toolkit/internal/domain"
 	"image-toolkit/internal/infrastructure/llm"
 	"image-toolkit/internal/interfaces/dto"
+	"image-toolkit/internal/interfaces/handler/helpers"
 	"image-toolkit/internal/interfaces/i18n"
 	"image-toolkit/internal/interfaces/middleware"
 
@@ -29,39 +29,18 @@ import (
 
 // handleGetDuplicates returns paginated duplicate groups as JSON
 func (s *Server) handleGetDuplicates(c *gin.Context) {
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	pageSize, _ := strconv.Atoi(c.DefaultQuery("pageSize", "50"))
+	params := helpers.ParsePagination(c, helpers.ModeFixed)
+	page := params.Page
+	pageSize := params.PageSize
+	offset := params.Offset
 
-	validPageSizes := []int{50, 100, 250, 500}
-	isValidPageSize := false
-	for _, ps := range validPageSizes {
-		if pageSize == ps {
-			isValidPageSize = true
-			break
-		}
-	}
-	if !isValidPageSize {
-		pageSize = 50
-	}
-
-	if page < 1 {
-		page = 1
-	}
-
-	offset := (page - 1) * pageSize
 	groups, totalGroups, totalFiles, err := imaging.FindDuplicatesPaginated(s.db, offset, pageSize)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, i18n.ErrorResponse(i18n.MsgScanDuplicateFailed))
 		return
 	}
 
-	totalPages := (totalGroups + pageSize - 1) / pageSize
-	if totalPages < 1 {
-		totalPages = 1
-	}
-	if page > totalPages {
-		page = totalPages
-	}
+	pag := helpers.CalcPagination(page, pageSize, int64(totalGroups))
 
 	// Prepare group DTOs with parallel thumbnail generation
 	groupDTOs := make([]dto.DuplicateGroupDTO, len(groups))
@@ -71,10 +50,9 @@ func (s *Server) handleGetDuplicates(c *gin.Context) {
 		pageFiles += len(g.Files)
 	}
 
-	const maxWorkers = 16
-	var wg sync.WaitGroup
-	semaphore := make(chan struct{}, maxWorkers)
-
+	// Collect paths for thumbnail generation
+	paths := make([]string, len(groups))
+	pathToIdx := make(map[string]int)
 	for i, g := range groups {
 		fileDTOs := make([]dto.FileDTO, len(g.Files))
 		for j, f := range g.Files {
@@ -83,7 +61,7 @@ func (s *Server) handleGetDuplicates(c *gin.Context) {
 				Path:     f.Path,
 				FileName: filepath.Base(f.Path),
 				DirPath:  filepath.Dir(f.Path),
-				ModTime:  f.ModTime.Format("2006-01-02 15:04:05"),
+				ModTime:  f.ModTime.Format(helpers.DateTimeFormat),
 			}
 		}
 
@@ -96,30 +74,14 @@ func (s *Server) handleGetDuplicates(c *gin.Context) {
 		}
 
 		if len(g.Files) > 0 {
-			wg.Add(1)
-			go func(idx int, filePath string) {
-				defer wg.Done()
-				semaphore <- struct{}{}
-				defer func() { <-semaphore }()
-
-				var thumb string
-				var err error
-
-				// Use thumbnail service if available
-				if s.thumbnailService != nil {
-					thumb, err = s.thumbnailService.GetOrGenerate(filePath)
-				} else {
-					thumb, err = imaging.GenerateThumbnail(filePath, s.thumbnailCache)
-				}
-
-				if err == nil {
-					groupDTOs[idx].Thumbnail = thumb
-				}
-			}(i, g.Files[0].Path)
+			paths[i] = g.Files[0].Path
+			pathToIdx[g.Files[0].Path] = i
 		}
 	}
 
-	wg.Wait()
+	s.thumbnailBatch.GenerateParallel(paths, func(idx int, thumb string) {
+		groupDTOs[idx].Thumbnail = thumb
+	})
 
 	// Get scanned dirs from gallery folders
 	var galleryFolders []domain.GalleryFolder
@@ -135,12 +97,12 @@ func (s *Server) handleGetDuplicates(c *gin.Context) {
 		PageFiles:   pageFiles,
 		TotalGroups: totalGroups,
 		ScannedDirs: scannedDirs,
-		CurrentPage: page,
-		PageSize:    pageSize,
-		TotalPages:  totalPages,
-		HasPrevPage: page > 1,
-		HasNextPage: page < totalPages,
-		PageSizes:   validPageSizes,
+		CurrentPage: pag.Page,
+		PageSize:    pag.PageSize,
+		TotalPages:  pag.TotalPages,
+		HasPrevPage: pag.HasPrevPage,
+		HasNextPage: pag.HasNextPage,
+		PageSizes:   helpers.FixedPageSizes,
 	}
 
 	c.JSON(http.StatusOK, response)
@@ -203,8 +165,7 @@ func (s *Server) handleThumbnail(c *gin.Context) {
 // handleDeleteFiles deletes selected files directly (moves to trash)
 func (s *Server) handleDeleteFiles(c *gin.Context) {
 	var req dto.DeleteFilesRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, i18n.CreateValidationError(i18n.ValidationError))
+	if !helpers.BindJSON(c, &req) {
 		return
 	}
 
@@ -213,53 +174,12 @@ func (s *Server) handleDeleteFiles(c *gin.Context) {
 		return
 	}
 
-	var successCount, failedCount int
-	var failedFiles []string
-
-	if req.TrashDir != "" {
-		if err := os.MkdirAll(req.TrashDir, 0755); err != nil {
-			c.JSON(http.StatusInternalServerError, i18n.ErrorResponse(i18n.MsgScanTrashDirFailed))
-			return
-		}
-
-		for _, filePath := range req.FilePaths {
-			baseName := filepath.Base(filePath)
-			destPath := filepath.Join(req.TrashDir, baseName)
-
-			if _, err := os.Stat(destPath); err == nil {
-				ext := filepath.Ext(baseName)
-				nameWithoutExt := strings.TrimSuffix(baseName, ext)
-				destPath = filepath.Join(req.TrashDir, nameWithoutExt+"_"+time.Now().Format("20060102_150405")+ext)
-			}
-
-			if err := os.Rename(filePath, destPath); err != nil {
-				failedCount++
-				failedFiles = append(failedFiles, baseName+": "+err.Error())
-				continue
-			}
-
-			s.db.Where("path = ?", filepath.ToSlash(filePath)).Delete(&domain.ImageFile{})
-			successCount++
-		}
-	} else {
-		for _, filePath := range req.FilePaths {
-			baseName := filepath.Base(filePath)
-
-			if err := os.Remove(filePath); err != nil {
-				failedCount++
-				failedFiles = append(failedFiles, baseName+": "+err.Error())
-				continue
-			}
-
-			s.db.Where("path = ?", filepath.ToSlash(filePath)).Delete(&domain.ImageFile{})
-			successCount++
-		}
-	}
+	result := s.fileMover.BatchProcess(req.FilePaths, req.TrashDir)
 
 	c.JSON(http.StatusOK, dto.DeleteFilesResponse{
-		Success:     successCount,
-		Failed:      failedCount,
-		FailedFiles: failedFiles,
+		Success:     result.Success,
+		Failed:      result.Failed,
+		FailedFiles: result.FailedFiles,
 	})
 }
 
@@ -293,7 +213,7 @@ func (s *Server) handleGetFolderPatterns(c *gin.Context) {
 			folders = append(folders, folder)
 		}
 
-		sortStrings(folders)
+		slices.Sort(folders)
 
 		patternID := createPatternID(folders)
 
@@ -326,8 +246,7 @@ func (s *Server) handleGetFolderPatterns(c *gin.Context) {
 // handleBatchDelete applies batch deletion rules to all matching duplicates
 func (s *Server) handleBatchDelete(c *gin.Context) {
 	var req dto.BatchDeleteRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, i18n.CreateValidationError(i18n.ValidationError))
+	if !helpers.BindJSON(c, &req) {
 		return
 	}
 
@@ -350,13 +269,6 @@ func (s *Server) handleBatchDelete(c *gin.Context) {
 	var rulesApplied, filesDeleted, failedCount int
 	var failedFiles []string
 
-	if req.TrashDir != "" {
-		if err := os.MkdirAll(req.TrashDir, 0755); err != nil {
-			c.JSON(http.StatusInternalServerError, i18n.ErrorResponse(i18n.MsgScanTrashDirFailed))
-			return
-		}
-	}
-
 	for _, group := range groups {
 		folderSet := make(map[string]bool)
 		for _, file := range group.Files {
@@ -368,7 +280,7 @@ func (s *Server) handleBatchDelete(c *gin.Context) {
 		for folder := range folderSet {
 			folders = append(folders, folder)
 		}
-		sortStrings(folders)
+		slices.Sort(folders)
 
 		patternID := createPatternID(folders)
 
@@ -385,30 +297,13 @@ func (s *Server) handleBatchDelete(c *gin.Context) {
 				continue
 			}
 
-			if req.TrashDir != "" {
-				baseName := filepath.Base(file.Path)
-				destPath := filepath.Join(req.TrashDir, baseName)
-
-				if _, err := os.Stat(destPath); err == nil {
-					ext := filepath.Ext(baseName)
-					nameWithoutExt := strings.TrimSuffix(baseName, ext)
-					destPath = filepath.Join(req.TrashDir, nameWithoutExt+"_"+time.Now().Format("20060102_150405_000")+ext)
-				}
-
-				if err := os.Rename(file.Path, destPath); err != nil {
-					failedCount++
-					failedFiles = append(failedFiles, filepath.Base(file.Path)+": "+err.Error())
-					continue
-				}
-			} else {
-				if err := os.Remove(file.Path); err != nil {
-					failedCount++
-					failedFiles = append(failedFiles, filepath.Base(file.Path)+": "+err.Error())
-					continue
-				}
+			if err := s.fileMover.MoveToTrashOrDelete(file.Path, req.TrashDir); err != nil {
+				failedCount++
+				failedFiles = append(failedFiles, filepath.Base(file.Path)+": "+err.Error())
+				continue
 			}
 
-			s.db.Where("path = ?", filepath.ToSlash(file.Path)).Delete(&domain.ImageFile{})
+			s.fileMover.DeleteFromDB(file.Path)
 			filesDeleted++
 		}
 	}
@@ -438,7 +333,7 @@ func (s *Server) handleGetFolders(c *gin.Context) {
 			ID:        f.ID,
 			Path:      f.Path,
 			FileCount: int(count),
-			CreatedAt: f.CreatedAt.Format("2006-01-02 15:04:05"),
+			CreatedAt: f.CreatedAt.Format(helpers.DateTimeFormat),
 		}
 	}
 
@@ -451,34 +346,21 @@ func (s *Server) handleGetFolders(c *gin.Context) {
 // handleAddFolder adds a new gallery folder and triggers a scan
 func (s *Server) handleAddFolder(c *gin.Context) {
 	var req dto.AddFolderRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, i18n.ErrorResponse(i18n.MsgFolderPathRequired))
+	if !helpers.BindJSON(c, &req) {
 		return
 	}
 
 	// Validate directory exists
-	absPath, err := filepath.Abs(req.Path)
+	normalizedPath, err := helpers.ValidateDirectory(req.Path)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, i18n.ErrorResponse(i18n.MsgFolderInvalidPath))
 		return
 	}
 
-	info, err := os.Stat(absPath)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, i18n.ErrorResponse(i18n.MsgFolderCannotAccessPath))
-		return
-	}
-	if !info.IsDir() {
-		c.JSON(http.StatusBadRequest, i18n.ErrorResponse(i18n.MsgFolderNotDirectory))
-		return
-	}
-
-	normalizedPath := filepath.ToSlash(absPath)
-
 	// Check conflict with trash directory
-	var settings domain.AppSettings
-	if result := s.db.First(&settings, 1); result.Error == nil && settings.TrashDir != "" {
-		if reason := pathsConflict(normalizedPath, settings.TrashDir); reason != "" {
+	settings := s.settingsLoader.AppSettings()
+	if settings.TrashDir != "" {
+		if helpers.CheckPathsConflict(normalizedPath, settings.TrashDir) {
 			c.JSON(http.StatusBadRequest, i18n.ErrorResponse(i18n.MsgFolderConflictTrash))
 			return
 		}
@@ -506,7 +388,7 @@ func (s *Server) handleAddFolder(c *gin.Context) {
 			ID:        folder.ID,
 			Path:      folder.Path,
 			FileCount: 0,
-			CreatedAt: folder.CreatedAt.Format("2006-01-02 15:04:05"),
+			CreatedAt: folder.CreatedAt.Format(helpers.DateTimeFormat),
 		},
 		ScanStarted: scanStarted,
 	})
@@ -538,29 +420,16 @@ func (s *Server) handleRemoveFolder(c *gin.Context) {
 
 // handleGetGalleryImages returns paginated gallery images
 func (s *Server) handleGetGalleryImages(c *gin.Context) {
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	pageSize, _ := strconv.Atoi(c.DefaultQuery("pageSize", "50"))
+	params := helpers.ParsePagination(c, helpers.ModeFlexible)
+	page := params.Page
+	pageSize := params.PageSize
+	offset := params.Offset
 	view := c.DefaultQuery("view", "list")
-
-	if page < 1 {
-		page = 1
-	}
-	if pageSize < 1 || pageSize > 200 {
-		pageSize = 50
-	}
 
 	var totalImages int64
 	s.db.Model(&domain.ImageFile{}).Count(&totalImages)
 
-	totalPages := (int(totalImages) + pageSize - 1) / pageSize
-	if totalPages < 1 {
-		totalPages = 1
-	}
-	if page > totalPages {
-		page = totalPages
-	}
-
-	offset := (page - 1) * pageSize
+	pag := helpers.CalcPagination(page, pageSize, totalImages)
 
 	var files []domain.ImageFile
 	s.db.Order("path").Offset(offset).Limit(pageSize).Find(&files)
@@ -574,48 +443,28 @@ func (s *Server) handleGetGalleryImages(c *gin.Context) {
 			DirPath:   filepath.Dir(f.Path),
 			Size:      f.Size,
 			SizeHuman: formatSize(f.Size),
-			ModTime:   f.ModTime.Format("2006-01-02 15:04:05"),
+			ModTime:   f.ModTime.Format(helpers.DateTimeFormat),
 		}
 	}
 
 	// Generate thumbnails in parallel if thumbnail or folders view
 	if (view == "thumbnails" || view == "folders") && len(files) > 0 {
-		const maxWorkers = 16
-		var wg sync.WaitGroup
-		semaphore := make(chan struct{}, maxWorkers)
-
+		paths := make([]string, len(files))
 		for i, f := range files {
-			wg.Add(1)
-			go func(idx int, filePath string) {
-				defer wg.Done()
-				semaphore <- struct{}{}
-				defer func() { <-semaphore }()
-
-				var thumb string
-				var err error
-
-				// Use thumbnail service if available
-				if s.thumbnailService != nil {
-					thumb, err = s.thumbnailService.GetOrGenerate(filePath)
-				} else {
-					thumb, err = imaging.GenerateThumbnail(filePath, s.thumbnailCache)
-				}
-
-				if err == nil {
-					imageDTOs[idx].Thumbnail = thumb
-				}
-			}(i, f.Path)
+			paths[i] = f.Path
 		}
-		wg.Wait()
+		s.thumbnailBatch.GenerateParallel(paths, func(idx int, thumb string) {
+			imageDTOs[idx].Thumbnail = thumb
+		})
 	}
 
 	c.JSON(http.StatusOK, dto.GalleryImagesResponse{
 		Images:      imageDTOs,
 		TotalImages: int(totalImages),
-		CurrentPage: page,
-		PageSize:    pageSize,
-		TotalPages:  totalPages,
-		HasNextPage: page < totalPages,
+		CurrentPage: pag.Page,
+		PageSize:    pag.PageSize,
+		TotalPages:  pag.TotalPages,
+		HasNextPage: pag.HasNextPage,
 	})
 }
 
@@ -628,18 +477,7 @@ func (s *Server) handleServeImage(c *gin.Context) {
 	}
 
 	// Security: verify the path is within a gallery folder
-	var folders []domain.GalleryFolder
-	s.db.Find(&folders)
-
-	allowed := false
-	for _, f := range folders {
-		if strings.HasPrefix(path, f.Path+"/") || strings.HasPrefix(path, f.Path+"\\") {
-			allowed = true
-			break
-		}
-	}
-	if !allowed {
-		c.JSON(http.StatusForbidden, i18n.ErrorResponse(i18n.MsgImageAccessDenied))
+	if !s.galleryAccess.VerifyGalleryAccess(c, path) {
 		return
 	}
 
@@ -678,18 +516,7 @@ func (s *Server) handleServeOcrImage(c *gin.Context) {
 	}
 
 	// Security: verify the path is within a gallery folder
-	var folders []domain.GalleryFolder
-	s.db.Find(&folders)
-
-	allowed := false
-	for _, f := range folders {
-		if strings.HasPrefix(path, f.Path+"/") || strings.HasPrefix(path, f.Path+"\\") {
-			allowed = true
-			break
-		}
-	}
-	if !allowed {
-		c.JSON(http.StatusForbidden, i18n.ErrorResponse(i18n.MsgImageAccessDenied))
+	if !s.galleryAccess.VerifyGalleryAccess(c, path) {
 		return
 	}
 
@@ -712,11 +539,7 @@ func (s *Server) handleServeOcrImage(c *gin.Context) {
 
 // handleGetSettings returns the current application settings
 func (s *Server) handleGetSettings(c *gin.Context) {
-	var settings domain.AppSettings
-	if result := s.db.First(&settings, 1); result.Error != nil {
-		c.JSON(http.StatusOK, dto.AppSettingsDTO{TrashDir: "", OcrConcurrentRequests: 4, DailySyncEnabled: true, DailySyncHour: 3, DailySyncMinute: 30})
-		return
-	}
+	settings := s.settingsLoader.AppSettings()
 	c.JSON(http.StatusOK, dto.AppSettingsDTO{
 		TrashDir:              settings.TrashDir,
 		ThumbnailCachePath:    settings.ThumbnailCachePath,
@@ -731,15 +554,11 @@ func (s *Server) handleGetSettings(c *gin.Context) {
 // handleUpdateSettings updates the application settings
 func (s *Server) handleUpdateSettings(c *gin.Context) {
 	var req dto.UpdateSettingsRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, i18n.CreateValidationError(i18n.ValidationError))
+	if !helpers.BindJSON(c, &req) {
 		return
 	}
 
-	var settings domain.AppSettings
-	if result := s.db.First(&settings, 1); result.Error != nil {
-		settings = domain.AppSettings{ID: 1}
-	}
+	settings := s.settingsLoader.AppSettings()
 
 	if req.TrashDir != nil {
 		newTrashDir := strings.TrimSpace(*req.TrashDir)
@@ -756,7 +575,7 @@ func (s *Server) handleUpdateSettings(c *gin.Context) {
 			var galleryFolders []domain.GalleryFolder
 			s.db.Find(&galleryFolders)
 			for _, gf := range galleryFolders {
-				if reason := pathsConflict(normalizedTrash, gf.Path); reason != "" {
+				if helpers.CheckPathsConflict(normalizedTrash, gf.Path) {
 					c.JSON(http.StatusBadRequest, i18n.ErrorResponse(i18n.MsgImageTrashConflict))
 					return
 				}
@@ -876,8 +695,7 @@ func (s *Server) handleUpdateUserSettings(c *gin.Context) {
 	}
 
 	var req dto.UpdateUserSettingsRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, i18n.CreateValidationError(i18n.ValidationError))
+	if !helpers.BindJSON(c, &req) {
 		return
 	}
 
@@ -927,8 +745,8 @@ func (s *Server) handleUpdateUserSettings(c *gin.Context) {
 
 // handleGetTrashInfo returns information about files in the trash directory
 func (s *Server) handleGetTrashInfo(c *gin.Context) {
-	var settings domain.AppSettings
-	if result := s.db.First(&settings, 1); result.Error != nil || settings.TrashDir == "" {
+	settings, found := s.settingsLoader.AppSettingsIfExists()
+	if !found || settings.TrashDir == "" {
 		c.JSON(http.StatusOK, dto.TrashInfoResponse{FileCount: 0, TotalSize: 0, TotalSizeHuman: "0 B"})
 		return
 	}
@@ -966,8 +784,8 @@ func (s *Server) handleGetTrashInfo(c *gin.Context) {
 
 // handleCleanTrash removes all files from the trash directory
 func (s *Server) handleCleanTrash(c *gin.Context) {
-	var settings domain.AppSettings
-	if result := s.db.First(&settings, 1); result.Error != nil || settings.TrashDir == "" {
+	settings, found := s.settingsLoader.AppSettingsIfExists()
+	if !found || settings.TrashDir == "" {
 		c.JSON(http.StatusBadRequest, i18n.ErrorResponse(i18n.MsgTrashNotConfigured))
 		return
 	}
@@ -1013,8 +831,8 @@ type TrashFileInfo struct {
 
 // handleListTrashFiles returns a list of all files in the trash directory
 func (s *Server) handleListTrashFiles(c *gin.Context) {
-	var settings domain.AppSettings
-	if result := s.db.First(&settings, 1); result.Error != nil || settings.TrashDir == "" {
+	settings, found := s.settingsLoader.AppSettingsIfExists()
+	if !found || settings.TrashDir == "" {
 		c.JSON(http.StatusOK, []TrashFileInfo{})
 		return
 	}
@@ -1041,7 +859,7 @@ func (s *Server) handleListTrashFiles(c *gin.Context) {
 				FileName:  entry.Name(),
 				Size:      fi.Size(),
 				SizeHuman: formatSize(fi.Size()),
-				ModTime:   fi.ModTime().Format("2006-01-02T15:04:05Z07:00"),
+				ModTime:   fi.ModTime().Format(helpers.RFC3339Format),
 			})
 		}
 	}
@@ -1056,80 +874,24 @@ func (s *Server) handleRestoreTrashFile(c *gin.Context) {
 		FileName   string `json:"fileName"`
 		TargetPath string `json:"targetPath"` // Where to restore the file
 	}
-	if err := c.ShouldBindJSON(&req); err != nil || req.FileName == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "fileName required"})
+	if !helpers.BindJSON(c, &req) || req.FileName == "" {
+		c.JSON(http.StatusBadRequest, i18n.ErrorResponse(i18n.MsgTrashFileNameRequired))
 		return
 	}
 
-	var settings domain.AppSettings
-	if result := s.db.First(&settings, 1); result.Error != nil || settings.TrashDir == "" {
+	settings, found := s.settingsLoader.AppSettingsIfExists()
+	if !found || settings.TrashDir == "" {
 		c.JSON(http.StatusBadRequest, i18n.ErrorResponse(i18n.MsgTrashNotConfigured))
 		return
 	}
 
-	trashPath := filepath.Join(settings.TrashDir, req.FileName)
-	if _, err := os.Stat(trashPath); err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "File not found in trash"})
-		return
-	}
-
-	// If targetPath not provided, restore to current working directory
-	targetPath := req.TargetPath
-	if targetPath == "" {
-		cwd, err := os.Getwd()
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Cannot determine current directory"})
-			return
-		}
-		targetPath = filepath.Join(cwd, req.FileName)
-	}
-
-	// Ensure target directory exists
-	targetDir := filepath.Dir(targetPath)
-	if err := os.MkdirAll(targetDir, 0755); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Cannot create target directory: " + err.Error()})
-		return
-	}
-
-	// Handle duplicates
-	if _, err := os.Stat(targetPath); err == nil {
-		ext := filepath.Ext(req.FileName)
-		nameWithoutExt := strings.TrimSuffix(req.FileName, ext)
-		targetPath = nameWithoutExt + "_restored_" + time.Now().Format("20060102_150405") + ext
-	}
-
-	// Try to rename first (fast, same filesystem)
-	err := os.Rename(trashPath, targetPath)
+	restoredPath, err := helpers.RestoreFile(settings.TrashDir, req.FileName, req.TargetPath)
 	if err != nil {
-		// Rename failed (possibly cross-device), try copy + delete
-		srcFile, openErr := os.Open(trashPath)
-		if openErr != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Cannot open file: " + openErr.Error()})
-			return
-		}
-		defer srcFile.Close()
-
-		dstFile, createErr := os.Create(targetPath)
-		if createErr != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Cannot create file: " + createErr.Error()})
-			return
-		}
-		defer dstFile.Close()
-
-		if _, copyErr := io.Copy(dstFile, srcFile); copyErr != nil {
-			dstFile.Close()
-			os.Remove(targetPath) // Clean up partial copy
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Cannot copy file: " + copyErr.Error()})
-			return
-		}
-
-		// Copy succeeded, remove from trash
-		if removeErr := os.Remove(trashPath); removeErr != nil {
-			log.Printf("Warning: file copied but failed to remove from trash: %v", removeErr)
-		}
+		c.JSON(http.StatusNotFound, i18n.ErrorResponse(i18n.MsgTrashFileNotFound))
+		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"success": true, "restoredPath": targetPath})
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": i18n.MsgTrashRestored, "restoredPath": restoredPath})
 }
 
 // handleDeleteTrashFile permanently deletes a single file from trash
@@ -1137,36 +899,36 @@ func (s *Server) handleDeleteTrashFile(c *gin.Context) {
 	var req struct {
 		FileName string `json:"fileName"`
 	}
-	if err := c.ShouldBindJSON(&req); err != nil || req.FileName == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "fileName required"})
+	if !helpers.BindJSON(c, &req) || req.FileName == "" {
+		c.JSON(http.StatusBadRequest, i18n.ErrorResponse(i18n.MsgTrashFileNameRequired))
 		return
 	}
 
-	var settings domain.AppSettings
-	if result := s.db.First(&settings, 1); result.Error != nil || settings.TrashDir == "" {
+	settings, found := s.settingsLoader.AppSettingsIfExists()
+	if !found || settings.TrashDir == "" {
 		c.JSON(http.StatusBadRequest, i18n.ErrorResponse(i18n.MsgTrashNotConfigured))
 		return
 	}
 
 	filePath := filepath.Join(settings.TrashDir, req.FileName)
 	if _, err := os.Stat(filePath); err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "File not found in trash"})
+		c.JSON(http.StatusNotFound, i18n.ErrorResponse(i18n.MsgTrashFileNotFound))
 		return
 	}
 
 	if err := os.Remove(filePath); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete file: " + err.Error()})
+		c.JSON(http.StatusInternalServerError, i18n.ErrorResponse(i18n.MsgTrashDeleteFailed))
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"success": true})
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": i18n.MsgTrashFileDeleted})
 }
 
 // handleGetImageMetadata returns EXIF metadata for a single image
 func (s *Server) handleGetImageMetadata(c *gin.Context) {
 	path := c.Query("path")
 	if path == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Path required"})
+		c.JSON(http.StatusBadRequest, i18n.ErrorResponse(i18n.MsgImagePathRequired))
 		return
 	}
 
@@ -1207,7 +969,7 @@ func (s *Server) handleGetImageMetadata(c *gin.Context) {
 	}
 
 	if meta.DateTaken != nil {
-		metaDTO.DateTaken = meta.DateTaken.Format("2006-01-02 15:04:05")
+		metaDTO.DateTaken = meta.DateTaken.Format(helpers.DateTimeFormat)
 	}
 
 	c.JSON(http.StatusOK, dto.ImageMetadataResponse{Found: true, Metadata: metaDTO})
@@ -1215,18 +977,13 @@ func (s *Server) handleGetImageMetadata(c *gin.Context) {
 
 // handleGetGalleryCalendar returns paginated gallery images grouped by date taken
 func (s *Server) handleGetGalleryCalendar(c *gin.Context) {
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	pageSize, _ := strconv.Atoi(c.DefaultQuery("pageSize", "50"))
+	params := helpers.ParsePagination(c, helpers.ModeFlexible)
+	page := params.Page
+	pageSize := params.PageSize
+	offset := params.Offset
 	startDate := c.Query("startDate") // "YYYY-MM-DD" or empty
 	endDate := c.Query("endDate")     // "YYYY-MM-DD" or empty
 	monthYear := c.Query("monthYear") // "YYYY-MM" for calendar widget
-
-	if page < 1 {
-		page = 1
-	}
-	if pageSize < 1 || pageSize > 200 {
-		pageSize = 50
-	}
 
 	// Query: join image_files with image_metadata where date_taken is not null
 	// Order by date_taken DESC (newest first)
@@ -1242,12 +999,12 @@ func (s *Server) handleGetGalleryCalendar(c *gin.Context) {
 
 	// Apply date range filter
 	if startDate != "" {
-		if t, err := time.Parse("2006-01-02", startDate); err == nil {
+		if t, err := time.Parse(helpers.DateOnlyFormat, startDate); err == nil {
 			query = query.Where("image_metadata.date_taken >= ?", t)
 		}
 	}
 	if endDate != "" {
-		if t, err := time.Parse("2006-01-02", endDate); err == nil {
+		if t, err := time.Parse(helpers.DateOnlyFormat, endDate); err == nil {
 			// End of the end date
 			endOfDay := t.Add(24*time.Hour - time.Second)
 			query = query.Where("image_metadata.date_taken <= ?", endOfDay)
@@ -1259,7 +1016,6 @@ func (s *Server) handleGetGalleryCalendar(c *gin.Context) {
 	query.Count(&totalImages)
 
 	// Paginate
-	offset := (page - 1) * pageSize
 	var results []imageWithDate
 	query.Order("image_metadata.date_taken ASC").Offset(offset).Limit(pageSize).Find(&results)
 
@@ -1272,7 +1028,7 @@ func (s *Server) handleGetGalleryCalendar(c *gin.Context) {
 	var dateOrder []string
 
 	for _, r := range results {
-		dateStr := r.DateTaken.Format("2006-01-02")
+		dateStr := r.DateTaken.Format(helpers.DateOnlyFormat)
 		if _, ok := groupsMap[dateStr]; !ok {
 			groupsMap[dateStr] = &dateGroup{date: r.DateTaken}
 			dateOrder = append(dateOrder, dateStr)
@@ -1293,30 +1049,19 @@ func (s *Server) handleGetGalleryCalendar(c *gin.Context) {
 				DirPath:   filepath.Dir(f.Path),
 				Size:      f.Size,
 				SizeHuman: formatSize(f.Size),
-				ModTime:   f.ModTime.Format("2006-01-02 15:04:05"),
+				ModTime:   f.ModTime.Format(helpers.DateTimeFormat),
 			}
 		}
 
 		// Generate thumbnails in parallel
 		if len(g.images) > 0 {
-			const maxWorkers = 16
-			var wg sync.WaitGroup
-			semaphore := make(chan struct{}, maxWorkers)
-
+			paths := make([]string, len(g.images))
 			for i, f := range g.images {
-				wg.Add(1)
-				go func(idx int, filePath string) {
-					defer wg.Done()
-					semaphore <- struct{}{}
-					defer func() { <-semaphore }()
-
-					thumb, err := imaging.GenerateThumbnail(filePath, s.thumbnailCache)
-					if err == nil {
-						imageDTOs[idx].Thumbnail = thumb
-					}
-				}(i, f.Path)
+				paths[i] = f.Path
 			}
-			wg.Wait()
+			s.thumbnailBatch.GenerateParallel(paths, func(idx int, thumb string) {
+				imageDTOs[idx].Thumbnail = thumb
+			})
 		}
 
 		// Human-readable label
@@ -1335,17 +1080,17 @@ func (s *Server) handleGetGalleryCalendar(c *gin.Context) {
 	var minDate, maxDate *time.Time
 	s.db.Raw("SELECT MIN(date_taken), MAX(date_taken) FROM image_metadata WHERE date_taken IS NOT NULL").Row().Scan(&minDate, &maxDate)
 	if minDate != nil {
-		dateRange.MinDate = minDate.Format("2006-01-02")
+		dateRange.MinDate = minDate.Format(helpers.DateOnlyFormat)
 	}
 	if maxDate != nil {
-		dateRange.MaxDate = maxDate.Format("2006-01-02")
+		dateRange.MaxDate = maxDate.Format(helpers.DateOnlyFormat)
 	}
 	dateRange.TotalWithDate = int(totalImages)
 
 	// Get month info for calendar widget
 	var months []dto.CalendarMonthInfo
 	if monthYear != "" {
-		if t, err := time.Parse("2006-01", monthYear); err == nil {
+		if t, err := time.Parse(helpers.YearMonthFormat, monthYear); err == nil {
 			year := t.Year()
 			month := int(t.Month())
 			nextMonth := t.AddDate(0, 1, 0)
@@ -1367,16 +1112,13 @@ func (s *Server) handleGetGalleryCalendar(c *gin.Context) {
 		}
 	}
 
-	totalPages := (int(totalImages) + pageSize - 1) / pageSize
-	if totalPages < 1 {
-		totalPages = 1
-	}
+	pag := helpers.CalcPagination(page, pageSize, totalImages)
 
 	c.JSON(http.StatusOK, dto.GalleryCalendarResponse{
 		Groups:      groupDTOs,
 		TotalImages: int(totalImages),
 		TotalGroups: len(groupDTOs),
-		HasMore:     page < totalPages,
+		HasMore:     pag.HasNextPage,
 		DateRange:   dateRange,
 		Months:      months,
 	})
@@ -1402,8 +1144,8 @@ func (s *Server) handleGetCalendarAllDates(c *gin.Context) {
 		return
 	}
 
-	minDateStr := minDate.Format("2006-01-02")
-	maxDateStr := maxDate.Format("2006-01-02")
+	minDateStr := minDate.Format(helpers.DateOnlyFormat)
+	maxDateStr := maxDate.Format(helpers.DateOnlyFormat)
 
 	// Get all dates with image counts, ordered by date ASC (oldest first)
 	// Use the same JOIN as the calendar API to ensure consistent counts
@@ -1429,7 +1171,7 @@ func (s *Server) handleGetCalendarAllDates(c *gin.Context) {
 	for _, dc := range dateCounts {
 		page := (imageIndex / pageSize) + 1
 		dates = append(dates, dto.TimelineDateMarker{
-			Date:       dc.Date.Format("2006-01-02"),
+			Date:       dc.Date.Format(helpers.DateOnlyFormat),
 			ImageCount: int(dc.Count),
 			Page:       page,
 		})
@@ -1447,13 +1189,13 @@ func (s *Server) handleGetCalendarAllDates(c *gin.Context) {
 func (s *Server) handleGetCalendarMonthInfo(c *gin.Context) {
 	monthYear := c.Query("monthYear") // "YYYY-MM"
 	if monthYear == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "monthYear parameter is required"})
+		c.JSON(http.StatusBadRequest, i18n.ErrorResponse(i18n.MsgCalendarMonthYearRequired))
 		return
 	}
 
-	t, err := time.Parse("2006-01", monthYear)
+	t, err := time.Parse(helpers.YearMonthFormat, monthYear)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid monthYear format. Use YYYY-MM"})
+		c.JSON(http.StatusBadRequest, i18n.ErrorResponse(i18n.MsgCalendarInvalidMonthYear))
 		return
 	}
 
@@ -1537,11 +1279,11 @@ func (s *Server) handleGetGalleryClusters(c *gin.Context) {
 		minLat, maxLat = maxLat, minLat
 	}
 	if zoom < 0 || zoom > 20 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid zoom level"})
+		c.JSON(http.StatusBadRequest, i18n.ErrorResponse(i18n.MsgGeoInvalidZoom))
 		return
 	}
 	if width <= 0 || height <= 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid viewport dimensions"})
+		c.JSON(http.StatusBadRequest, i18n.ErrorResponse(i18n.MsgGeoInvalidDimensions))
 		return
 	}
 
@@ -1557,7 +1299,7 @@ func (s *Server) handleGetGalleryClusters(c *gin.Context) {
 
 	clusters, totalImages, err := geo.ComputeClusters(s.db, params)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to compute clusters"})
+		c.JSON(http.StatusInternalServerError, i18n.ErrorResponse(i18n.MsgGeoClusterFailed))
 		return
 	}
 
@@ -1596,7 +1338,7 @@ func (s *Server) handleGetGeoImagesByCluster(c *gin.Context, clusterID string, p
 	// Get image paths from cluster storage
 	imagePaths, found := s.clusterStorage.GetClusterImagePaths(clusterID)
 	if !found {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Cluster not found"})
+		c.JSON(http.StatusNotFound, i18n.ErrorResponse(i18n.MsgGeoClusterNotFound))
 		return
 	}
 
@@ -1645,7 +1387,7 @@ func (s *Server) handleGetGeoImagesByCluster(c *gin.Context, clusterID string, p
 				DirPath:   filepath.Dir(f.Path),
 				Size:      f.Size,
 				SizeHuman: formatSize(f.Size),
-				ModTime:   f.ModTime.Format("2006-01-02 15:04:05"),
+				ModTime:   f.ModTime.Format(helpers.DateTimeFormat),
 			}
 		}
 	}
@@ -1661,32 +1403,13 @@ func (s *Server) handleGetGeoImagesByCluster(c *gin.Context, clusterID string, p
 
 	// Generate thumbnails in parallel
 	if len(imageDTOs) > 0 {
-		const maxWorkers = 16
-		var wg sync.WaitGroup
-		semaphore := make(chan struct{}, maxWorkers)
-
+		paths := make([]string, len(imageDTOs))
 		for i, imgDTO := range imageDTOs {
-			wg.Add(1)
-			go func(idx int, filePath string) {
-				defer wg.Done()
-				semaphore <- struct{}{}
-				defer func() { <-semaphore }()
-
-				var thumb string
-				var err error
-
-				if s.thumbnailService != nil {
-					thumb, err = s.thumbnailService.GetOrGenerate(filePath)
-				} else {
-					thumb, err = imaging.GenerateThumbnail(filePath, s.thumbnailCache)
-				}
-
-				if err == nil {
-					imageDTOs[idx].Thumbnail = thumb
-				}
-			}(i, imgDTO.Path)
+			paths[i] = imgDTO.Path
 		}
-		wg.Wait()
+		s.thumbnailBatch.GenerateParallel(paths, func(idx int, thumb string) {
+			imageDTOs[idx].Thumbnail = thumb
+		})
 	}
 
 	c.JSON(http.StatusOK, dto.GeoImagesResponse{
@@ -1722,14 +1445,7 @@ func (s *Server) handleGetGeoImagesByBounds(c *gin.Context, page, pageSize int) 
 		Where("image_metadata.gps_longitude BETWEEN ? AND ?", minLng, maxLng).
 		Count(&totalImages)
 
-	totalPages := (int(totalImages) + pageSize - 1) / pageSize
-	if totalPages < 1 {
-		totalPages = 1
-	}
-	if page > totalPages {
-		page = totalPages
-	}
-
+	pag := helpers.CalcPagination(page, pageSize, totalImages)
 	offset := (page - 1) * pageSize
 
 	var files []domain.ImageFile
@@ -1754,47 +1470,28 @@ func (s *Server) handleGetGeoImagesByBounds(c *gin.Context, page, pageSize int) 
 			DirPath:   filepath.Dir(f.Path),
 			Size:      f.Size,
 			SizeHuman: formatSize(f.Size),
-			ModTime:   f.ModTime.Format("2006-01-02 15:04:05"),
+			ModTime:   f.ModTime.Format(helpers.DateTimeFormat),
 		}
 	}
 
 	// Generate thumbnails in parallel
 	if len(files) > 0 {
-		const maxWorkers = 16
-		var wg sync.WaitGroup
-		semaphore := make(chan struct{}, maxWorkers)
-
+		paths := make([]string, len(files))
 		for i, f := range files {
-			wg.Add(1)
-			go func(idx int, filePath string) {
-				defer wg.Done()
-				semaphore <- struct{}{}
-				defer func() { <-semaphore }()
-
-				var thumb string
-				var err error
-
-				if s.thumbnailService != nil {
-					thumb, err = s.thumbnailService.GetOrGenerate(filePath)
-				} else {
-					thumb, err = imaging.GenerateThumbnail(filePath, s.thumbnailCache)
-				}
-
-				if err == nil {
-					imageDTOs[idx].Thumbnail = thumb
-				}
-			}(i, f.Path)
+			paths[i] = f.Path
 		}
-		wg.Wait()
+		s.thumbnailBatch.GenerateParallel(paths, func(idx int, thumb string) {
+			imageDTOs[idx].Thumbnail = thumb
+		})
 	}
 
 	c.JSON(http.StatusOK, dto.GeoImagesResponse{
 		Images:      imageDTOs,
 		TotalImages: int(totalImages),
-		CurrentPage: page,
-		PageSize:    pageSize,
-		TotalPages:  totalPages,
-		HasNextPage: page < totalPages,
+		CurrentPage: pag.Page,
+		PageSize:    pag.PageSize,
+		TotalPages:  pag.TotalPages,
+		HasNextPage: pag.HasNextPage,
 	})
 }
 
@@ -1815,7 +1512,7 @@ func (s *Server) handleGetOCRStatus(c *gin.Context) {
 		Status: dto.OCRStatus{
 			Enabled:    true,
 			Health:     string(status.HealthStatus),
-			LastCheck:  status.LastCheck.Format("2006-01-02 15:04:05"),
+			LastCheck:  status.LastCheck.Format(helpers.DateTimeFormat),
 			Error:      status.Error,
 			ServiceURL: fmt.Sprintf("http://%s:%s", s.config.OCRHost, s.config.OCRPort),
 		},
@@ -1893,27 +1590,12 @@ func (s *Server) handleGetOcrClassificationStatus(c *gin.Context) {
 
 // handleGetOcrDocuments returns paginated list of images classified as text documents
 func (s *Server) handleGetOcrDocuments(c *gin.Context) {
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	pageSize, _ := strconv.Atoi(c.DefaultQuery("pageSize", "50"))
-
-	validPageSizes := []int{50, 100, 250, 500}
-	isValidPageSize := false
-	for _, ps := range validPageSizes {
-		if pageSize == ps {
-			isValidPageSize = true
-			break
-		}
-	}
-	if !isValidPageSize {
-		pageSize = 50
-	}
-	if page < 1 {
-		page = 1
-	}
+	params := helpers.ParsePagination(c, helpers.ModeFixed)
+	page := params.Page
+	pageSize := params.PageSize
+	offset := params.Offset
 
 	// Query documents classified as text documents
-	offset := (page - 1) * pageSize
-
 	var total int64
 	s.db.Table("ocr_classifications").
 		Joins("JOIN image_files ON image_files.id = ocr_classifications.image_file_id").
@@ -1946,13 +1628,7 @@ func (s *Server) handleGetOcrDocuments(c *gin.Context) {
 		return
 	}
 
-	totalPages := int((total + int64(pageSize) - 1) / int64(pageSize))
-	if totalPages < 1 {
-		totalPages = 1
-	}
-	if page > totalPages {
-		page = totalPages
-	}
+	pag := helpers.CalcPagination(page, pageSize, total)
 
 	// Build DTOs with thumbnails
 	docs := make([]dto.OcrDocumentDTO, len(results))
@@ -1965,7 +1641,7 @@ func (s *Server) handleGetOcrDocuments(c *gin.Context) {
 			DirPath:            filepath.Dir(r.Path),
 			Size:               r.Size,
 			SizeHuman:          formatSize(r.Size),
-			ModTime:            r.ModTime.Format("2006-01-02 15:04:05"),
+			ModTime:            r.ModTime.Format(helpers.DateTimeFormat),
 			MeanConfidence:     r.MeanConfidence,
 			WeightedConfidence: r.WeightedConfidence,
 			TokenCount:         r.TokenCount,
@@ -1975,44 +1651,25 @@ func (s *Server) handleGetOcrDocuments(c *gin.Context) {
 	}
 
 	// Generate thumbnails in parallel
-	const maxWorkers = 16
-	var wg sync.WaitGroup
-	semaphore := make(chan struct{}, maxWorkers)
-
+	paths := make([]string, 0, len(docs))
+	pathToIdx := make(map[string]int)
 	for i, doc := range docs {
-		if doc.Path == "" {
-			continue
+		if doc.Path != "" {
+			paths = append(paths, doc.Path)
+			pathToIdx[doc.Path] = i
 		}
-		wg.Add(1)
-		go func(idx int, path string) {
-			defer wg.Done()
-			semaphore <- struct{}{}
-			defer func() { <-semaphore }()
-
-			var thumb string
-			var err error
-
-			// Use thumbnail service if available
-			if s.thumbnailService != nil {
-				thumb, err = s.thumbnailService.GetOrGenerate(path)
-			} else {
-				thumb, err = imaging.GenerateThumbnail(path, s.thumbnailCache)
-			}
-
-			if err == nil {
-				docs[idx].Thumbnail = thumb
-			}
-		}(i, doc.Path)
 	}
-	wg.Wait()
+	s.thumbnailBatch.GenerateParallel(paths, func(idx int, thumb string) {
+		docs[idx].Thumbnail = thumb
+	})
 
 	c.JSON(http.StatusOK, dto.OcrDocumentsResponse{
 		Documents:   docs,
 		Total:       int(total),
-		CurrentPage: page,
-		PageSize:    pageSize,
-		TotalPages:  totalPages,
-		HasNextPage: page < totalPages,
+		CurrentPage: pag.Page,
+		PageSize:    pag.PageSize,
+		TotalPages:  pag.TotalPages,
+		HasNextPage: pag.HasNextPage,
 	})
 }
 
@@ -2064,19 +1721,7 @@ func (s *Server) handleGetOcrData(c *gin.Context) {
 
 // handleGetLlmSettings returns LLM settings
 func (s *Server) handleGetLlmSettings(c *gin.Context) {
-	var settings domain.LlmSettings
-	if err := s.db.First(&settings).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			c.JSON(http.StatusOK, dto.LlmSettingsDTO{
-				Provider: "ollama",
-				ApiUrl:   "http://localhost:11434",
-				Model:    "minicpm-v",
-			})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, i18n.ErrorResponse(i18n.MsgLlmOcrSettingsNotFound))
-		return
-	}
+	settings := s.settingsLoader.LlmSettings()
 
 	// Don't expose API key in full, mask it
 	apiKey := settings.ApiKey
@@ -2097,8 +1742,7 @@ func (s *Server) handleGetLlmSettings(c *gin.Context) {
 // handleUpdateLlmSettings updates LLM settings
 func (s *Server) handleUpdateLlmSettings(c *gin.Context) {
 	var req dto.UpdateLlmSettingsRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, i18n.ErrorResponse(i18n.ValidationError))
+	if !helpers.BindJSON(c, &req) {
 		return
 	}
 
@@ -2138,15 +1782,13 @@ func (s *Server) handleUpdateLlmSettings(c *gin.Context) {
 // handleLlmRecognize starts LLM-based OCR recognition asynchronously
 func (s *Server) handleLlmRecognize(c *gin.Context) {
 	var req dto.LlmOcrRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, i18n.ErrorResponse(i18n.ValidationError))
+	if !helpers.BindJSON(c, &req) {
 		return
 	}
 
-	// Get LLM settings
-	var settings domain.LlmSettings
-	if err := s.db.First(&settings).Error; err != nil || !settings.Enabled {
-		c.JSON(http.StatusServiceUnavailable, i18n.ErrorResponse(i18n.MsgLlmOcrNotEnabled))
+	// Create LLM client (also validates settings and enabled state)
+	llmClient, settings, ok := s.llmFactory.CreateClient(c)
+	if !ok {
 		return
 	}
 
@@ -2173,30 +1815,16 @@ func (s *Server) handleLlmRecognize(c *gin.Context) {
 		}
 	}
 
-	// Create LLM client
-	llmClient, err := llm.NewClient(settings.Provider, settings.ApiUrl, settings.ApiKey, settings.Model)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, i18n.ErrorResponse(i18n.MsgLlmOcrRecognitionFailed))
-		return
-	}
-
 	// Start async recognition
 	if s.llmOcrService == nil {
 		c.JSON(http.StatusServiceUnavailable, i18n.ErrorResponse(i18n.MsgLlmOcrRecognitionFailed))
 		return
 	}
 
-	started := s.llmOcrService.StartRecognizeAsync(imageFile.ID, llmClient, settings)
-	if started {
-		c.JSON(http.StatusAccepted, dto.LlmRecognizeStatusResponse{
-			Status: "processing",
-		})
-	} else {
-		// Already processing this image
-		c.JSON(http.StatusAccepted, dto.LlmRecognizeStatusResponse{
-			Status: "processing",
-		})
-	}
+	_ = s.llmOcrService.StartRecognizeAsync(imageFile.ID, llmClient, settings)
+	c.JSON(http.StatusAccepted, dto.LlmRecognizeStatusResponse{
+		Status: "processing",
+	})
 }
 
 // handleLlmRecognizeStatus returns the status of an async LLM recognition task
@@ -2304,15 +1932,15 @@ func (s *Server) handleGetLlmRecognition(c *gin.Context) {
 		ProcessingTimeMs: recognition.ProcessingTimeMs,
 		Success:          recognition.Success,
 		Error:            recognition.Error,
-		CreatedAt:        recognition.CreatedAt.Format("2006-01-02 15:04:05"),
+		CreatedAt:        recognition.CreatedAt.Format(helpers.DateTimeFormat),
 	})
 }
 
 // handleGetLlmModels returns a list of available LLM models from the configured server
 func (s *Server) handleGetLlmModels(c *gin.Context) {
 	// Get LLM settings
-	var settings domain.LlmSettings
-	if err := s.db.First(&settings).Error; err != nil {
+	settings, found := s.settingsLoader.LlmSettingsIfExists()
+	if !found {
 		c.JSON(http.StatusNotFound, dto.LlmModelsResponse{
 			Success:  false,
 			Error:    "LLM settings not configured",
@@ -2372,14 +2000,13 @@ func (s *Server) handleGetLlmModels(c *gin.Context) {
 // handleAiAction executes an AI action (describe, tags, recognizeText, askQuestion) asynchronously
 func (s *Server) handleAiAction(c *gin.Context) {
 	var req dto.AiActionRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, i18n.ErrorResponse(i18n.ValidationError))
+	if !helpers.BindJSON(c, &req) {
 		return
 	}
 
-	// Get LLM settings
-	var settings domain.LlmSettings
-	if err := s.db.First(&settings).Error; err != nil || !settings.Enabled {
+	// Create LLM client (also validates settings and enabled state)
+	llmClient, _, ok := s.llmFactory.CreateClient(c)
+	if !ok {
 		c.JSON(http.StatusServiceUnavailable, dto.AiActionResponse{
 			Success: false,
 			Action:  req.Action,
@@ -2409,17 +2036,6 @@ func (s *Server) handleAiAction(c *gin.Context) {
 		return
 	}
 
-	// Create LLM client
-	llmClient, err := llm.NewClient(settings.Provider, settings.ApiUrl, settings.ApiKey, settings.Model)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, dto.AiActionResponse{
-			Success: false,
-			Action:  req.Action,
-			Error:   "Failed to initialize AI service",
-		})
-		return
-	}
-
 	// Start async AI action
 	if s.llmOcrService == nil {
 		c.JSON(http.StatusServiceUnavailable, dto.AiActionResponse{
@@ -2434,7 +2050,7 @@ func (s *Server) handleAiAction(c *gin.Context) {
 	taskID := uuid.New().String()
 
 	// Start async processing
-	s.llmOcrService.StartAiActionAsync(taskID, imageFile.ID, string(req.Action), req.Question, req.Language, llmClient, settings)
+	s.llmOcrService.StartAiActionAsync(taskID, imageFile.ID, string(req.Action), req.Question, req.Language, llmClient, s.settingsLoader.LlmSettings())
 
 	// Return 202 Accepted with task ID
 	c.JSON(http.StatusAccepted, dto.AiActionStartResponse{
@@ -2511,8 +2127,7 @@ func (s *Server) handleThumbnailCacheStats(c *gin.Context) {
 // handleThumbnailCacheInvalidate удаляет миниатюру из кэша
 func (s *Server) handleThumbnailCacheInvalidate(c *gin.Context) {
 	var req dto.InvalidateThumbnailRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, i18n.CreateValidationError(i18n.ValidationError))
+	if !helpers.BindJSON(c, &req) {
 		return
 	}
 
@@ -2531,7 +2146,7 @@ func (s *Server) handleThumbnailCacheInvalidate(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "thumbnail invalidated"})
+	c.JSON(http.StatusOK, gin.H{"message": i18n.MsgThumbnailCacheInvalidated})
 }
 
 // handleThumbnailCacheInvalidateAll удаляет все миниатюры из кэша
@@ -2546,14 +2161,13 @@ func (s *Server) handleThumbnailCacheInvalidateAll(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "all thumbnails invalidated"})
+	c.JSON(http.StatusOK, gin.H{"message": i18n.MsgThumbnailCacheAllInvalidated})
 }
 
 // handleThumbnailCacheWarmup предварительно генерирует миниатюры для файлов
 func (s *Server) handleThumbnailCacheWarmup(c *gin.Context) {
 	var req dto.WarmupThumbnailsRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, i18n.CreateValidationError(i18n.ValidationError))
+	if !helpers.BindJSON(c, &req) {
 		return
 	}
 
@@ -2572,7 +2186,7 @@ func (s *Server) handleThumbnailCacheWarmup(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "thumbnails warmed up"})
+	c.JSON(http.StatusOK, gin.H{"message": i18n.MsgThumbnailCacheWarmedUp})
 }
 
 // handleThumbnailCacheEnable включает кэш миниатюр
@@ -2583,7 +2197,7 @@ func (s *Server) handleThumbnailCacheEnable(c *gin.Context) {
 	}
 
 	s.thumbnailService.Enable()
-	c.JSON(http.StatusOK, gin.H{"message": "thumbnail cache enabled"})
+	c.JSON(http.StatusOK, gin.H{"message": i18n.MsgThumbnailCacheEnabled})
 }
 
 // handleThumbnailCacheDisable выключает кэш миниатюр
@@ -2594,5 +2208,5 @@ func (s *Server) handleThumbnailCacheDisable(c *gin.Context) {
 	}
 
 	s.thumbnailService.Disable()
-	c.JSON(http.StatusOK, gin.H{"message": "thumbnail cache disabled"})
+	c.JSON(http.StatusOK, gin.H{"message": i18n.MsgThumbnailCacheDisabled})
 }

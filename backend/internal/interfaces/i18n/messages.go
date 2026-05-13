@@ -111,7 +111,33 @@ const (
 	MsgLlmOcrNoRecognition      MessageKey = "llm_ocr.no_recognition"
 
 	// Thumbnail cache messages
-	MsgThumbnailCacheNotAvailable MessageKey = "thumbnail_cache.not_available"
+	MsgThumbnailCacheNotAvailable   MessageKey = "thumbnail_cache.not_available"
+	MsgThumbnailCacheInvalidated    MessageKey = "thumbnail_cache.invalidated"
+	MsgThumbnailCacheAllInvalidated MessageKey = "thumbnail_cache.all_invalidated"
+	MsgThumbnailCacheWarmedUp       MessageKey = "thumbnail_cache.warmed_up"
+	MsgThumbnailCacheEnabled        MessageKey = "thumbnail_cache.enabled"
+	MsgThumbnailCacheDisabled       MessageKey = "thumbnail_cache.disabled"
+
+	// Calendar messages
+	MsgCalendarMonthYearRequired  MessageKey = "calendar.month_year_required"
+	MsgCalendarInvalidMonthYear   MessageKey = "calendar.invalid_month_year"
+
+	// Geo messages
+	MsgGeoInvalidZoom       MessageKey = "geo.invalid_zoom"
+	MsgGeoInvalidDimensions MessageKey = "geo.invalid_dimensions"
+	MsgGeoClusterFailed     MessageKey = "geo.cluster_failed"
+	MsgGeoClusterNotFound   MessageKey = "geo.cluster_not_found"
+
+	// Trash restore messages
+	MsgTrashFileNameRequired MessageKey = "trash.file_name_required"
+	MsgTrashFileNotFound     MessageKey = "trash.file_not_found"
+	MsgTrashDeleteFailed     MessageKey = "trash.delete_failed"
+	MsgTrashRestoreFailed    MessageKey = "trash.restore_failed"
+	MsgTrashRestored         MessageKey = "trash.restored"
+	MsgTrashFileDeleted      MessageKey = "trash.file_deleted"
+
+	// LLM messages
+	MsgLlmModelsFailed MessageKey = "llm.models_failed"
 )
 
 // GetMessage returns the message key as string
