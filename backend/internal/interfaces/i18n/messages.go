@@ -119,8 +119,8 @@ const (
 	MsgThumbnailCacheDisabled       MessageKey = "thumbnail_cache.disabled"
 
 	// Calendar messages
-	MsgCalendarMonthYearRequired  MessageKey = "calendar.month_year_required"
-	MsgCalendarInvalidMonthYear   MessageKey = "calendar.invalid_month_year"
+	MsgCalendarMonthYearRequired MessageKey = "calendar.month_year_required"
+	MsgCalendarInvalidMonthYear  MessageKey = "calendar.invalid_month_year"
 
 	// Geo messages
 	MsgGeoInvalidZoom       MessageKey = "geo.invalid_zoom"
