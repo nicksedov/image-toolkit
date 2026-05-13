@@ -1033,7 +1033,7 @@ func (s *Server) handleGetGalleryCalendar(c *gin.Context) {
 	var nextCursor *string
 
 	if cursorParam != "" {
-		// Cursor-based pagination
+		// Cursor-based pagination - recreate baseQuery from scratch to avoid mutation issues
 		decodedDate, decodedID, err := helpers.DecodeCursor(cursorParam)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, i18n.ErrorResponse(i18n.MsgCalendarInvalidCursor))
@@ -1060,8 +1060,27 @@ func (s *Server) handleGetGalleryCalendar(c *gin.Context) {
 			orderClause = "image_metadata.date_taken DESC, image_files.id DESC"
 		}
 
+		// Create a FRESH baseQuery for cursor pagination to avoid state mutation
+		cursorQuery := s.db.Table("image_files").
+			Select("image_files.*, image_metadata.date_taken").
+			Joins("INNER JOIN image_metadata ON image_metadata.image_file_id = image_files.id").
+			Where("image_metadata.date_taken IS NOT NULL")
+
+		// Apply date range filters
+		if startDate != "" {
+			if t, err := time.Parse(helpers.DateOnlyFormat, startDate); err == nil {
+				cursorQuery = cursorQuery.Where("image_metadata.date_taken >= ?", t)
+			}
+		}
+		if endDate != "" {
+			if t, err := time.Parse(helpers.DateOnlyFormat, endDate); err == nil {
+				endOfDay := t.Add(24*time.Hour - time.Second)
+				cursorQuery = cursorQuery.Where("image_metadata.date_taken <= ?", endOfDay)
+			}
+		}
+
 		// Query with cursor: fetch limit+1 to detect if more exists
-		query := baseQuery.Order(orderClause).Limit(pageSize + 1)
+		query := cursorQuery.Order(orderClause).Limit(pageSize + 1)
 
 		if sortOrder == "newest" {
 			// For newest first: get items before the cursor
@@ -1076,17 +1095,19 @@ func (s *Server) handleGetGalleryCalendar(c *gin.Context) {
 				cursorDate, cursorDate, decodedID,
 			)
 		}
+		
+		// Debug: show query parameters
+		fmt.Printf("[Calendar Debug] Query params: date='%s', id=%d, sortOrder=%s\n", 
+			cursorDate.Format("2006-01-02"), decodedID, sortOrder)
 
 		query.Find(&results)
 
 		// Debug logging for cursor pagination
-		if cursorParam != "" {
-			fmt.Printf("[Calendar Debug] Cursor: %s, Decoded: date=%s, id=%d\n", cursorParam, decodedDate, decodedID)
-			fmt.Printf("[Calendar Debug] Results count: %d\n", len(results))
-			if len(results) > 0 {
-				lastResult := results[len(results)-1]
-				fmt.Printf("[Calendar Debug] Last result: date=%v, id=%d\n", lastResult.DateTaken, lastResult.ID)
-			}
+		fmt.Printf("[Calendar Debug] Cursor: %s, Decoded: date=%s, id=%d\n", cursorParam, decodedDate, decodedID)
+		fmt.Printf("[Calendar Debug] Results count: %d\n", len(results))
+		if len(results) > 0 {
+			lastResult := results[len(results)-1]
+			fmt.Printf("[Calendar Debug] Last result: date=%v, id=%d\n", lastResult.DateTaken, lastResult.ID)
 		}
 
 		// If we got more than pageSize, the last item is used for next cursor
@@ -1095,10 +1116,8 @@ func (s *Server) handleGetGalleryCalendar(c *gin.Context) {
 			cursorStr := helpers.EncodeCursor(lastItem.DateTaken.Format(helpers.DateOnlyFormat), lastItem.ID)
 			nextCursor = &cursorStr
 			results = results[:pageSize] // Drop the extra item
-			
-			if cursorParam != "" {
-				fmt.Printf("[Calendar Debug] Generated nextCursor: %s (from item at index %d, id=%d)\n", *nextCursor, pageSize, lastItem.ID)
-			}
+
+			fmt.Printf("[Calendar Debug] Generated nextCursor: %s (from item at index %d, id=%d)\n", *nextCursor, pageSize, lastItem.ID)
 		}
 	} else {
 		// Legacy offset-based pagination (first page or when no cursor provided)
