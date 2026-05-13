@@ -1095,9 +1095,9 @@ func (s *Server) handleGetGalleryCalendar(c *gin.Context) {
 				cursorDate, cursorDate, decodedID,
 			)
 		}
-		
+
 		// Debug: show query parameters
-		fmt.Printf("[Calendar Debug] Query params: date='%s', id=%d, sortOrder=%s\n", 
+		fmt.Printf("[Calendar Debug] Query params: date='%s', id=%d, sortOrder=%s\n",
 			cursorDate.Format("2006-01-02"), decodedID, sortOrder)
 
 		query.Find(&results)
