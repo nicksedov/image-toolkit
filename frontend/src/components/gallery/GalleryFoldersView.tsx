@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react"
+import { useEffect, useState, useMemo } from "react"
 import { GalleryImageGrid } from "@/components/gallery/GalleryImageGrid"
 import { useGalleryImages } from "@/hooks/useGalleryImages"
 import { Skeleton } from "@/components/ui/skeleton"
-import { ImageIcon, ArrowDown, ArrowUp } from "lucide-react"
+import { ImageIcon, ArrowDown, ArrowUp, Search, X } from "lucide-react"
 import { useTranslation } from "@/i18n"
 import { useIntersectionObserver } from "@/hooks/useIntersectionObserver"
 import { PaginationFooter } from "@/components/ui/pagination-footer"
@@ -20,9 +20,38 @@ interface GalleryFoldersViewProps {
 
 export function GalleryFoldersView({ onImageClick, onImageView, onImageOcr, onImageAi, onImageDownload, onImageDelete }: GalleryFoldersViewProps) {
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest")
+  const [searchQuery, setSearchQuery] = useState("")
   const { images, totalImages, hasMore, isLoading, error, initialized, loadMore, removeImage } =
     useGalleryImages("folders", sortOrder)
   const { t } = useTranslation()
+
+  // Filter images based on search query
+  const filteredImages = useMemo(() => {
+    if (!searchQuery.trim()) {
+      return images
+    }
+
+    const query = searchQuery.toLowerCase().trim()
+    
+    // First pass: find all directories that match the search query
+    const matchingDirs = new Set<string>()
+    for (const image of images) {
+      const dirParts = image.dirPath.toLowerCase().split(/[\\/]/)
+      if (dirParts.some(part => part.includes(query))) {
+        matchingDirs.add(image.dirPath)
+      }
+    }
+
+    // Second pass: include all images from matching dirs + individual matching files
+    return images.filter(image => {
+      // Include if folder matches
+      if (matchingDirs.has(image.dirPath)) {
+        return true
+      }
+      // Include if file name matches
+      return image.fileName.toLowerCase().includes(query)
+    })
+  }, [images, searchQuery])
 
   const sentinelRef = useIntersectionObserver({
     onIntersect: loadMore,
@@ -40,27 +69,62 @@ export function GalleryFoldersView({ onImageClick, onImageView, onImageOcr, onIm
     setSortOrder(prev => prev === "newest" ? "oldest" : "newest")
   }
 
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(e.target.value)
+  }
+
+  const handleClearSearch = () => {
+    setSearchQuery("")
+  }
+
+  // Count displayed images (after filtering)
+  const displayedCount = filteredImages.length
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
         <ViewHeader
           icon={ImageIcon}
           textKey={totalImages === 1 ? "gallery.imageCountOne" : "gallery.imageCount"}
           textValues={{ count: totalImages.toLocaleString() }}
         />
 
-        <button
-          onClick={handleSortToggle}
-          className="inline-flex items-center gap-2 rounded-md bg-transparent px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
-          title={sortOrder === "newest" ? t("gallery.sortNewest") : t("gallery.sortOldest")}
-        >
-          {sortOrder === "newest" ? (
-            <ArrowDown className="h-4 w-4" />
-          ) : (
-            <ArrowUp className="h-4 w-4" />
-          )}
-          <span>{sortOrder === "newest" ? t("gallery.sortNewest") : t("gallery.sortOldest")}</span>
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Search input */}
+          <div className="relative">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={handleSearchChange}
+              placeholder={t("gallery.search.placeholder")}
+              className="h-9 w-48 rounded-md border bg-background pl-8 pr-8 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            />
+            {searchQuery && (
+              <button
+                onClick={handleClearSearch}
+                className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 rounded-sm hover:bg-accent flex items-center justify-center"
+                title={t("gallery.search.clear")}
+              >
+                <X className="h-3 w-3 text-muted-foreground" />
+              </button>
+            )}
+          </div>
+
+          {/* Sort button */}
+          <button
+            onClick={handleSortToggle}
+            className="inline-flex items-center gap-2 rounded-md bg-transparent px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+            title={sortOrder === "newest" ? t("gallery.sortNewest") : t("gallery.sortOldest")}
+          >
+            {sortOrder === "newest" ? (
+              <ArrowDown className="h-4 w-4" />
+            ) : (
+              <ArrowUp className="h-4 w-4" />
+            )}
+            <span>{sortOrder === "newest" ? t("gallery.sortNewest") : t("gallery.sortOldest")}</span>
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -87,23 +151,42 @@ export function GalleryFoldersView({ onImageClick, onImageView, onImageOcr, onIm
         </div>
       ) : (
         <>
-          <GalleryImageGrid
-            images={images}
-            onImageClick={onImageClick}
-            onImageView={onImageView}
-            onImageOcr={onImageOcr}
-            onImageAi={onImageAi}
-            onImageDownload={onImageDownload}
-            onImageDelete={(image) => onImageDelete?.(image, () => removeImage(image.id))}
-          />
+          {searchQuery && filteredImages.length === 0 && !isLoading ? (
+            <div className="rounded-lg border border-dashed p-12 text-center">
+              <Search className="mx-auto h-10 w-10 text-muted-foreground/50" />
+              <p className="mt-2 text-sm font-medium text-muted-foreground">
+                No results found for "{searchQuery}"
+              </p>
+              <p className="text-xs text-muted-foreground/70">
+                Try a different search term
+              </p>
+            </div>
+          ) : (
+            <>
+              {searchQuery && (
+                <div className="text-xs text-muted-foreground px-0.5">
+                  Found {displayedCount} of {totalImages} images
+                </div>
+              )}
+              <GalleryImageGrid
+                images={filteredImages}
+                onImageClick={onImageClick}
+                onImageView={onImageView}
+                onImageOcr={onImageOcr}
+                onImageAi={onImageAi}
+                onImageDownload={onImageDownload}
+                onImageDelete={(image) => onImageDelete?.(image, () => removeImage(image.id))}
+              />
 
-          <div ref={sentinelRef} className="h-4" />
+              <div ref={sentinelRef} className="h-4" />
 
-          <PaginationFooter
-            isLoading={isLoading}
-            hasMore={hasMore}
-            totalCount={totalImages}
-          />
+              <PaginationFooter
+                isLoading={isLoading}
+                hasMore={hasMore}
+                totalCount={totalImages}
+              />
+            </>
+          )}
         </>
       )}
     </div>

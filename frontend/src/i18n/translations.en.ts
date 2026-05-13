@@ -142,6 +142,8 @@ export const translationsEn = {
   "gallery.sortOrder": "Sort order",
   "gallery.sortNewest": "Newest first",
   "gallery.sortOldest": "Oldest first",
+  "gallery.search.placeholder": "Search by folder or file name...",
+  "gallery.search.clear": "Clear search",
   "gallery.calendar.noDateInfo": "No date information available",
   "gallery.calendar.noDateInfoHint": "Images without EXIF date metadata are not shown.",
   "gallery.calendar.clearFilter": "Clear filter",

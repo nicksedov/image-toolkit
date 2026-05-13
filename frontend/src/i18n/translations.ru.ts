@@ -142,6 +142,8 @@ export const translationsRu = {
   "gallery.sortOrder": "Порядок сортировки",
   "gallery.sortNewest": "Сначала новые",
   "gallery.sortOldest": "Сначала старые",
+  "gallery.search.placeholder": "Поиск по имени папки или файла...",
+  "gallery.search.clear": "Очистить поиск",
   "gallery.calendar.noDateInfo": "Информация о дате отсутствует",
   "gallery.calendar.noDateInfoHint": "Изображения без метаданных даты EXIF не отображаются.",
   "gallery.calendar.clearFilter": "Очистить фильтр",
