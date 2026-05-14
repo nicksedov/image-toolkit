@@ -26,8 +26,9 @@ interface CalendarWidgetProps {
   dateRangeFilter: { start: string | null; end: string | null }
   rangeSelecting: boolean
   onMonthChange: (date: Date) => void
-  onDateSelect: (date: string) => void
-  onDateRangeSelect: (start: string, end: string) => void
+  onDateSelect: (date: string) => Promise<void> | void
+  onStartRangeSelect?: (date: string) => void
+  onDateRangeSelect: (start: string, end: string) => Promise<void> | void
   onClearFilter: () => void
 }
 
@@ -40,6 +41,7 @@ export function CalendarWidget({
   rangeSelecting,
   onMonthChange,
   onDateSelect,
+  onStartRangeSelect,
   onDateRangeSelect,
   onClearFilter,
 }: CalendarWidgetProps) {
@@ -239,6 +241,7 @@ export function CalendarWidget({
                 ${isSelected && !isRangeStart && !isRangeEnd ? "opacity-80" : ""}
               `}
               onClick={() => day.date && onDateSelect(day.date)}
+              onDoubleClick={() => day.date && onStartRangeSelect?.(day.date)}
               title={day.hasImages ? `${day.imageCount} ${day.imageCount === 1 ? "image" : "images"}` : "No images"}
             >
               <span className="text-[11px] leading-none">{day.day}</span>

@@ -1103,19 +1103,7 @@ func (s *Server) handleGetGalleryCalendar(c *gin.Context) {
 			)
 		}
 
-		// Debug: show query parameters
-		fmt.Printf("[Calendar Debug] Query params: date='%s', id=%d, sortOrder=%s\n",
-			cursorDate.Format("2006-01-02"), decodedID, sortOrder)
-
 		query.Find(&results)
-
-		// Debug logging for cursor pagination
-		fmt.Printf("[Calendar Debug] Cursor: %s, Decoded: date=%s, id=%d\n", cursorParam, decodedDate, decodedID)
-		fmt.Printf("[Calendar Debug] Results count: %d\n", len(results))
-		if len(results) > 0 {
-			lastResult := results[len(results)-1]
-			fmt.Printf("[Calendar Debug] Last result: date=%v, id=%d\n", lastResult.DateTaken, lastResult.ID)
-		}
 
 		// If we got more than pageSize, the last item is used for next cursor
 		if len(results) > pageSize {
@@ -1124,8 +1112,6 @@ func (s *Server) handleGetGalleryCalendar(c *gin.Context) {
 			cursorStr := helpers.EncodeCursor(lastItem.DateTaken.Format(helpers.DateTimeFormat), lastItem.ID)
 			nextCursor = &cursorStr
 			results = results[:pageSize] // Drop the extra item
-
-			fmt.Printf("[Calendar Debug] Generated nextCursor: %s (from item at index %d, id=%d)\n", *nextCursor, pageSize, lastItem.ID)
 		}
 	} else {
 		// Legacy offset-based pagination (first page or when no cursor provided)

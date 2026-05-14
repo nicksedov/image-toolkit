@@ -74,8 +74,6 @@ export function useCalendarData({ initialMonthYear }: UseCalendarDataOptions): U
         jumpCursorRef.current = null
       }
 
-      console.log('[Calendar] fetchGalleryCalendar called with cursor:', actualCursor)
-
       const result = await fetchGalleryCalendar(
         1, // page is ignored when cursor is used
         PAGE_SIZE,
@@ -85,8 +83,6 @@ export function useCalendarData({ initialMonthYear }: UseCalendarDataOptions): U
         sortOrderRef.current,
         actualCursor || undefined
       )
-
-      console.log('[Calendar] Response nextCursor:', result.nextCursor, 'groups count:', result.groups.length)
 
       // Capture dateRange from first response
       if (!dateRangeCapturedRef.current && result.dateRange.minDate) {

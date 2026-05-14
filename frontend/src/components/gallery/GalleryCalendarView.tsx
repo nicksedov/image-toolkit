@@ -43,15 +43,18 @@ export function GalleryCalendarView({ onImageClick, onImageView, onImageOcr, onI
     initialMonthYear: calendarMonthKey,
   })
 
+  // Track if user has manually navigated via timeline or calendar widget
+  const hasUserNavigated = useRef(false)
+
   // Initial load on mount
   useEffect(() => {
     calendar.loadMore()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Sync calendar widget to show the month of loaded images
+  // Sync calendar widget to show the month of loaded images (only on initial load)
   useEffect(() => {
-    if (calendar.initialized && calendar.dateRange.minDate && !calendar.dateRangeFilter.start) {
-      // Only set calendar to minDate month on initial load (no filter active)
+    if (!hasUserNavigated.current && calendar.initialized && calendar.dateRange.minDate && !calendar.dateRangeFilter.start) {
+      // Only set calendar to minDate month on initial load (no filter active, no user navigation)
       const minDate = new Date(calendar.dateRange.minDate + "T00:00:00")
       setCalendarViewDate(new Date(minDate.getFullYear(), minDate.getMonth(), 1))
     }
@@ -151,31 +154,22 @@ export function GalleryCalendarView({ onImageClick, onImageView, onImageOcr, onI
   }, [calendar.hasMore, calendar.isLoading, calendar.loadMore])
 
   // Handlers
-  const handleDateSelect = (date: string) => {
-    if (!rangeSelecting) {
-      // Start range selection
-      calendar.setDateRangeFilter({ start: date, end: null })
-      setRangeSelecting(true)
-    } else {
-      // Complete range selection
-      const startDate = calendar.dateRangeFilter.start
-      if (startDate) {
-        // Ensure start <= end
-        if (date >= startDate) {
-          calendar.setDateRangeFilter({ start: startDate, end: date })
-        } else {
-          calendar.setDateRangeFilter({ start: date, end: startDate })
-        }
-      } else {
-        calendar.setDateRangeFilter({ start: date, end: date })
-      }
-      setRangeSelecting(false)
-    }
+  const handleDateSelect = async (date: string) => {
+    // Navigate to the selected date
+    await handleNavigateToDate(date)
   }
 
-  const handleDateRangeSelect = (start: string, end: string) => {
+  const handleStartDateRange = (date: string) => {
+    // Start range selection
+    calendar.setDateRangeFilter({ start: date, end: null })
+    setRangeSelecting(true)
+  }
+
+  const handleCompleteDateRange = async (start: string, end: string) => {
     calendar.setDateRangeFilter({ start, end })
     setRangeSelecting(false)
+    // Navigate to the start date of the range
+    await handleNavigateToDate(start)
   }
 
   const clearDateRangeFilter = () => {
@@ -194,6 +188,9 @@ export function GalleryCalendarView({ onImageClick, onImageView, onImageOcr, onI
     }
 
     try {
+      // Mark that user has manually navigated
+      hasUserNavigated.current = true
+
       // Use the hook's jumpToDate method
       await calendar.jumpToDate(date)
 
@@ -274,7 +271,8 @@ export function GalleryCalendarView({ onImageClick, onImageView, onImageOcr, onI
         rangeSelecting={rangeSelecting}
         onMonthChange={setCalendarViewDate}
         onDateSelect={handleDateSelect}
-        onDateRangeSelect={handleDateRangeSelect}
+        onStartRangeSelect={handleStartDateRange}
+        onDateRangeSelect={handleCompleteDateRange}
         onClearFilter={clearDateRangeFilter}
       />
 
