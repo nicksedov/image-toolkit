@@ -26,8 +26,11 @@ export function useGalleryImages(view: string, sortOrder: string = "newest", sea
       sortOrderRef.current = sortOrder
       searchRef.current = search
       reset()
+      // Immediately load page 1 with new parameters
+      // Use setTimeout to ensure reset state is flushed before loading
+      setTimeout(() => loadMore(), 0)
     }
-  }, [view, sortOrder, search, reset])
+  }, [view, sortOrder, search, reset, loadMore])
 
   const resetWithView = useCallback(
     (newView?: string, newSortOrder?: string, newSearch?: string) => {
@@ -41,8 +44,10 @@ export function useGalleryImages(view: string, sortOrder: string = "newest", sea
         searchRef.current = newSearch
       }
       reset()
+      // Immediately load page 1 with new parameters
+      setTimeout(() => loadMore(), 0)
     },
-    [reset]
+    [reset, loadMore]
   )
 
   return {
