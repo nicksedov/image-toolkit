@@ -174,6 +174,7 @@ export function useInfiniteScroll<T, R>(
     setItems([])
     setTotal(0)
     setHasMore(true)
+    setIsLoading(false)
     setError(null)
     pageRef.current = 1
     setInitialized(false)
