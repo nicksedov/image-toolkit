@@ -68,6 +68,8 @@ export function useInfiniteScroll<T, R>(
   const [error, setError] = useState<string | null>(null)
   const pageRef = useRef(1)
   const [initialized, setInitialized] = useState(false)
+  // Generation counter to invalidate stale requests after reset
+  const generationRef = useRef(0)
 
   const prefetchRef = useRef<PrefetchBuffer<R>>({
     page: 0,
@@ -125,10 +127,17 @@ export function useInfiniteScroll<T, R>(
     if (isLoading) return
     setIsLoading(true)
     setError(null)
+    // Capture current generation to detect stale requests
+    const currentGeneration = generationRef.current
     try {
       const currentPage = pageRef.current
       const prefetched = consumePrefetch()
       const result = prefetched ?? (await fetchFn(currentPage, pageSize))
+
+      // Abort if reset() was called during the fetch (generation changed)
+      if (generationRef.current !== currentGeneration) {
+        return
+      }
 
       setItems((prev) => {
         const newItems = transform(result).filter((item) => !isDuplicate(prev, item))
@@ -149,9 +158,15 @@ export function useInfiniteScroll<T, R>(
         startPrefetch(pageRef.current)
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load data")
+      // Only set error if generation hasn't changed
+      if (generationRef.current === currentGeneration) {
+        setError(err instanceof Error ? err.message : "Failed to load data")
+      }
     } finally {
-      setIsLoading(false)
+      // Only clear loading if generation hasn't changed
+      if (generationRef.current === currentGeneration) {
+        setIsLoading(false)
+      }
     }
   }, [isLoading, consumePrefetch, startPrefetch, fetchFn, pageSize, transform, responseTotal, responseHasNext, isDuplicate])
 
@@ -163,6 +178,8 @@ export function useInfiniteScroll<T, R>(
     pageRef.current = 1
     setInitialized(false)
     prefetchRef.current = { page: 0, promise: null, data: null }
+    // Increment generation to invalidate all in-flight requests
+    generationRef.current += 1
   }, [])
 
   const removeItem = useCallback(

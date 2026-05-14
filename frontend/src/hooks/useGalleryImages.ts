@@ -19,18 +19,15 @@ export function useGalleryImages(view: string, sortOrder: string = "newest", sea
       responseHasNext: (response) => response.hasNextPage,
     })
 
-  // Reset and reload when view, sortOrder, or search changes
+  // Reset when view, sortOrder, or search changes
   useEffect(() => {
     if (viewRef.current !== view || sortOrderRef.current !== sortOrder || searchRef.current !== search) {
       viewRef.current = view
       sortOrderRef.current = sortOrder
       searchRef.current = search
       reset()
-      // Immediately load page 1 with new parameters
-      // Use setTimeout to ensure reset state is flushed before loading
-      setTimeout(() => loadMore(), 0)
     }
-  }, [view, sortOrder, search, reset, loadMore])
+  }, [view, sortOrder, search, reset])
 
   const resetWithView = useCallback(
     (newView?: string, newSortOrder?: string, newSearch?: string) => {
@@ -44,10 +41,8 @@ export function useGalleryImages(view: string, sortOrder: string = "newest", sea
         searchRef.current = newSearch
       }
       reset()
-      // Immediately load page 1 with new parameters
-      setTimeout(() => loadMore(), 0)
     },
-    [reset, loadMore]
+    [reset]
   )
 
   return {
