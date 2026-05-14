@@ -32,6 +32,10 @@ export interface UseCursorInfiniteScrollResult<T> {
   reset: () => void
   /** Remove a specific item from the items list */
   removeItem: (key: string | number) => void
+  /** Set items directly (for advanced use cases like removal) */
+  setItems: (updater: (prev: T[]) => T[]) => void
+  /** Set total directly */
+  setTotal: (updater: (prev: number) => number) => void
 }
 
 /**
@@ -110,5 +114,7 @@ export function useCursorInfiniteScroll<T, R>(
     loadMore,
     reset,
     removeItem,
+    setItems,
+    setTotal,
   }
 }

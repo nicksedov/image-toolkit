@@ -146,9 +146,19 @@ export function useCalendarData({ initialMonthYear }: UseCalendarDataOptions): U
   // Remove an image from the list
   const removeImage = useCallback(
     (imageId: number) => {
-      infiniteScroll.removeItem(imageId)
+      // Remove image from groups state
+      infiniteScroll.setItems((prevGroups) => {
+        return prevGroups
+          .map((group) => ({
+            ...group,
+            images: group.images.filter((img) => img.id !== imageId),
+            imageCount: group.images.filter((img) => img.id !== imageId).length,
+          }))
+          .filter((group) => group.images.length > 0) // Remove empty groups
+      })
+      infiniteScroll.setTotal((prev) => Math.max(0, prev - 1))
     },
-    [infiniteScroll.removeItem]
+    [infiniteScroll]
   )
 
   return {
