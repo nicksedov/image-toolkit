@@ -1062,9 +1062,9 @@ func (s *Server) handleGetGalleryCalendar(c *gin.Context) {
 		}
 
 		// Build order clause
-		orderClause := "image_metadata.date_taken ASC, image_files.id ASC"
+		orderClause := "image_metadata.date_taken ASC, image_metadata.image_file_id ASC"
 		if sortOrder == "newest" {
-			orderClause = "image_metadata.date_taken DESC, image_files.id DESC"
+			orderClause = "image_metadata.date_taken DESC, image_metadata.image_file_id DESC"
 		}
 
 		// Create a FRESH baseQuery for cursor pagination to avoid state mutation
@@ -1092,13 +1092,13 @@ func (s *Server) handleGetGalleryCalendar(c *gin.Context) {
 		if sortOrder == "newest" {
 			// For newest first: get items before the cursor
 			query = query.Where(
-				"(image_metadata.date_taken < ?) OR (image_metadata.date_taken = ? AND image_files.id < ?)",
+				"(image_metadata.date_taken < ?) OR (image_metadata.date_taken = ? AND image_metadata.image_file_id < ?)",
 				cursorDate, cursorDate, decodedID,
 			)
 		} else {
 			// For oldest first: get items after the cursor
 			query = query.Where(
-				"(image_metadata.date_taken > ?) OR (image_metadata.date_taken = ? AND image_files.id > ?)",
+				"(image_metadata.date_taken > ?) OR (image_metadata.date_taken = ? AND image_metadata.image_file_id > ?)",
 				cursorDate, cursorDate, decodedID,
 			)
 		}
@@ -1119,9 +1119,9 @@ func (s *Server) handleGetGalleryCalendar(c *gin.Context) {
 		pageSize := params.PageSize
 		offset := params.Offset
 
-		orderClause := "image_metadata.date_taken ASC"
+		orderClause := "image_metadata.date_taken ASC, image_metadata.image_file_id ASC"
 		if sortOrder == "newest" {
-			orderClause = "image_metadata.date_taken DESC"
+			orderClause = "image_metadata.date_taken DESC, image_metadata.image_file_id DESC"
 		}
 
 		// Fetch pageSize + 1 to detect if there's more data and generate a cursor

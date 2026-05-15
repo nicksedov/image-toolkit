@@ -42,6 +42,9 @@ func InitDatabase(cfg *config.AppConfig) (*gorm.DB, error) {
 		return nil, fmt.Errorf("failed to migrate database: %w", err)
 	}
 
+	// Create composite index for calendar pagination: covers ORDER BY date_taken, image_file_id
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_image_metadata_date_taken_file_id ON image_metadata (date_taken, image_file_id)")
+
 	// Seed default settings row if not exists
 	var count int64
 	db.Model(&domain.AppSettings{}).Count(&count)
