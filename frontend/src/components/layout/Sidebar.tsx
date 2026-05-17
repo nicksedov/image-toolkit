@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react"
 import { useTranslation } from "@/i18n"
-import { Settings, ImageIcon, FileScan, Shield, Users, ChevronDown, ChevronRight, Folder, Calendar, FileText, MapPin, Trash2 } from "lucide-react"
+import { Settings, ImageIcon, FileScan, Shield, Users, ChevronDown, ChevronRight, Folder, Calendar, FileText, MapPin, Trash2, Database } from "lucide-react"
 import { useAuth } from "@/providers/AuthProvider"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -34,6 +34,7 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
   const toolsSubModes = [
     { value: "deduplication", icon: FileScan, label: t("tabs.deduplication") },
     { value: "ocr", icon: FileText, label: t("tabs.ocr") },
+    { value: "exif", icon: Database, label: t("tabs.exif") },
   ]
 
   const accountTabs: TabItem[] = [
@@ -47,7 +48,7 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
   ]
 
   const isGalleryActive = activeTab.startsWith("gallery")
-  const isToolsActive = activeTab === "deduplication" || activeTab === "ocr"
+  const isToolsActive = activeTab === "deduplication" || activeTab === "ocr" || activeTab === "exif"
   const isTrashActive = activeTab === "gallery-trash"
   const isAccountActive = activeTab === "settings" || activeTab === "profile"
   const isAdminActive = activeTab === "admin-users" || activeTab === "admin-settings"

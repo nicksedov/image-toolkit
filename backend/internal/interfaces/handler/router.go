@@ -86,6 +86,7 @@ func (s *Server) SetupRouter(authMiddleware *middleware.AuthMiddleware, csrfProt
 			protected.POST("/trash-restore", s.handleRestoreTrashFile)
 			protected.POST("/trash-delete", s.handleDeleteTrashFile)
 			protected.GET("/image-metadata", s.handleGetImageMetadata)
+			protected.GET("/gallery/exif-images", s.handleGetImagesMissingExif)
 			protected.GET("/ocr-status", s.handleGetOCRStatus)
 			protected.POST("/ocr/classify", s.handleStartOcrClassification)
 			protected.POST("/ocr/classify-changes", s.handleStartOcrClassificationIncremental)

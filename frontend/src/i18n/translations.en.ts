@@ -11,6 +11,7 @@ export const translationsEn = {
   "tabs.tools": "Tools",
   "tabs.deduplication": "Deduplication",
   "tabs.ocr": "OCR",
+  "tabs.exif": "EXIF",
   "tabs.trash": "Trash",
 
   // Trash tab
@@ -503,4 +504,12 @@ export const translationsEn = {
   "ai.actionCompleted": "Complete",
   "ai.actionFailed": "Failed",
   "ai.notEnabled": "AI features not enabled. Contact administrator to configure LLM settings.",
+
+  // EXIF tool
+  "exif.imageCount": "{count} image(s) missing EXIF data",
+  "exif.imageCountOne": "{count} image missing EXIF data",
+  "exif.empty": "All images have complete EXIF data",
+  "exif.emptyHint": "Great! All your images have date and GPS information.",
+  "exif.missingDate": "Missing date taken",
+  "exif.missingGps": "Missing GPS coordinates",
 } as const

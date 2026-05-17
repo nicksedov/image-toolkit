@@ -138,6 +138,8 @@ export interface GalleryImageDTO {
   modTime: string
   thumbnail?: string
   thumbnailCachePath?: string
+  missingDate?: boolean
+  missingGps?: boolean
 }
 
 export interface GalleryImagesResponse {

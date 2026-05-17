@@ -100,6 +100,9 @@ export function useCalendarData({ initialMonthYear }: UseCalendarDataOptions): U
   // Reset pagination when filters change and reload data
   useEffect(() => {
     infiniteScroll.reset()
+    // Reset dateRange capture so it updates from the new response
+    dateRangeCapturedRef.current = false
+    setDateRange({ minDate: "", maxDate: "", totalWithDate: 0 })
     // Load fresh data with new filters/sort order
     infiniteScroll.loadMore()
   }, [dateRangeFilter.start, dateRangeFilter.end, sortOrder])

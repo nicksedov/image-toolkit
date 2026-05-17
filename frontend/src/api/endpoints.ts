@@ -281,6 +281,19 @@ export function fetchImageMetadata(path: string): Promise<ImageMetadataResponse>
   return apiGet<ImageMetadataResponse>("/api/image-metadata", { path })
 }
 
+// --- EXIF Tool ---
+
+export function fetchImagesMissingExif(
+  page: number,
+  pageSize: number
+): Promise<GalleryImagesResponse> {
+  const params: Record<string, string> = {
+    page: String(page),
+    pageSize: String(pageSize),
+  }
+  return apiGet<GalleryImagesResponse>("/api/gallery/exif-images", params)
+}
+
 // --- Auth ---
 
 export function fetchAuthStatus(): Promise<AuthStatusResponse> {

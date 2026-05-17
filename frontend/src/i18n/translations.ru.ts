@@ -11,6 +11,7 @@ export const translationsRu = {
   "tabs.tools": "Инструменты",
   "tabs.deduplication": "Дедупликация",
   "tabs.ocr": "OCR",
+  "tabs.exif": "EXIF",
   "tabs.trash": "Корзина",
 
   // Trash tab
@@ -593,4 +594,12 @@ export const translationsRu = {
 
   // Gallery messages
   "api.gallery.conflict": "Обнаружен конфликт папок галереи",
+
+  // EXIF tool
+  "exif.imageCount": "{count} изображ. без EXIF данных",
+  "exif.imageCountOne": "{count} изображение без EXIF данных",
+  "exif.empty": "Все изображения имеют полные EXIF данные",
+  "exif.emptyHint": "Отлично! У всех ваших изображений есть дата и GPS информация.",
+  "exif.missingDate": "Отсутствует дата съемки",
+  "exif.missingGps": "Отсутствуют GPS координаты",
 } as const

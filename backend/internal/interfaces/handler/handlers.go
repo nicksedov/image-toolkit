@@ -990,6 +990,79 @@ func (s *Server) handleGetImageMetadata(c *gin.Context) {
 	c.JSON(http.StatusOK, dto.ImageMetadataResponse{Found: true, Metadata: metaDTO})
 }
 
+// handleGetImagesMissingExif returns paginated images that are missing EXIF data (date or GPS)
+func (s *Server) handleGetImagesMissingExif(c *gin.Context) {
+	params := helpers.ParsePagination(c, helpers.ModeFixed)
+	page := params.Page
+	pageSize := params.PageSize
+	offset := params.Offset
+
+	// Query: join image_files with image_metadata where date_taken OR GPS is missing
+	type imageWithMetadata struct {
+		domain.ImageFile
+		DateTaken    *time.Time
+		GPSLatitude  *float64
+		GPSLongitude *float64
+	}
+
+	var totalImages int64
+	s.db.Table("image_files").
+		Select("image_files.*, image_metadata.date_taken, image_metadata.gps_latitude, image_metadata.gps_longitude").
+		Joins("LEFT JOIN image_metadata ON image_metadata.image_file_id = image_files.id").
+		Where("image_metadata.date_taken IS NULL OR image_metadata.gps_latitude IS NULL OR image_metadata.gps_longitude IS NULL").
+		Count(&totalImages)
+
+	var results []imageWithMetadata
+	s.db.Table("image_files").
+		Select("image_files.*, image_metadata.date_taken, image_metadata.gps_latitude, image_metadata.gps_longitude").
+		Joins("LEFT JOIN image_metadata ON image_metadata.image_file_id = image_files.id").
+		Where("image_metadata.date_taken IS NULL OR image_metadata.gps_latitude IS NULL OR image_metadata.gps_longitude IS NULL").
+		Order("image_files.id DESC").
+		Offset(offset).
+		Limit(pageSize).
+		Find(&results)
+
+	// Build DTOs
+	imageDTOs := make([]dto.GalleryImageDTO, len(results))
+	for i, r := range results {
+		missingDate := r.DateTaken == nil
+		missingGps := r.GPSLatitude == nil || r.GPSLongitude == nil
+		imageDTOs[i] = dto.GalleryImageDTO{
+			ID:             r.ID,
+			Path:           r.Path,
+			FileName:       filepath.Base(r.Path),
+			DirPath:        filepath.Dir(r.Path),
+			Size:           r.Size,
+			SizeHuman:      formatSize(r.Size),
+			ModTime:        r.ModTime.Format(helpers.DateTimeFormat),
+			MissingDate:    missingDate,
+			MissingGps:     missingGps,
+		}
+	}
+
+	// Generate thumbnails in parallel
+	if len(results) > 0 {
+		paths := make([]string, len(results))
+		for i, r := range results {
+			paths[i] = r.Path
+		}
+		s.thumbnailBatch.GenerateParallel(paths, func(idx int, thumb string) {
+			imageDTOs[idx].Thumbnail = thumb
+		})
+	}
+
+	pag := helpers.CalcPagination(page, pageSize, totalImages)
+
+	c.JSON(http.StatusOK, dto.GalleryImagesResponse{
+		Images:      imageDTOs,
+		TotalImages: int(totalImages),
+		CurrentPage: pag.Page,
+		PageSize:    pag.PageSize,
+		TotalPages:  pag.TotalPages,
+		HasNextPage: pag.HasNextPage,
+	})
+}
+
 // handleGetGalleryCalendar returns paginated gallery images grouped by date taken
 // Supports both cursor-based pagination (new) and offset-based pagination (legacy)
 func (s *Server) handleGetGalleryCalendar(c *gin.Context) {

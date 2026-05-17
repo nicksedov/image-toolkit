@@ -17,10 +17,11 @@ const GalleryTab = lazy(() => import("@/components/tabs/GalleryTab").then(module
 const TrashTab = lazy(() => import("@/components/tabs/TrashTab").then(module => ({ default: module.TrashTab })))
 const DeduplicationTab = lazy(() => import("@/components/tabs/DeduplicationTab").then(module => ({ default: module.DeduplicationTab })))
 const OcrTab = lazy(() => import("@/components/tabs/OcrTab").then(module => ({ default: module.OcrTab })))
+const ExifTab = lazy(() => import("@/components/tabs/ExifTab").then(module => ({ default: module.ExifTab })))
 const AdminSettingsTab = lazy(() => import("@/components/tabs/AdminSettingsTab").then(module => ({ default: module.AdminSettingsTab })))
 const AdminPanel = lazy(() => import("@/components/auth/AdminPanel").then(module => ({ default: module.AdminPanel })))
 
-type TabValue = "settings" | "gallery-folders" | "gallery-calendar" | "gallery-geolocation" | "gallery-trash" | "deduplication" | "ocr" | "profile" | "admin-settings" | "admin-users"
+type TabValue = "settings" | "gallery-folders" | "gallery-calendar" | "gallery-geolocation" | "gallery-trash" | "deduplication" | "ocr" | "exif" | "profile" | "admin-settings" | "admin-users"
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabValue>("gallery-folders")
@@ -148,6 +149,12 @@ export default function App() {
               <TabsContent value="ocr">
                 <Suspense fallback={<div className="flex items-center justify-center py-20"><div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" /></div>}>
                   <OcrTab />
+                </Suspense>
+              </TabsContent>
+
+              <TabsContent value="exif">
+                <Suspense fallback={<div className="flex items-center justify-center py-20"><div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" /></div>}>
+                  <ExifTab />
                 </Suspense>
               </TabsContent>
 

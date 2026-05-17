@@ -182,14 +182,16 @@ type RemoveFolderResponse struct {
 
 // GalleryImageDTO represents an image in the gallery browser
 type GalleryImageDTO struct {
-	ID        uint   `json:"id"`
-	Path      string `json:"path"`
-	FileName  string `json:"fileName"`
-	DirPath   string `json:"dirPath"`
-	Size      int64  `json:"size"`
-	SizeHuman string `json:"sizeHuman"`
-	ModTime   string `json:"modTime"`
-	Thumbnail string `json:"thumbnail,omitempty"`
+	ID           uint   `json:"id"`
+	Path         string `json:"path"`
+	FileName     string `json:"fileName"`
+	DirPath      string `json:"dirPath"`
+	Size         int64  `json:"size"`
+	SizeHuman    string `json:"sizeHuman"`
+	ModTime      string `json:"modTime"`
+	Thumbnail    string `json:"thumbnail,omitempty"`
+	MissingDate  bool   `json:"missingDate,omitempty"`
+	MissingGps   bool   `json:"missingGps,omitempty"`
 }
 
 // GalleryImagesResponse is the JSON response for GET /api/gallery
