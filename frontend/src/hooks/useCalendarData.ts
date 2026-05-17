@@ -97,12 +97,11 @@ export function useCalendarData({ initialMonthYear }: UseCalendarDataOptions): U
     responseTotal: (response) => response.totalImages,
   })
 
-  // Reset pagination when filters change
+  // Reset pagination when filters change and reload data
   useEffect(() => {
-    if (infiniteScroll.initialized) {
-      infiniteScroll.reset()
-      // loadMore will be called automatically on next render
-    }
+    infiniteScroll.reset()
+    // Load fresh data with new filters/sort order
+    infiniteScroll.loadMore()
   }, [dateRangeFilter.start, dateRangeFilter.end, sortOrder])
 
   // Update monthYear ref without resetting pagination
