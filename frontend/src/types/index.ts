@@ -505,6 +505,7 @@ export interface LlmSettingsDTO {
   tagScanStartMinute?: number
   tagScanEndHour?: number
   tagScanEndMinute?: number
+  tagScanTimezoneOffset?: number // User's timezone offset in minutes (JS getTimezoneOffset: UTC+3 = -180)
 }
 
 export interface UpdateLlmSettingsRequest {
@@ -518,6 +519,7 @@ export interface UpdateLlmSettingsRequest {
   tagScanStartMinute?: number
   tagScanEndHour?: number
   tagScanEndMinute?: number
+  tagScanTimezoneOffset?: number // User's timezone offset in minutes (JS getTimezoneOffset: UTC+3 = -180)
 }
 
 export interface TagScanStatusResponse {

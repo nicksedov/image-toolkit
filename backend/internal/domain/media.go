@@ -128,8 +128,9 @@ type LlmSettings struct {
 	TagScanStartHour     int       `gorm:"default:22" json:"tagScanStartHour"`
 	TagScanStartMinute   int       `gorm:"default:0" json:"tagScanStartMinute"`
 	TagScanEndHour       int       `gorm:"default:7" json:"tagScanEndHour"`
-	TagScanEndMinute     int       `gorm:"default:0" json:"tagScanEndMinute"`
-	CreatedAt            time.Time `json:"createdAt"`
+	TagScanEndMinute      int       `gorm:"default:0" json:"tagScanEndMinute"`
+	TagScanTimezoneOffset int       `gorm:"default:0" json:"tagScanTimezoneOffset"` // User's timezone offset in minutes (JS getTimezoneOffset: UTC+3 = -180)
+	CreatedAt             time.Time `json:"createdAt"`
 	UpdatedAt            time.Time `json:"updatedAt"`
 }
 

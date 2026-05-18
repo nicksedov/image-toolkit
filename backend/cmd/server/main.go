@@ -215,6 +215,7 @@ func main() {
 	tagScanStartMinute := 0
 	tagScanEndHour := 7
 	tagScanEndMinute := 0
+	tagScanTimezoneOffset := 0
 	var llmSettings domain.LlmSettings
 	if result := db.First(&llmSettings); result.Error == nil {
 		tagScanEnabled = llmSettings.TagScanEnabled
@@ -222,15 +223,16 @@ func main() {
 		tagScanStartMinute = llmSettings.TagScanStartMinute
 		tagScanEndHour = llmSettings.TagScanEndHour
 		tagScanEndMinute = llmSettings.TagScanEndMinute
+		tagScanTimezoneOffset = llmSettings.TagScanTimezoneOffset
 	}
 
-	tagScanManager.Start(tagScanEnabled, tagScanStartHour, tagScanStartMinute, tagScanEndHour, tagScanEndMinute)
+	tagScanManager.Start(tagScanEnabled, tagScanStartHour, tagScanStartMinute, tagScanEndHour, tagScanEndMinute, tagScanTimezoneOffset)
 	defer tagScanManager.Stop()
 
 	// Set coordinator for AI task synchronization
 	llmOcrService.SetCoordinator(tagScanManager)
 
-	fmt.Printf("Tag scan: window %02d:%02d - %02d:%02d, enabled=%v\n", tagScanStartHour, tagScanStartMinute, tagScanEndHour, tagScanEndMinute, tagScanEnabled)
+	fmt.Printf("Tag scan: window %02d:%02d - %02d:%02d, tzOffset=%d, enabled=%v\n", tagScanStartHour, tagScanStartMinute, tagScanEndHour, tagScanEndMinute, tagScanTimezoneOffset, tagScanEnabled)
 
 	// Start web server
 	server := handler.NewServer(db, scanManager, ocrManager, llmOcrService, backgroundSync, tagScanManager, thumbnailService, cfg)

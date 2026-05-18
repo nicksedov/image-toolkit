@@ -2033,7 +2033,8 @@ func (s *Server) handleGetLlmSettings(c *gin.Context) {
 		TagScanStartHour:   settings.TagScanStartHour,
 		TagScanStartMinute: settings.TagScanStartMinute,
 		TagScanEndHour:     settings.TagScanEndHour,
-		TagScanEndMinute:   settings.TagScanEndMinute,
+		TagScanEndMinute:       settings.TagScanEndMinute,
+		TagScanTimezoneOffset:  settings.TagScanTimezoneOffset,
 	})
 }
 
@@ -2078,6 +2079,9 @@ func (s *Server) handleUpdateLlmSettings(c *gin.Context) {
 	if req.TagScanEndMinute != nil {
 		updates["tag_scan_end_minute"] = *req.TagScanEndMinute
 	}
+	if req.TagScanTimezoneOffset != nil {
+		updates["tag_scan_timezone_offset"] = *req.TagScanTimezoneOffset
+	}
 
 	if err == gorm.ErrRecordNotFound {
 		// Create new settings
@@ -2121,6 +2125,9 @@ func (s *Server) handleUpdateLlmSettings(c *gin.Context) {
 		if req.TagScanEndMinute != nil {
 			settings.TagScanEndMinute = *req.TagScanEndMinute
 		}
+		if req.TagScanTimezoneOffset != nil {
+			settings.TagScanTimezoneOffset = *req.TagScanTimezoneOffset
+		}
 		if err := s.db.Create(&settings).Error; err != nil {
 			c.JSON(http.StatusInternalServerError, i18n.ErrorResponse(i18n.MsgLlmOcrSettingsSaveFailed))
 			return
@@ -2140,7 +2147,7 @@ func (s *Server) handleUpdateLlmSettings(c *gin.Context) {
 
 	// Update tag scan manager if running
 	if s.tagScanManager != nil && s.tagScanManager.IsRunning() {
-		s.tagScanManager.UpdateSchedule(settings.TagScanEnabled, settings.TagScanStartHour, settings.TagScanStartMinute, settings.TagScanEndHour, settings.TagScanEndMinute)
+		s.tagScanManager.UpdateSchedule(settings.TagScanEnabled, settings.TagScanStartHour, settings.TagScanStartMinute, settings.TagScanEndHour, settings.TagScanEndMinute, settings.TagScanTimezoneOffset)
 	}
 
 	c.JSON(http.StatusOK, map[string]string{"message": string(i18n.MsgLlmOcrSettingsSaved)})

@@ -465,8 +465,9 @@ type LlmSettingsDTO struct {
 	TagScanEnabled     bool   `json:"tagScanEnabled"`
 	TagScanStartHour   int    `json:"tagScanStartHour"`
 	TagScanStartMinute int    `json:"tagScanStartMinute"`
-	TagScanEndHour     int    `json:"tagScanEndHour"`
-	TagScanEndMinute   int    `json:"tagScanEndMinute"`
+	TagScanEndHour       int    `json:"tagScanEndHour"`
+	TagScanEndMinute     int    `json:"tagScanEndMinute"`
+	TagScanTimezoneOffset int   `json:"tagScanTimezoneOffset"`
 }
 
 // UpdateLlmSettingsRequest for PUT /api/llm/settings
@@ -480,7 +481,8 @@ type UpdateLlmSettingsRequest struct {
 	TagScanStartHour   *int    `json:"tagScanStartHour,omitempty"`
 	TagScanStartMinute *int    `json:"tagScanStartMinute,omitempty"`
 	TagScanEndHour     *int    `json:"tagScanEndHour,omitempty"`
-	TagScanEndMinute   *int    `json:"tagScanEndMinute,omitempty"`
+	TagScanEndMinute       *int `json:"tagScanEndMinute,omitempty"`
+	TagScanTimezoneOffset  *int `json:"tagScanTimezoneOffset,omitempty"`
 }
 
 // TagScanStatusResponse for GET /api/tag-scan/status

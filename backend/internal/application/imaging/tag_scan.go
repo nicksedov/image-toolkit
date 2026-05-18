@@ -47,10 +47,11 @@ type TagScanManager struct {
 	enabled       bool
 	startHour     int
 	startMinute   int
-	endHour       int
-	endMinute     int
-	cursor        uint
-	progress      TagScanProgress
+	endHour        int
+	endMinute      int
+	timezoneOffset int // User's timezone offset in minutes (JS getTimezoneOffset: UTC+3 = -180)
+	cursor         uint
+	progress       TagScanProgress
 }
 
 // NewTagScanManager creates a new tag scan manager
@@ -69,7 +70,7 @@ func NewTagScanManager(db *gorm.DB, llmOcrService *LlmOcrService) *TagScanManage
 }
 
 // Start begins the tag scanning loop with the given schedule
-func (tsm *TagScanManager) Start(enabled bool, startH, startM, endH, endM int) {
+func (tsm *TagScanManager) Start(enabled bool, startH, startM, endH, endM, tzOffset int) {
 	tsm.mu.Lock()
 	if tsm.running {
 		tsm.mu.Unlock()
@@ -82,11 +83,12 @@ func (tsm *TagScanManager) Start(enabled bool, startH, startM, endH, endM int) {
 	tsm.startMinute = startM
 	tsm.endHour = endH
 	tsm.endMinute = endM
+	tsm.timezoneOffset = tzOffset
 	tsm.stopCh = make(chan struct{})
 	tsm.scheduleCh = make(chan struct{})
 	tsm.mu.Unlock()
 
-	log.Printf("Starting background tag scanning (window %02d:%02d - %02d:%02d, enabled=%v)", startH, startM, endH, endM, enabled)
+	log.Printf("Starting background tag scanning (window %02d:%02d - %02d:%02d, tzOffset=%d, enabled=%v)", startH, startM, endH, endM, tzOffset, enabled)
 	go tsm.scheduleLoop()
 }
 
@@ -112,7 +114,7 @@ func (tsm *TagScanManager) IsRunning() bool {
 }
 
 // UpdateSchedule updates the schedule at runtime and restarts the loop
-func (tsm *TagScanManager) UpdateSchedule(enabled bool, startH, startM, endH, endM int) {
+func (tsm *TagScanManager) UpdateSchedule(enabled bool, startH, startM, endH, endM, tzOffset int) {
 	tsm.mu.Lock()
 	wasRunning := tsm.running
 	tsm.enabled = enabled
@@ -120,9 +122,10 @@ func (tsm *TagScanManager) UpdateSchedule(enabled bool, startH, startM, endH, en
 	tsm.startMinute = startM
 	tsm.endHour = endH
 	tsm.endMinute = endM
+	tsm.timezoneOffset = tzOffset
 	tsm.mu.Unlock()
 
-	log.Printf("Tag scanning schedule updated: window %02d:%02d - %02d:%02d, enabled=%v", startH, startM, endH, endM, enabled)
+	log.Printf("Tag scanning schedule updated: window %02d:%02d - %02d:%02d, tzOffset=%d, enabled=%v", startH, startM, endH, endM, tzOffset, enabled)
 
 	if wasRunning {
 		select {
@@ -188,7 +191,7 @@ func (tsm *TagScanManager) GetStatus() TagScanStatus {
 	enabled := tsm.enabled
 	schedule := fmt.Sprintf("%02d:%02d - %02d:%02d", tsm.startHour, tsm.startMinute, tsm.endHour, tsm.endMinute)
 	progress := tsm.progress
-	windowOpen := isWithinWindow(tsm.startHour, tsm.startMinute, tsm.endHour, tsm.endMinute)
+	windowOpen := isWithinWindow(tsm.startHour, tsm.startMinute, tsm.endHour, tsm.endMinute, tsm.timezoneOffset)
 	tsm.mu.Unlock()
 
 	// If the manager is running but progress hasn't been initialized yet
@@ -236,7 +239,7 @@ func (tsm *TagScanManager) scheduleLoop() {
 
 		// If currently inside the scanning window, start scanning immediately
 		tsm.mu.Lock()
-		inWindow := isWithinWindow(tsm.startHour, tsm.startMinute, tsm.endHour, tsm.endMinute)
+		inWindow := isWithinWindow(tsm.startHour, tsm.startMinute, tsm.endHour, tsm.endMinute, tsm.timezoneOffset)
 		tsm.mu.Unlock()
 
 		if inWindow {
@@ -259,7 +262,7 @@ func (tsm *TagScanManager) scheduleLoop() {
 
 		// Outside the window - calculate when it next opens
 		nextWindowOpen := tsm.calculateNextWindowOpen()
-		log.Printf("Tag scan: outside window, next window opens at %s", nextWindowOpen.Format("15:04:05"))
+		log.Printf("Tag scan: outside window, next window opens at %s (server time)", nextWindowOpen.Format("15:04:05"))
 
 		select {
 		case <-time.After(time.Until(nextWindowOpen)):
@@ -281,10 +284,34 @@ func (tsm *TagScanManager) scheduleLoop() {
 func (tsm *TagScanManager) calculateNextWindowOpen() time.Time {
 	tsm.mu.Lock()
 	startH, startM := tsm.startHour, tsm.startMinute
+	tzOffset := tsm.timezoneOffset
 	tsm.mu.Unlock()
 
 	now := time.Now()
-	next := time.Date(now.Year(), now.Month(), now.Day(), startH, startM, 0, 0, now.Location())
+	// Convert user's local start time to UTC: UTC = local - (-offset) = local + offset
+	// JS getTimezoneOffset: UTC+3 returns -180, so offset = -180
+	// UTC = local + offset => UTC = 16:00 + (-180min) = 16:00 - 3h = 13:00
+	utcStartH := startH + (tzOffset / 60)
+	utcStartM := startM + (tzOffset % 60)
+
+	// Normalize minutes
+	for utcStartM < 0 {
+		utcStartM += 60
+		utcStartH--
+	}
+	for utcStartM >= 60 {
+		utcStartM -= 60
+		utcStartH++
+	}
+	// Normalize hours (may be negative or >= 24)
+	for utcStartH < 0 {
+		utcStartH += 24
+	}
+	for utcStartH >= 24 {
+		utcStartH -= 24
+	}
+
+	next := time.Date(now.Year(), now.Month(), now.Day(), utcStartH, utcStartM, 0, 0, now.Location())
 
 	// If the start time has already passed today, schedule for tomorrow
 	if !next.After(now) {
@@ -327,13 +354,14 @@ func (tsm *TagScanManager) scanWindow() {
 		tsm.mu.Lock()
 		startH, startM := tsm.startHour, tsm.startMinute
 		endH, endM := tsm.endHour, tsm.endMinute
+		tzOffset := tsm.timezoneOffset
 		stopCh := tsm.stopCh
 		pauseCh := tsm.pauseCh
 		resumeCh := tsm.resumeCh
 		pauseAckCh := tsm.pauseAckCh
 		tsm.mu.Unlock()
 
-		if !isWithinWindow(startH, startM, endH, endM) {
+		if !isWithinWindow(startH, startM, endH, endM, tzOffset) {
 			log.Println("Tag scan: window closed, stopping scan")
 			break
 		}
@@ -413,15 +441,22 @@ func (tsm *TagScanManager) scanWindow() {
 func (tsm *TagScanManager) isWithinWindowNow() bool {
 	tsm.mu.Lock()
 	startH, startM, endH, endM := tsm.startHour, tsm.startMinute, tsm.endHour, tsm.endMinute
+	tzOffset := tsm.timezoneOffset
 	tsm.mu.Unlock()
 
-	return isWithinWindow(startH, startM, endH, endM)
+	return isWithinWindow(startH, startM, endH, endM, tzOffset)
 }
 
-// isWithinWindow checks if the given time (hours, minutes) is within the scanning window
-func isWithinWindow(startH, startM, endH, endM int) bool {
+// isWithinWindow checks if the current time is within the scanning window.
+// tzOffset is the user's timezone offset in minutes (JS getTimezoneOffset convention: UTC+3 = -180).
+// The schedule hours/minutes are in the user's local time, so we convert the current
+// server time (UTC in Docker) to the user's local time before comparing.
+func isWithinWindow(startH, startM, endH, endM, tzOffset int) bool {
 	now := time.Now()
-	currentMinutes := now.Hour()*60 + now.Minute()
+	// Convert current UTC time to user's local time:
+	// local = UTC - offset (JS convention: offset for UTC+3 is -180, so local = UTC - (-180) = UTC + 3h)
+	localNow := now.Add(-time.Duration(tzOffset) * time.Minute)
+	currentMinutes := localNow.Hour()*60 + localNow.Minute()
 	startMinutes := startH*60 + startM
 	endMinutes := endH*60 + endM
 

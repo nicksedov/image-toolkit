@@ -362,6 +362,7 @@ export function AdminSettingsTab() {
         tagScanStartMinute,
         tagScanEndHour,
         tagScanEndMinute,
+        tagScanTimezoneOffset: new Date().getTimezoneOffset(),
       })
       toast.success(t("tagScan.saved"))
       setTagScanFormDirty(false)
