@@ -489,6 +489,7 @@ type TagScanStatusResponse struct {
 	Paused       bool   `json:"paused"`
 	Enabled      bool   `json:"enabled"`
 	Schedule     string `json:"schedule"`
+	WindowOpen   bool   `json:"windowOpen"`
 	Scanned      int    `json:"scanned"`
 	Remaining    int    `json:"remaining"`
 	Total        int    `json:"total"`

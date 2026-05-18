@@ -2150,9 +2150,10 @@ func (s *Server) handleUpdateLlmSettings(c *gin.Context) {
 func (s *Server) handleTagScanStatus(c *gin.Context) {
 	if s.tagScanManager == nil {
 		c.JSON(http.StatusServiceUnavailable, dto.TagScanStatusResponse{
-			Running: false,
-			Paused:  false,
-			Enabled: false,
+			Running:    false,
+			Paused:     false,
+			Enabled:    false,
+			WindowOpen: false,
 		})
 		return
 	}
@@ -2163,6 +2164,7 @@ func (s *Server) handleTagScanStatus(c *gin.Context) {
 		Paused:       status.Paused,
 		Enabled:      status.Enabled,
 		Schedule:     status.Schedule,
+		WindowOpen:   status.WindowOpen,
 		Scanned:      status.Progress.Scanned,
 		Remaining:    status.Progress.Remaining,
 		Total:        status.Progress.Total,

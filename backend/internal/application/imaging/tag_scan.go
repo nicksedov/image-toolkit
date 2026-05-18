@@ -23,11 +23,12 @@ type TagScanProgress struct {
 
 // TagScanStatus holds the current status of the tag scan manager
 type TagScanStatus struct {
-	Running  bool
-	Paused   bool
-	Enabled  bool
-	Schedule string
-	Progress TagScanProgress
+	Running    bool
+	Paused     bool
+	Enabled    bool
+	Schedule   string
+	WindowOpen bool
+	Progress   TagScanProgress
 }
 
 // TagScanManager manages background tag scanning of gallery images
@@ -187,6 +188,7 @@ func (tsm *TagScanManager) GetStatus() TagScanStatus {
 	enabled := tsm.enabled
 	schedule := fmt.Sprintf("%02d:%02d - %02d:%02d", tsm.startHour, tsm.startMinute, tsm.endHour, tsm.endMinute)
 	progress := tsm.progress
+	windowOpen := isWithinWindow(tsm.startHour, tsm.startMinute, tsm.endHour, tsm.endMinute)
 	tsm.mu.Unlock()
 
 	// If the manager is running but progress hasn't been initialized yet
@@ -202,16 +204,18 @@ func (tsm *TagScanManager) GetStatus() TagScanStatus {
 	}
 
 	return TagScanStatus{
-		Running:  running,
-		Paused:   paused,
-		Enabled:  enabled,
-		Schedule: schedule,
-		Progress: progress,
+		Running:    running,
+		Paused:     paused,
+		Enabled:    enabled,
+		Schedule:   schedule,
+		WindowOpen: windowOpen,
+		Progress:   progress,
 	}
 }
 
 // scheduleLoop runs the tag scanning within the configured time window
 func (tsm *TagScanManager) scheduleLoop() {
+	log.Println("Tag scan: scheduleLoop started")
 	for {
 		tsm.mu.Lock()
 		enabled := tsm.enabled
@@ -219,11 +223,13 @@ func (tsm *TagScanManager) scheduleLoop() {
 		tsm.mu.Unlock()
 
 		if !enabled {
+			log.Println("Tag scan: disabled, waiting for schedule change")
 			// Wait for schedule change or stop
 			select {
 			case <-stopCh:
 				return
 			case <-tsm.scheduleCh:
+				log.Println("Tag scan: schedule change received, re-evaluating")
 				continue
 			}
 		}
@@ -234,31 +240,37 @@ func (tsm *TagScanManager) scheduleLoop() {
 		tsm.mu.Unlock()
 
 		if inWindow {
+			log.Println("Tag scan: inside window, starting scanWindow")
 			tsm.scanWindow()
+			log.Println("Tag scan: scanWindow completed, waiting before re-check")
 			// After scanWindow completes, the window may still be open but we've
 			// finished a pass. Wait briefly then re-check to avoid a tight loop
 			// while still being responsive to schedule changes.
 			select {
 			case <-time.After(30 * time.Second):
+				log.Println("Tag scan: 30s wait complete, re-evaluating")
 			case <-tsm.stopCh:
 				return
 			case <-tsm.scheduleCh:
+				log.Println("Tag scan: schedule change received during wait")
 			}
 			continue
 		}
 
 		// Outside the window - calculate when it next opens
 		nextWindowOpen := tsm.calculateNextWindowOpen()
-		log.Printf("Tag scan: next window opens at %s", nextWindowOpen.Format("15:04:05"))
+		log.Printf("Tag scan: outside window, next window opens at %s", nextWindowOpen.Format("15:04:05"))
 
 		select {
 		case <-time.After(time.Until(nextWindowOpen)):
 			// Window opened, start scanning
+			log.Println("Tag scan: window opened, starting scanWindow")
 			tsm.scanWindow()
 		case <-stopCh:
 			return
 		case <-tsm.scheduleCh:
 			// Schedule updated, restart the loop
+			log.Println("Tag scan: schedule change received, re-evaluating")
 			continue
 		}
 	}
@@ -284,6 +296,7 @@ func (tsm *TagScanManager) calculateNextWindowOpen() time.Time {
 
 // scanWindow runs scanning while within the configured time window
 func (tsm *TagScanManager) scanWindow() {
+	log.Println("Tag scan: scanWindow entered, counting untagged images")
 	// Count total untagged images
 	var total int64
 	tsm.db.Table("image_files").
@@ -292,7 +305,7 @@ func (tsm *TagScanManager) scanWindow() {
 		Count(&total)
 
 	if total == 0 {
-		log.Println("Tag scan: all images already tagged")
+		log.Println("Tag scan: all images already tagged, exiting")
 		return
 	}
 
@@ -302,9 +315,10 @@ func (tsm *TagScanManager) scanWindow() {
 		Scanned:   0,
 		Remaining: int(total),
 	}
+	tsm.cursor = 0 // Reset cursor for new scan pass
 	tsm.mu.Unlock()
 
-	log.Printf("Tag scan: starting window scan, %d untagged images", total)
+	log.Printf("Tag scan: starting window scan, %d untagged images, cursor reset to 0", total)
 
 	for {
 		// Check if still within window — read fields under lock, then call
@@ -365,9 +379,11 @@ func (tsm *TagScanManager) scanWindow() {
 
 		if err != nil {
 			// No more untagged images
-			log.Println("Tag scan: no more untagged images found")
+			log.Printf("Tag scan: no more untagged images found (cursor=%d), err=%v", tsm.cursor, err)
 			break
 		}
+
+		log.Printf("Tag scan: found untagged image ID=%d, path=%s", imageFile.ID, imageFile.Path)
 
 		// Update progress
 		tsm.mu.Lock()
@@ -375,7 +391,9 @@ func (tsm *TagScanManager) scanWindow() {
 		tsm.mu.Unlock()
 
 		// Process image
+		log.Printf("Tag scan: calling processImage for ID=%d", imageFile.ID)
 		tsm.processImage(imageFile)
+		log.Printf("Tag scan: processImage returned for ID=%d", imageFile.ID)
 
 		// Update cursor and progress
 		tsm.mu.Lock()
@@ -383,9 +401,11 @@ func (tsm *TagScanManager) scanWindow() {
 		tsm.progress.Scanned++
 		tsm.progress.Remaining--
 		tsm.mu.Unlock()
+
+		log.Printf("Tag scan: progress updated, scanned=%d, remaining=%d", tsm.progress.Scanned, tsm.progress.Remaining)
 	}
 
-	log.Printf("Tag scan: window scan complete, %d images scanned", tsm.progress.Scanned)
+	log.Printf("Tag scan: window scan complete, %d images scanned in this pass", tsm.progress.Scanned)
 }
 
 // isWithinWindowNow checks if the current time is within the scanning window.
@@ -421,6 +441,8 @@ func isWithinWindow(startH, startM, endH, endM int) bool {
 
 // processImage processes a single image, generating tags via LLM
 func (tsm *TagScanManager) processImage(imageFile domain.ImageFile) {
+	log.Printf("Tag scan: processImage started for ID=%d, path=%s", imageFile.ID, imageFile.Path)
+
 	// Check if LLM is enabled
 	var settings domain.LlmSettings
 	if err := tsm.db.First(&settings).Error; err != nil {
@@ -430,6 +452,8 @@ func (tsm *TagScanManager) processImage(imageFile domain.ImageFile) {
 		tsm.mu.Unlock()
 		return
 	}
+	log.Printf("Tag scan: LLM settings loaded, enabled=%v, provider=%s, model=%s, url=%s",
+		settings.Enabled, settings.Provider, settings.Model, settings.ApiUrl)
 
 	if !settings.Enabled {
 		log.Println("Tag scan: LLM not enabled, skipping")
@@ -437,6 +461,8 @@ func (tsm *TagScanManager) processImage(imageFile domain.ImageFile) {
 	}
 
 	// Create LLM client
+	log.Printf("Tag scan: creating LLM client for provider=%s, url=%s, model=%s",
+		settings.Provider, settings.ApiUrl, settings.Model)
 	client, err := llm.NewClient(settings.Provider, settings.ApiUrl, settings.ApiKey, settings.Model)
 	if err != nil {
 		log.Printf("Tag scan: failed to create LLM client: %v", err)
@@ -445,8 +471,10 @@ func (tsm *TagScanManager) processImage(imageFile domain.ImageFile) {
 		tsm.mu.Unlock()
 		return
 	}
+	log.Println("Tag scan: LLM client created successfully")
 
 	// Execute AI action "tags"
+	log.Printf("Tag scan: calling ExecuteAiAction for ID=%d, action=tags", imageFile.ID)
 	result, err := tsm.llmOcrService.ExecuteAiAction(imageFile.ID, "tags", "", "en", client, settings)
 	if err != nil {
 		log.Printf("Tag scan: failed to generate tags for %s: %v", imageFile.Path, err)
@@ -455,6 +483,7 @@ func (tsm *TagScanManager) processImage(imageFile domain.ImageFile) {
 		tsm.mu.Unlock()
 		return
 	}
+	log.Printf("Tag scan: ExecuteAiAction returned %d tags for ID=%d", len(result.Tags), imageFile.ID)
 
 	// Save tags: delete existing tags first, then insert new ones
 	tsm.db.Where("image_file_id = ?", imageFile.ID).Delete(&domain.ImageTag{})
