@@ -2421,11 +2421,7 @@ func (s *Server) handleAiAction(c *gin.Context) {
 	// Create LLM client (also validates settings and enabled state)
 	llmClient, _, ok := s.llmFactory.CreateClient(c)
 	if !ok {
-		c.JSON(http.StatusServiceUnavailable, dto.AiActionResponse{
-			Success: false,
-			Action:  req.Action,
-			Error:   "AI features not enabled",
-		})
+		// CreateClient already wrote the error response
 		return
 	}
 
