@@ -500,11 +500,11 @@ export interface LlmSettingsDTO {
   apiKey: string
   model: string
   enabled: boolean
-  tagScanEnabled: boolean
-  tagScanStartHour: number
-  tagScanStartMinute: number
-  tagScanEndHour: number
-  tagScanEndMinute: number
+  tagScanEnabled?: boolean
+  tagScanStartHour?: number
+  tagScanStartMinute?: number
+  tagScanEndHour?: number
+  tagScanEndMinute?: number
 }
 
 export interface UpdateLlmSettingsRequest {

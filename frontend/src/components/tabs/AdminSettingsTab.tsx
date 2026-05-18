@@ -52,6 +52,11 @@ export function AdminSettingsTab() {
     apiKey: "",
     model: "minicpm-v",
     enabled: false,
+    tagScanEnabled: false,
+    tagScanStartHour: 23,
+    tagScanStartMinute: 0,
+    tagScanEndHour: 7,
+    tagScanEndMinute: 0,
   })
   const [isLlmLoading, setIsLlmLoading] = useState(false)
   const [isLlmSaving, setIsLlmSaving] = useState(false)
@@ -73,7 +78,6 @@ export function AdminSettingsTab() {
   const [tagScanEndHour, setTagScanEndHour] = useState(7)
   const [tagScanEndMinute, setTagScanEndMinute] = useState(0)
   const [tagScanStatus, setTagScanStatus] = useState<TagScanStatusResponse | null>(null)
-  const [isTagScanLoading, setIsTagScanLoading] = useState(false)
   const [isTagScanSaving, setIsTagScanSaving] = useState(false)
   const [isTagScanPausing, setIsTagScanPausing] = useState(false)
   const [tagScanFormDirty, setTagScanFormDirty] = useState(false)
@@ -115,11 +119,6 @@ export function AdminSettingsTab() {
       setDailySyncEnabled(settings.dailySyncEnabled ?? true)
       setDailySyncHour(settings.dailySyncHour ?? 3)
       setDailySyncMinute(settings.dailySyncMinute ?? 30)
-      setTagScanEnabled(settings.tagScanEnabled ?? false)
-      setTagScanStartHour(settings.tagScanStartHour ?? 23)
-      setTagScanStartMinute(settings.tagScanStartMinute ?? 0)
-      setTagScanEndHour(settings.tagScanEndHour ?? 7)
-      setTagScanEndMinute(settings.tagScanEndMinute ?? 0)
     }).catch(() => {
       // Use local state values
     })
@@ -230,6 +229,12 @@ export function AdminSettingsTab() {
       const settings = await fetchLlmSettings()
       setLlmSettings(settings)
       setLlmFormDirty(false)
+      // Update tag scan state from LLM settings
+      setTagScanEnabled(settings.tagScanEnabled ?? false)
+      setTagScanStartHour(settings.tagScanStartHour ?? 23)
+      setTagScanStartMinute(settings.tagScanStartMinute ?? 0)
+      setTagScanEndHour(settings.tagScanEndHour ?? 7)
+      setTagScanEndMinute(settings.tagScanEndMinute ?? 0)
     } catch {
       setLlmSettings({
         id: 0,
@@ -238,6 +243,11 @@ export function AdminSettingsTab() {
         apiKey: "",
         model: "minicpm-v",
         enabled: false,
+        tagScanEnabled: false,
+        tagScanStartHour: 23,
+        tagScanStartMinute: 0,
+        tagScanEndHour: 7,
+        tagScanEndMinute: 0,
       })
     } finally {
       setIsLlmLoading(false)
