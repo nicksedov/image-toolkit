@@ -23,47 +23,47 @@ type TagScanProgress struct {
 
 // TagScanStatus holds the current status of the tag scan manager
 type TagScanStatus struct {
-	Running bool
-	Paused  bool
-	Enabled bool
+	Running  bool
+	Paused   bool
+	Enabled  bool
 	Schedule string
 	Progress TagScanProgress
 }
 
 // TagScanManager manages background tag scanning of gallery images
 type TagScanManager struct {
-	mu           sync.Mutex
-	running      bool
-	paused       bool
-	stopCh       chan struct{}
-	scheduleCh   chan struct{}
-	pauseCh      chan struct{}
-	resumeCh     chan struct{}
-	pauseAckCh   chan struct{}
-	pauseDepth   int
-	db           *gorm.DB
+	mu            sync.Mutex
+	running       bool
+	paused        bool
+	stopCh        chan struct{}
+	scheduleCh    chan struct{}
+	pauseCh       chan struct{}
+	resumeCh      chan struct{}
+	pauseAckCh    chan struct{}
+	pauseDepth    int
+	db            *gorm.DB
 	llmOcrService *LlmOcrService
-	enabled      bool
-	startHour    int
-	startMinute  int
-	endHour      int
-	endMinute    int
-	cursor       uint
-	progress     TagScanProgress
+	enabled       bool
+	startHour     int
+	startMinute   int
+	endHour       int
+	endMinute     int
+	cursor        uint
+	progress      TagScanProgress
 }
 
 // NewTagScanManager creates a new tag scan manager
 func NewTagScanManager(db *gorm.DB, llmOcrService *LlmOcrService) *TagScanManager {
 	return &TagScanManager{
-		db:           db,
+		db:            db,
 		llmOcrService: llmOcrService,
-		enabled:      true,
-		startHour:    22,
-		startMinute:  0,
-		endHour:      7,
-		endMinute:    0,
-		stopCh:       make(chan struct{}),
-		scheduleCh:   make(chan struct{}),
+		enabled:       true,
+		startHour:     22,
+		startMinute:   0,
+		endHour:       7,
+		endMinute:     0,
+		stopCh:        make(chan struct{}),
+		scheduleCh:    make(chan struct{}),
 	}
 }
 
@@ -228,7 +228,26 @@ func (tsm *TagScanManager) scheduleLoop() {
 			}
 		}
 
-		// Calculate when the window next opens
+		// If currently inside the scanning window, start scanning immediately
+		tsm.mu.Lock()
+		inWindow := isWithinWindow(tsm.startHour, tsm.startMinute, tsm.endHour, tsm.endMinute)
+		tsm.mu.Unlock()
+
+		if inWindow {
+			tsm.scanWindow()
+			// After scanWindow completes, the window may still be open but we've
+			// finished a pass. Wait briefly then re-check to avoid a tight loop
+			// while still being responsive to schedule changes.
+			select {
+			case <-time.After(30 * time.Second):
+			case <-tsm.stopCh:
+				return
+			case <-tsm.scheduleCh:
+			}
+			continue
+		}
+
+		// Outside the window - calculate when it next opens
 		nextWindowOpen := tsm.calculateNextWindowOpen()
 		log.Printf("Tag scan: next window opens at %s", nextWindowOpen.Format("15:04:05"))
 
@@ -246,17 +265,11 @@ func (tsm *TagScanManager) scheduleLoop() {
 }
 
 // calculateNextWindowOpen calculates when the scanning window next opens.
-// If we are currently inside the window, returns a time in the near future
-// so that scanning starts immediately rather than waiting for tomorrow.
+// This should only be called when we are currently OUTSIDE the window.
 func (tsm *TagScanManager) calculateNextWindowOpen() time.Time {
 	tsm.mu.Lock()
-	startH, startM, endH, endM := tsm.startHour, tsm.startMinute, tsm.endHour, tsm.endMinute
+	startH, startM := tsm.startHour, tsm.startMinute
 	tsm.mu.Unlock()
-
-	// If currently inside the window, start scanning very soon
-	if isWithinWindow(startH, startM, endH, endM) {
-		return time.Now().Add(1 * time.Second)
-	}
 
 	now := time.Now()
 	next := time.Date(now.Year(), now.Month(), now.Day(), startH, startM, 0, 0, now.Location())
@@ -294,16 +307,19 @@ func (tsm *TagScanManager) scanWindow() {
 	log.Printf("Tag scan: starting window scan, %d untagged images", total)
 
 	for {
-		// Check if still within window
+		// Check if still within window — read fields under lock, then call
+		// isWithinWindow() outside the lock to avoid deadlock (Go sync.Mutex
+		// is not reentrant).
 		tsm.mu.Lock()
-		withinWindow := tsm.isWithinWindowNow()
+		startH, startM := tsm.startHour, tsm.startMinute
+		endH, endM := tsm.endHour, tsm.endMinute
 		stopCh := tsm.stopCh
 		pauseCh := tsm.pauseCh
 		resumeCh := tsm.resumeCh
 		pauseAckCh := tsm.pauseAckCh
 		tsm.mu.Unlock()
 
-		if !withinWindow {
+		if !isWithinWindow(startH, startM, endH, endM) {
 			log.Println("Tag scan: window closed, stopping scan")
 			break
 		}
@@ -372,7 +388,8 @@ func (tsm *TagScanManager) scanWindow() {
 	log.Printf("Tag scan: window scan complete, %d images scanned", tsm.progress.Scanned)
 }
 
-// isWithinWindowNow checks if the current time is within the scanning window
+// isWithinWindowNow checks if the current time is within the scanning window.
+// Only for external use (e.g. GetStatus). Must NOT be called while holding tsm.mu.
 func (tsm *TagScanManager) isWithinWindowNow() bool {
 	tsm.mu.Lock()
 	startH, startM, endH, endM := tsm.startHour, tsm.startMinute, tsm.endHour, tsm.endMinute
