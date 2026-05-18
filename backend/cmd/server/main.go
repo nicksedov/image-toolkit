@@ -207,7 +207,7 @@ func main() {
 	fmt.Println("LLM OCR service initialized")
 
 	// Create tag scan manager
-	tagScanManager := imaging.NewTagScanManager(db, llmOcrService)
+	tagScanManager := imaging.NewTagScanManager(db, llmOcrService, cfg.LlmMaxImageMegapixels)
 
 	// Read tag scan schedule from LlmSettings
 	tagScanEnabled := true

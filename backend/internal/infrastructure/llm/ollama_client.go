@@ -7,23 +7,24 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"time"
 )
 
 // OllamaClient implements Client for Ollama API
 type OllamaClient struct {
-	BaseURL string
-	Model   string
-	Timeout time.Duration
+	BaseURL            string
+	Model              string
+	Timeout            time.Duration
+	MaxImageMegapixels float64
 }
 
 // NewOllamaClient creates a new Ollama client
-func NewOllamaClient(baseURL, model string) *OllamaClient {
+func NewOllamaClient(baseURL, model string, maxImageMegapixels float64) *OllamaClient {
 	return &OllamaClient{
-		BaseURL: baseURL,
-		Model:   model,
-		Timeout: 5 * time.Minute, // VL models can be slow
+		BaseURL:            baseURL,
+		Model:              model,
+		Timeout:            5 * time.Minute, // VL models can be slow
+		MaxImageMegapixels: maxImageMegapixels,
 	}
 }
 
@@ -50,13 +51,11 @@ type ollamaResponse struct {
 
 // Recognize performs OCR using Ollama
 func (c *OllamaClient) Recognize(imagePath string, systemPrompt string, userMessage string) (string, error) {
-	// Read image file
-	imgData, err := os.ReadFile(imagePath)
+	// Read and optionally resize image
+	imgData, _, err := resizeImageForLLM(imagePath, c.MaxImageMegapixels)
 	if err != nil {
-		return "", fmt.Errorf("failed to read image: %w", err)
+		return "", fmt.Errorf("failed to prepare image: %w", err)
 	}
-
-	// Determine image format (Ollama autodetects from base64)
 
 	// Encode image to base64
 	base64Img := base64.StdEncoding.EncodeToString(imgData)

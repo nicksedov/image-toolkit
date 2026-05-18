@@ -46,6 +46,9 @@ type AppConfig struct {
 	// Background sync configuration
 	BackgroundSyncEnabled     bool
 	BackgroundSyncIntervalMin int
+
+	// VL LLM configuration
+	LlmMaxImageMegapixels float64
 }
 
 // LoadConfig reads configuration from environment variables
@@ -108,6 +111,7 @@ func LoadConfig() *AppConfig {
 		ThumbnailCachePreloadOnScan: getEnv("THUMBNAIL_CACHE_PRELOAD_ON_SCAN", "true") == "true",
 		BackgroundSyncEnabled:       getEnv("BACKGROUND_SYNC_ENABLED", "true") == "true",
 		BackgroundSyncIntervalMin:   getEnvInt("BACKGROUND_SYNC_INTERVAL_MIN", 60*12), // 12 hours
+		LlmMaxImageMegapixels:       getEnvFloat("LLM_MAX_IMAGE_MEGAPIXELS", 3.6),
 	}
 }
 
@@ -115,6 +119,16 @@ func LoadConfig() *AppConfig {
 func getEnvInt(key string, defaultValue int) int {
 	if value, exists := os.LookupEnv(key); exists {
 		if n, err := strconv.Atoi(value); err == nil {
+			return n
+		}
+	}
+	return defaultValue
+}
+
+// getEnvFloat gets environment variable as float64 with a default value
+func getEnvFloat(key string, defaultValue float64) float64 {
+	if value, exists := os.LookupEnv(key); exists {
+		if n, err := strconv.ParseFloat(value, 64); err == nil && n > 0 {
 			return n
 		}
 	}

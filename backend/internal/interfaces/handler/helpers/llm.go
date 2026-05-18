@@ -13,12 +13,13 @@ import (
 
 // LLMFactory creates LLM clients from database settings.
 type LLMFactory struct {
-	db *gorm.DB
+	db                 *gorm.DB
+	maxImageMegapixels float64
 }
 
 // NewLLMFactory creates a new LLMFactory.
-func NewLLMFactory(db *gorm.DB) *LLMFactory {
-	return &LLMFactory{db: db}
+func NewLLMFactory(db *gorm.DB, maxImageMegapixels float64) *LLMFactory {
+	return &LLMFactory{db: db, maxImageMegapixels: maxImageMegapixels}
 }
 
 // CreateClient creates an LLM client from the current database settings.
@@ -35,7 +36,7 @@ func (f *LLMFactory) CreateClient(c *gin.Context) (llm.Client, domain.LlmSetting
 		return nil, domain.LlmSettings{}, false
 	}
 
-	client, err := llm.NewClient(settings.Provider, settings.ApiUrl, settings.ApiKey, settings.Model)
+	client, err := llm.NewClient(settings.Provider, settings.ApiUrl, settings.ApiKey, settings.Model, f.maxImageMegapixels)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, i18n.ErrorResponse(i18n.MsgLlmOcrRecognitionFailed))
 		return nil, domain.LlmSettings{}, false

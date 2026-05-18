@@ -33,39 +33,41 @@ type TagScanStatus struct {
 
 // TagScanManager manages background tag scanning of gallery images
 type TagScanManager struct {
-	mu            sync.Mutex
-	running       bool
-	paused        bool
-	stopCh        chan struct{}
-	scheduleCh    chan struct{}
-	pauseCh       chan struct{}
-	resumeCh      chan struct{}
-	pauseAckCh    chan struct{}
-	pauseDepth    int
-	db            *gorm.DB
-	llmOcrService *LlmOcrService
-	enabled       bool
-	startHour     int
-	startMinute   int
-	endHour        int
-	endMinute      int
-	timezoneOffset int // User's timezone offset in minutes (JS getTimezoneOffset: UTC+3 = -180)
-	cursor         uint
-	progress       TagScanProgress
+	mu                 sync.Mutex
+	running            bool
+	paused             bool
+	stopCh             chan struct{}
+	scheduleCh         chan struct{}
+	pauseCh            chan struct{}
+	resumeCh           chan struct{}
+	pauseAckCh         chan struct{}
+	pauseDepth         int
+	db                 *gorm.DB
+	llmOcrService      *LlmOcrService
+	enabled            bool
+	startHour          int
+	startMinute        int
+	endHour            int
+	endMinute          int
+	timezoneOffset     int // User's timezone offset in minutes (JS getTimezoneOffset: UTC+3 = -180)
+	cursor             uint
+	progress           TagScanProgress
+	maxImageMegapixels float64
 }
 
 // NewTagScanManager creates a new tag scan manager
-func NewTagScanManager(db *gorm.DB, llmOcrService *LlmOcrService) *TagScanManager {
+func NewTagScanManager(db *gorm.DB, llmOcrService *LlmOcrService, maxImageMegapixels float64) *TagScanManager {
 	return &TagScanManager{
-		db:            db,
-		llmOcrService: llmOcrService,
-		enabled:       true,
-		startHour:     22,
-		startMinute:   0,
-		endHour:       7,
-		endMinute:     0,
-		stopCh:        make(chan struct{}),
-		scheduleCh:    make(chan struct{}),
+		db:                 db,
+		llmOcrService:      llmOcrService,
+		enabled:            true,
+		startHour:          22,
+		startMinute:        0,
+		endHour:            7,
+		endMinute:          0,
+		stopCh:             make(chan struct{}),
+		scheduleCh:         make(chan struct{}),
+		maxImageMegapixels: maxImageMegapixels,
 	}
 }
 
@@ -498,7 +500,7 @@ func (tsm *TagScanManager) processImage(imageFile domain.ImageFile) {
 	// Create LLM client
 	log.Printf("Tag scan: creating LLM client for provider=%s, url=%s, model=%s",
 		settings.Provider, settings.ApiUrl, settings.Model)
-	client, err := llm.NewClient(settings.Provider, settings.ApiUrl, settings.ApiKey, settings.Model)
+	client, err := llm.NewClient(settings.Provider, settings.ApiUrl, settings.ApiKey, settings.Model, tsm.maxImageMegapixels)
 	if err != nil {
 		log.Printf("Tag scan: failed to create LLM client: %v", err)
 		tsm.mu.Lock()

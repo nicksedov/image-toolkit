@@ -7,25 +7,26 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"time"
 )
 
 // OpenAIClient implements Client for OpenAI-compatible API
 type OpenAIClient struct {
-	BaseURL string
-	APIKey  string
-	Model   string
-	Timeout time.Duration
+	BaseURL           string
+	APIKey            string
+	Model             string
+	Timeout           time.Duration
+	MaxImageMegapixels float64
 }
 
 // NewOpenAIClient creates a new OpenAI client
-func NewOpenAIClient(baseURL, apiKey, model string) *OpenAIClient {
+func NewOpenAIClient(baseURL, apiKey, model string, maxImageMegapixels float64) *OpenAIClient {
 	return &OpenAIClient{
-		BaseURL: baseURL,
-		APIKey:  apiKey,
-		Model:   model,
-		Timeout: 5 * time.Minute,
+		BaseURL:            baseURL,
+		APIKey:             apiKey,
+		Model:              model,
+		Timeout:            5 * time.Minute,
+		MaxImageMegapixels: maxImageMegapixels,
 	}
 }
 
@@ -62,27 +63,10 @@ type openAIResponse struct {
 
 // Recognize performs OCR using OpenAI-compatible API
 func (c *OpenAIClient) Recognize(imagePath string, systemPrompt string, userMessage string) (string, error) {
-	// Read image file
-	imgData, err := os.ReadFile(imagePath)
+	// Read and optionally resize image
+	imgData, mediaType, err := resizeImageForLLM(imagePath, c.MaxImageMegapixels)
 	if err != nil {
-		return "", fmt.Errorf("failed to read image: %w", err)
-	}
-
-	// Determine image format
-	mediaType := "image/jpeg"
-	ext := ""
-	if len(imagePath) > 4 {
-		ext = imagePath[len(imagePath)-4:]
-	}
-	switch ext {
-	case ".png":
-		mediaType = "image/png"
-	case ".gif":
-		mediaType = "image/gif"
-	case ".web":
-		mediaType = "image/webp"
-	case ".tiff":
-		mediaType = "image/tiff"
+		return "", fmt.Errorf("failed to prepare image: %w", err)
 	}
 
 	// Encode image to base64 data URL

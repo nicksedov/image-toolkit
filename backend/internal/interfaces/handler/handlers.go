@@ -2382,7 +2382,7 @@ func (s *Server) handleGetLlmModels(c *gin.Context) {
 	}
 
 	// Create LLM client
-	llmClient, err := llm.NewClient(settings.Provider, settings.ApiUrl, settings.ApiKey, settings.Model)
+	llmClient, err := llm.NewClient(settings.Provider, settings.ApiUrl, settings.ApiKey, settings.Model, s.config.LlmMaxImageMegapixels)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, dto.LlmModelsResponse{
 			Success:  false,

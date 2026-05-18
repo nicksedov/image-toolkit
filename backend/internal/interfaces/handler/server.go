@@ -71,7 +71,7 @@ func NewServer(db *gorm.DB, scanManager *imaging.ScanManager, ocrManager *imagin
 	s.thumbnailBatch = helpers.NewThumbnailBatch(thumbnailService, s.thumbnailCache)
 	s.galleryAccess = helpers.NewGalleryAccess(db)
 	s.settingsLoader = helpers.NewSettingsLoader(db)
-	s.llmFactory = helpers.NewLLMFactory(db)
+	s.llmFactory = helpers.NewLLMFactory(db, cfg.LlmMaxImageMegapixels)
 	s.fileMover = helpers.NewFileMover(db)
 	return s
 }
