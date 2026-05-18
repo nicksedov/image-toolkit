@@ -38,9 +38,7 @@ type TagScanManager struct {
 	paused             bool
 	stopCh             chan struct{}
 	scheduleCh         chan struct{}
-	pauseCh            chan struct{}
 	resumeCh           chan struct{}
-	pauseAckCh         chan struct{}
 	pauseDepth         int
 	db                 *gorm.DB
 	llmOcrService      *LlmOcrService
@@ -67,6 +65,7 @@ func NewTagScanManager(db *gorm.DB, llmOcrService *LlmOcrService, maxImageMegapi
 		endMinute:          0,
 		stopCh:             make(chan struct{}),
 		scheduleCh:         make(chan struct{}),
+		resumeCh:           make(chan struct{}, 1),
 		maxImageMegapixels: maxImageMegapixels,
 	}
 }
@@ -150,20 +149,15 @@ func (tsm *TagScanManager) RequestPause() {
 		tsm.mu.Unlock()
 		return
 	}
-	// First pause request - initialize channels
-	tsm.pauseCh = make(chan struct{})
-	tsm.resumeCh = make(chan struct{})
-	tsm.pauseAckCh = make(chan struct{})
+	tsm.paused = true
+	// Drain any stale resume signal before pausing
+	select {
+	case <-tsm.resumeCh:
+	default:
+	}
 	tsm.mu.Unlock()
 
-	// Signal pause
-	select {
-	case tsm.pauseCh <- struct{}{}:
-		// Wait for acknowledgment
-		<-tsm.pauseAckCh
-	case <-time.After(5 * time.Second):
-		log.Println("Tag scan pause request timed out")
-	}
+	log.Println("Tag scan: pause requested")
 }
 
 // Resume resumes the scanner after an AI task completes
@@ -175,6 +169,9 @@ func (tsm *TagScanManager) Resume() {
 	}
 	tsm.pauseDepth--
 	shouldResume := tsm.pauseDepth == 0
+	if shouldResume {
+		tsm.paused = false
+	}
 	tsm.mu.Unlock()
 
 	if shouldResume {
@@ -358,9 +355,7 @@ func (tsm *TagScanManager) scanWindow() {
 		endH, endM := tsm.endHour, tsm.endMinute
 		tzOffset := tsm.timezoneOffset
 		stopCh := tsm.stopCh
-		pauseCh := tsm.pauseCh
 		resumeCh := tsm.resumeCh
-		pauseAckCh := tsm.pauseAckCh
 		tsm.mu.Unlock()
 
 		if !isWithinWindow(startH, startM, endH, endM, tzOffset) {
@@ -369,25 +364,15 @@ func (tsm *TagScanManager) scanWindow() {
 		}
 
 		// Check for pause request
-		select {
-		case <-pauseCh:
-			tsm.mu.Lock()
-			tsm.paused = true
-			tsm.mu.Unlock()
+		tsm.mu.Lock()
+		paused := tsm.paused
+		tsm.mu.Unlock()
+
+		if paused {
 			log.Println("Tag scan: paused")
-			// Acknowledge pause
-			select {
-			case pauseAckCh <- struct{}{}:
-			default:
-			}
-			// Wait for resume
 			<-resumeCh
-			tsm.mu.Lock()
-			tsm.paused = false
-			tsm.mu.Unlock()
 			log.Println("Tag scan: resumed")
 			continue
-		default:
 		}
 
 		// Check for stop

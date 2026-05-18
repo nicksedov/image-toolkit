@@ -411,13 +411,38 @@ export function AdminSettingsTab() {
     }
   }, [loadTagScanStatus, t])
 
-  // Poll tag scan status periodically
+  // Poll tag scan status periodically with adaptive interval
   useEffect(() => {
     if (!isAdmin) return
-    loadTagScanStatus()
-    const interval = setInterval(loadTagScanStatus, 3000)
-    return () => clearInterval(interval)
-  }, [isAdmin, loadTagScanStatus])
+
+    let cancelled = false
+    let timeoutId: ReturnType<typeof setTimeout> | null = null
+
+    const scheduleNext = async () => {
+      if (cancelled) return
+      try {
+        const status = await fetchTagScanStatus()
+        if (cancelled) return
+        setTagScanStatus(status)
+
+        const isActive = status?.running && !status?.paused
+        const nextDelay = isActive ? 10000 : 30000
+        timeoutId = setTimeout(scheduleNext, nextDelay)
+      } catch {
+        if (!cancelled) {
+          setTagScanStatus(null)
+        }
+        timeoutId = setTimeout(scheduleNext, 30000)
+      }
+    }
+
+    scheduleNext()
+
+    return () => {
+      cancelled = true
+      if (timeoutId) clearTimeout(timeoutId)
+    }
+  }, [isAdmin])
 
   const handleLoadModels = useCallback(async () => {
     setIsModelsLoading(true)
