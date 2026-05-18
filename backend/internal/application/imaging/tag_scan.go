@@ -182,15 +182,32 @@ func (tsm *TagScanManager) Resume() {
 // GetStatus returns the current tag scan status
 func (tsm *TagScanManager) GetStatus() TagScanStatus {
 	tsm.mu.Lock()
-	status := TagScanStatus{
-		Running: tsm.running,
-		Paused:  tsm.paused,
-		Enabled: tsm.enabled,
-		Schedule: fmt.Sprintf("%02d:%02d - %02d:%02d", tsm.startHour, tsm.startMinute, tsm.endHour, tsm.endMinute),
-		Progress: tsm.progress,
-	}
+	running := tsm.running
+	paused := tsm.paused
+	enabled := tsm.enabled
+	schedule := fmt.Sprintf("%02d:%02d - %02d:%02d", tsm.startHour, tsm.startMinute, tsm.endHour, tsm.endMinute)
+	progress := tsm.progress
 	tsm.mu.Unlock()
-	return status
+
+	// If the manager is running but progress hasn't been initialized yet
+	// (i.e. waiting for scan window to open), query the DB for untagged count
+	if running && progress.Total == 0 {
+		var total int64
+		tsm.db.Table("image_files").
+			Joins("LEFT JOIN image_tags ON image_files.id = image_tags.image_file_id").
+			Where("image_tags.id IS NULL").
+			Count(&total)
+		progress.Total = int(total)
+		progress.Remaining = int(total)
+	}
+
+	return TagScanStatus{
+		Running:  running,
+		Paused:   paused,
+		Enabled:  enabled,
+		Schedule: schedule,
+		Progress: progress,
+	}
 }
 
 // scheduleLoop runs the tag scanning within the configured time window
@@ -228,11 +245,18 @@ func (tsm *TagScanManager) scheduleLoop() {
 	}
 }
 
-// calculateNextWindowOpen calculates when the scanning window next opens
+// calculateNextWindowOpen calculates when the scanning window next opens.
+// If we are currently inside the window, returns a time in the near future
+// so that scanning starts immediately rather than waiting for tomorrow.
 func (tsm *TagScanManager) calculateNextWindowOpen() time.Time {
 	tsm.mu.Lock()
-	startH, startM := tsm.startHour, tsm.startMinute
+	startH, startM, endH, endM := tsm.startHour, tsm.startMinute, tsm.endHour, tsm.endMinute
 	tsm.mu.Unlock()
+
+	// If currently inside the window, start scanning very soon
+	if isWithinWindow(startH, startM, endH, endM) {
+		return time.Now().Add(1 * time.Second)
+	}
 
 	now := time.Now()
 	next := time.Date(now.Year(), now.Month(), now.Day(), startH, startM, 0, 0, now.Location())
@@ -250,7 +274,6 @@ func (tsm *TagScanManager) scanWindow() {
 	// Count total untagged images
 	var total int64
 	tsm.db.Table("image_files").
-		Select("image_files.*").
 		Joins("LEFT JOIN image_tags ON image_files.id = image_tags.image_file_id").
 		Where("image_tags.id IS NULL").
 		Count(&total)
