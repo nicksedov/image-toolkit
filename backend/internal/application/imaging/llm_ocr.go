@@ -46,6 +46,12 @@ type AiTaskStatus struct {
 	Action string          // the action type (describe, tags, etc.)
 }
 
+// AiTaskCoordinator coordinates background scanning with AI tasks
+type AiTaskCoordinator interface {
+	RequestPause()
+	Resume()
+}
+
 // LlmOcrService handles VL LLM-based OCR recognition
 type LlmOcrService struct {
 	db              *gorm.DB
@@ -53,6 +59,7 @@ type LlmOcrService struct {
 	taskMu          sync.Mutex
 	aiActionTasks   map[string]*AiTaskStatus // key: task ID
 	aiTaskMu        sync.Mutex
+	coordinator     AiTaskCoordinator
 }
 
 // NewLlmOcrService creates a new LLM OCR service
@@ -62,6 +69,11 @@ func NewLlmOcrService(db *gorm.DB) *LlmOcrService {
 		processingTasks: make(map[uint]*LlmRecognitionStatus),
 		aiActionTasks:   make(map[string]*AiTaskStatus),
 	}
+}
+
+// SetCoordinator sets the AI task coordinator for pause/resume coordination
+func (s *LlmOcrService) SetCoordinator(c AiTaskCoordinator) {
+	s.coordinator = c
 }
 
 // RecognizeResult holds the result of LLM recognition
@@ -163,6 +175,10 @@ func (s *LlmOcrService) StartRecognizeAsync(imageFileID uint, client llm.Client,
 	s.processingTasks[imageFileID] = &LlmRecognitionStatus{Status: "processing"}
 
 	go func() {
+		if s.coordinator != nil {
+			s.coordinator.RequestPause()
+			defer s.coordinator.Resume()
+		}
 		result, err := s.RecognizeWithLlm(imageFileID, client, settings)
 
 		s.taskMu.Lock()
@@ -388,6 +404,10 @@ func (s *LlmOcrService) StartAiActionAsync(taskID string, imageFileID uint, acti
 	s.aiTaskMu.Unlock()
 
 	go func() {
+		if s.coordinator != nil {
+			s.coordinator.RequestPause()
+			defer s.coordinator.Resume()
+		}
 		result, err := s.ExecuteAiAction(imageFileID, action, question, language, client, settings)
 
 		s.aiTaskMu.Lock()

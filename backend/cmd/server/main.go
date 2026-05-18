@@ -206,8 +206,34 @@ func main() {
 	llmOcrService := imaging.NewLlmOcrService(db)
 	fmt.Println("LLM OCR service initialized")
 
+	// Create tag scan manager
+	tagScanManager := imaging.NewTagScanManager(db, llmOcrService)
+
+	// Read tag scan schedule from LlmSettings
+	tagScanEnabled := true
+	tagScanStartHour := 22
+	tagScanStartMinute := 0
+	tagScanEndHour := 7
+	tagScanEndMinute := 0
+	var llmSettings domain.LlmSettings
+	if result := db.First(&llmSettings); result.Error == nil {
+		tagScanEnabled = llmSettings.TagScanEnabled
+		tagScanStartHour = llmSettings.TagScanStartHour
+		tagScanStartMinute = llmSettings.TagScanStartMinute
+		tagScanEndHour = llmSettings.TagScanEndHour
+		tagScanEndMinute = llmSettings.TagScanEndMinute
+	}
+
+	tagScanManager.Start(tagScanEnabled, tagScanStartHour, tagScanStartMinute, tagScanEndHour, tagScanEndMinute)
+	defer tagScanManager.Stop()
+
+	// Set coordinator for AI task synchronization
+	llmOcrService.SetCoordinator(tagScanManager)
+
+	fmt.Printf("Tag scan: window %02d:%02d - %02d:%02d, enabled=%v\n", tagScanStartHour, tagScanStartMinute, tagScanEndHour, tagScanEndMinute, tagScanEnabled)
+
 	// Start web server
-	server := handler.NewServer(db, scanManager, ocrManager, llmOcrService, backgroundSync, thumbnailService, cfg)
+	server := handler.NewServer(db, scanManager, ocrManager, llmOcrService, backgroundSync, tagScanManager, thumbnailService, cfg)
 	router := server.SetupRouter(authMiddleware, csrfProtection, authHandlers)
 
 	// Start OCR health check if enabled

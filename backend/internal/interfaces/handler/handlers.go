@@ -2023,12 +2023,17 @@ func (s *Server) handleGetLlmSettings(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, dto.LlmSettingsDTO{
-		ID:       settings.ID,
-		Provider: settings.Provider,
-		ApiUrl:   settings.ApiUrl,
-		ApiKey:   apiKey,
-		Model:    settings.Model,
-		Enabled:  settings.Enabled,
+		ID:                 settings.ID,
+		Provider:           settings.Provider,
+		ApiUrl:             settings.ApiUrl,
+		ApiKey:             apiKey,
+		Model:              settings.Model,
+		Enabled:            settings.Enabled,
+		TagScanEnabled:     settings.TagScanEnabled,
+		TagScanStartHour:   settings.TagScanStartHour,
+		TagScanStartMinute: settings.TagScanStartMinute,
+		TagScanEndHour:     settings.TagScanEndHour,
+		TagScanEndMinute:   settings.TagScanEndMinute,
 	})
 }
 
@@ -2042,14 +2047,79 @@ func (s *Server) handleUpdateLlmSettings(c *gin.Context) {
 	var settings domain.LlmSettings
 	err := s.db.First(&settings).Error
 
+	updates := make(map[string]interface{})
+	if req.Provider != nil {
+		updates["provider"] = *req.Provider
+	}
+	if req.ApiUrl != nil {
+		updates["api_url"] = *req.ApiUrl
+	}
+	if req.ApiKey != nil {
+		updates["api_key"] = *req.ApiKey
+	}
+	if req.Model != nil {
+		updates["model"] = *req.Model
+	}
+	if req.Enabled != nil {
+		updates["enabled"] = *req.Enabled
+	}
+	if req.TagScanEnabled != nil {
+		updates["tag_scan_enabled"] = *req.TagScanEnabled
+	}
+	if req.TagScanStartHour != nil {
+		updates["tag_scan_start_hour"] = *req.TagScanStartHour
+	}
+	if req.TagScanStartMinute != nil {
+		updates["tag_scan_start_minute"] = *req.TagScanStartMinute
+	}
+	if req.TagScanEndHour != nil {
+		updates["tag_scan_end_hour"] = *req.TagScanEndHour
+	}
+	if req.TagScanEndMinute != nil {
+		updates["tag_scan_end_minute"] = *req.TagScanEndMinute
+	}
+
 	if err == gorm.ErrRecordNotFound {
 		// Create new settings
 		settings = domain.LlmSettings{
-			Provider: req.Provider,
-			ApiUrl:   req.ApiUrl,
-			ApiKey:   req.ApiKey,
-			Model:    req.Model,
-			Enabled:  req.Enabled,
+			Provider:           "ollama",
+			ApiUrl:             "http://localhost:11434",
+			Model:              "minicpm-v",
+			TagScanEnabled:     true,
+			TagScanStartHour:   22,
+			TagScanStartMinute: 0,
+			TagScanEndHour:     7,
+			TagScanEndMinute:   0,
+		}
+		if req.Provider != nil {
+			settings.Provider = *req.Provider
+		}
+		if req.ApiUrl != nil {
+			settings.ApiUrl = *req.ApiUrl
+		}
+		if req.ApiKey != nil {
+			settings.ApiKey = *req.ApiKey
+		}
+		if req.Model != nil {
+			settings.Model = *req.Model
+		}
+		if req.Enabled != nil {
+			settings.Enabled = *req.Enabled
+		}
+		if req.TagScanEnabled != nil {
+			settings.TagScanEnabled = *req.TagScanEnabled
+		}
+		if req.TagScanStartHour != nil {
+			settings.TagScanStartHour = *req.TagScanStartHour
+		}
+		if req.TagScanStartMinute != nil {
+			settings.TagScanStartMinute = *req.TagScanStartMinute
+		}
+		if req.TagScanEndHour != nil {
+			settings.TagScanEndHour = *req.TagScanEndHour
+		}
+		if req.TagScanEndMinute != nil {
+			settings.TagScanEndMinute = *req.TagScanEndMinute
 		}
 		if err := s.db.Create(&settings).Error; err != nil {
 			c.JSON(http.StatusInternalServerError, i18n.ErrorResponse(i18n.MsgLlmOcrSettingsSaveFailed))
@@ -2060,16 +2130,67 @@ func (s *Server) handleUpdateLlmSettings(c *gin.Context) {
 		return
 	} else {
 		// Update existing settings
-		s.db.Model(&settings).Updates(map[string]interface{}{
-			"provider": req.Provider,
-			"api_url":  req.ApiUrl,
-			"api_key":  req.ApiKey,
-			"model":    req.Model,
-			"enabled":  req.Enabled,
-		})
+		if len(updates) > 0 {
+			s.db.Model(&settings).Updates(updates)
+		}
+	}
+
+	// Reload settings to get updated values
+	s.db.First(&settings)
+
+	// Update tag scan manager if running
+	if s.tagScanManager != nil && s.tagScanManager.IsRunning() {
+		s.tagScanManager.UpdateSchedule(settings.TagScanEnabled, settings.TagScanStartHour, settings.TagScanStartMinute, settings.TagScanEndHour, settings.TagScanEndMinute)
 	}
 
 	c.JSON(http.StatusOK, map[string]string{"message": string(i18n.MsgLlmOcrSettingsSaved)})
+}
+
+// handleTagScanStatus returns the current tag scanning status
+func (s *Server) handleTagScanStatus(c *gin.Context) {
+	if s.tagScanManager == nil {
+		c.JSON(http.StatusServiceUnavailable, dto.TagScanStatusResponse{
+			Running: false,
+			Paused:  false,
+			Enabled: false,
+		})
+		return
+	}
+
+	status := s.tagScanManager.GetStatus()
+	c.JSON(http.StatusOK, dto.TagScanStatusResponse{
+		Running:      status.Running,
+		Paused:       status.Paused,
+		Enabled:      status.Enabled,
+		Schedule:     status.Schedule,
+		Scanned:      status.Progress.Scanned,
+		Remaining:    status.Progress.Remaining,
+		Total:        status.Progress.Total,
+		CurrentImage: status.Progress.CurrentImage,
+		LastError:    status.Progress.LastError,
+	})
+}
+
+// handleTagScanPause pauses the tag scanning
+func (s *Server) handleTagScanPause(c *gin.Context) {
+	if s.tagScanManager == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Tag scan manager not available"})
+		return
+	}
+
+	s.tagScanManager.RequestPause()
+	c.JSON(http.StatusOK, gin.H{"message": "Tag scan paused"})
+}
+
+// handleTagScanResume resumes the tag scanning
+func (s *Server) handleTagScanResume(c *gin.Context) {
+	if s.tagScanManager == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Tag scan manager not available"})
+		return
+	}
+
+	s.tagScanManager.Resume()
+	c.JSON(http.StatusOK, gin.H{"message": "Tag scan resumed"})
 }
 
 // handleLlmRecognize starts LLM-based OCR recognition asynchronously

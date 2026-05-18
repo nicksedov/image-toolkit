@@ -107,6 +107,11 @@ func (s *Server) SetupRouter(authMiddleware *middleware.AuthMiddleware, csrfProt
 			protected.POST("/ai/action", s.handleAiAction)
 			protected.GET("/ai/status/:taskId", s.handleAiActionStatus)
 
+			// Tag Scan endpoints
+			protected.GET("/tag-scan/status", s.handleTagScanStatus)
+			protected.POST("/tag-scan/pause", s.handleTagScanPause)
+			protected.POST("/tag-scan/resume", s.handleTagScanResume)
+
 			// Admin routes
 			admin := protected.Group("/admin")
 			admin.Use(middleware.RequireAdmin())

@@ -118,14 +118,26 @@ type OcrBoundingBox struct {
 
 // LlmSettings stores VL LLM connection settings (singleton, ID=1)
 type LlmSettings struct {
-	ID        uint      `gorm:"primaryKey" json:"id"`
-	Provider  string    `gorm:"default:ollama;not null" json:"provider"` // "ollama" or "openai"
-	ApiUrl    string    `gorm:"not null" json:"apiUrl"`
-	ApiKey    string    `gorm:"default:''" json:"apiKey"` // Empty for Ollama
-	Model     string    `gorm:"not null" json:"model"`
-	Enabled   bool      `gorm:"default:false" json:"enabled"`
-	CreatedAt time.Time `json:"createdAt"`
-	UpdatedAt time.Time `json:"updatedAt"`
+	ID                   uint      `gorm:"primaryKey" json:"id"`
+	Provider             string    `gorm:"default:ollama;not null" json:"provider"` // "ollama" or "openai"
+	ApiUrl               string    `gorm:"not null" json:"apiUrl"`
+	ApiKey               string    `gorm:"default:''" json:"apiKey"` // Empty for Ollama
+	Model                string    `gorm:"not null" json:"model"`
+	Enabled              bool      `gorm:"default:false" json:"enabled"`
+	TagScanEnabled       bool      `gorm:"default:true" json:"tagScanEnabled"`
+	TagScanStartHour     int       `gorm:"default:22" json:"tagScanStartHour"`
+	TagScanStartMinute   int       `gorm:"default:0" json:"tagScanStartMinute"`
+	TagScanEndHour       int       `gorm:"default:7" json:"tagScanEndHour"`
+	TagScanEndMinute     int       `gorm:"default:0" json:"tagScanEndMinute"`
+	CreatedAt            time.Time `json:"createdAt"`
+	UpdatedAt            time.Time `json:"updatedAt"`
+}
+
+// ImageTag stores AI-generated tags for an image
+type ImageTag struct {
+	ID          uint   `gorm:"primaryKey"`
+	ImageFileID uint   `gorm:"index;not null"`
+	Tag         string `gorm:"not null"`
 }
 
 // OcrLlmRecognition stores VL LLM OCR recognition results

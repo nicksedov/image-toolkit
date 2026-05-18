@@ -500,14 +500,36 @@ export interface LlmSettingsDTO {
   apiKey: string
   model: string
   enabled: boolean
+  tagScanEnabled: boolean
+  tagScanStartHour: number
+  tagScanStartMinute: number
+  tagScanEndHour: number
+  tagScanEndMinute: number
 }
 
 export interface UpdateLlmSettingsRequest {
-  provider: "ollama" | "openai"
-  apiUrl: string
-  apiKey: string
-  model: string
+  provider?: "ollama" | "openai"
+  apiUrl?: string
+  apiKey?: string
+  model?: string
+  enabled?: boolean
+  tagScanEnabled?: boolean
+  tagScanStartHour?: number
+  tagScanStartMinute?: number
+  tagScanEndHour?: number
+  tagScanEndMinute?: number
+}
+
+export interface TagScanStatusResponse {
+  running: boolean
+  paused: boolean
   enabled: boolean
+  schedule: string
+  scanned: number
+  remaining: number
+  total: number
+  currentImage?: string
+  lastError?: string
 }
 
 export interface LlmOcrRequest {

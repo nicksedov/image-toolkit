@@ -456,21 +456,44 @@ type OcrDataResponse struct {
 
 // LlmSettingsDTO for LLM settings responses
 type LlmSettingsDTO struct {
-	ID       uint   `json:"id"`
-	Provider string `json:"provider"`
-	ApiUrl   string `json:"apiUrl"`
-	ApiKey   string `json:"apiKey"`
-	Model    string `json:"model"`
-	Enabled  bool   `json:"enabled"`
+	ID                 uint   `json:"id"`
+	Provider           string `json:"provider"`
+	ApiUrl             string `json:"apiUrl"`
+	ApiKey             string `json:"apiKey"`
+	Model              string `json:"model"`
+	Enabled            bool   `json:"enabled"`
+	TagScanEnabled     bool   `json:"tagScanEnabled"`
+	TagScanStartHour   int    `json:"tagScanStartHour"`
+	TagScanStartMinute int    `json:"tagScanStartMinute"`
+	TagScanEndHour     int    `json:"tagScanEndHour"`
+	TagScanEndMinute   int    `json:"tagScanEndMinute"`
 }
 
 // UpdateLlmSettingsRequest for PUT /api/llm/settings
 type UpdateLlmSettingsRequest struct {
-	Provider string `json:"provider"`
-	ApiUrl   string `json:"apiUrl"`
-	ApiKey   string `json:"apiKey"`
-	Model    string `json:"model"`
-	Enabled  bool   `json:"enabled"`
+	Provider           *string `json:"provider"`
+	ApiUrl             *string `json:"apiUrl"`
+	ApiKey             *string `json:"apiKey"`
+	Model              *string `json:"model"`
+	Enabled            *bool   `json:"enabled"`
+	TagScanEnabled     *bool   `json:"tagScanEnabled,omitempty"`
+	TagScanStartHour   *int    `json:"tagScanStartHour,omitempty"`
+	TagScanStartMinute *int    `json:"tagScanStartMinute,omitempty"`
+	TagScanEndHour     *int    `json:"tagScanEndHour,omitempty"`
+	TagScanEndMinute   *int    `json:"tagScanEndMinute,omitempty"`
+}
+
+// TagScanStatusResponse for GET /api/tag-scan/status
+type TagScanStatusResponse struct {
+	Running      bool   `json:"running"`
+	Paused       bool   `json:"paused"`
+	Enabled      bool   `json:"enabled"`
+	Schedule     string `json:"schedule"`
+	Scanned      int    `json:"scanned"`
+	Remaining    int    `json:"remaining"`
+	Total        int    `json:"total"`
+	CurrentImage string `json:"currentImage,omitempty"`
+	LastError    string `json:"lastError,omitempty"`
 }
 
 // LlmModelDTO represents an available LLM model

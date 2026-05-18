@@ -11,12 +11,12 @@ import { FolderList } from "@/components/settings/FolderList"
 import { ScanProgressBanner } from "@/components/ScanProgressBanner"
 import { useGalleryFolders } from "@/hooks/useGalleryFolders"
 import { useScanStatus } from "@/hooks/useScanStatus"
-import { fetchTrashInfo, cleanTrash, fetchSettings, updateSettings, fetchOCRStatus, startOcrClassification, startOcrClassificationChanges, stopOcrClassification, fetchOcrClassificationStatus, triggerScan, triggerFastScan, fetchLlmSettings, updateLlmSettings, fetchLlmModels, fetchThumbnailCacheStats, enableThumbnailCache, disableThumbnailCache, invalidateAllThumbnails } from "@/api/endpoints"
+import { fetchTrashInfo, cleanTrash, fetchSettings, updateSettings, fetchOCRStatus, startOcrClassification, startOcrClassificationChanges, stopOcrClassification, fetchOcrClassificationStatus, triggerScan, triggerFastScan, fetchLlmSettings, updateLlmSettings, fetchLlmModels, fetchThumbnailCacheStats, enableThumbnailCache, disableThumbnailCache, invalidateAllThumbnails, fetchTagScanStatus, pauseTagScan, resumeTagScan } from "@/api/endpoints"
 import { useSettings } from "@/providers/useSettings"
 import { useAuth } from "@/providers/AuthProvider"
 import { RefreshCw, Trash2, Shield, Loader2, Zap, Wand2, Play, Square, DatabaseZap, DatabaseBackup, Database } from "lucide-react"
 import { useTranslation, type TranslationKey } from "@/i18n"
-import type { OCRStatus, OcrClassificationStatusResponse, LlmSettingsDTO, LlmModelDTO } from "@/types"
+import type { OCRStatus, OcrClassificationStatusResponse, LlmSettingsDTO, LlmModelDTO, TagScanStatusResponse } from "@/types"
 
 export function AdminSettingsTab() {
   const { folders, isLoading, add, remove, refetch } = useGalleryFolders()
@@ -66,6 +66,18 @@ export function AdminSettingsTab() {
   const [dailySyncMinute, setDailySyncMinute] = useState(30)
   const [isSavingSchedule, setIsSavingSchedule] = useState(false)
 
+  // Tag Scan state
+  const [tagScanEnabled, setTagScanEnabled] = useState(false)
+  const [tagScanStartHour, setTagScanStartHour] = useState(23)
+  const [tagScanStartMinute, setTagScanStartMinute] = useState(0)
+  const [tagScanEndHour, setTagScanEndHour] = useState(7)
+  const [tagScanEndMinute, setTagScanEndMinute] = useState(0)
+  const [tagScanStatus, setTagScanStatus] = useState<TagScanStatusResponse | null>(null)
+  const [isTagScanLoading, setIsTagScanLoading] = useState(false)
+  const [isTagScanSaving, setIsTagScanSaving] = useState(false)
+  const [isTagScanPausing, setIsTagScanPausing] = useState(false)
+  const [tagScanFormDirty, setTagScanFormDirty] = useState(false)
+
   const loadTrashInfo = useCallback(() => {
     fetchTrashInfo()
       .then((info) => {
@@ -103,6 +115,11 @@ export function AdminSettingsTab() {
       setDailySyncEnabled(settings.dailySyncEnabled ?? true)
       setDailySyncHour(settings.dailySyncHour ?? 3)
       setDailySyncMinute(settings.dailySyncMinute ?? 30)
+      setTagScanEnabled(settings.tagScanEnabled ?? false)
+      setTagScanStartHour(settings.tagScanStartHour ?? 23)
+      setTagScanStartMinute(settings.tagScanStartMinute ?? 0)
+      setTagScanEndHour(settings.tagScanEndHour ?? 7)
+      setTagScanEndMinute(settings.tagScanEndMinute ?? 0)
     }).catch(() => {
       // Use local state values
     })
@@ -315,6 +332,81 @@ export function AdminSettingsTab() {
       setIsSavingSchedule(false)
     }
   }, [dailySyncEnabled, dailySyncHour, dailySyncMinute, t])
+
+  // Tag Scan handlers
+  const loadTagScanStatus = useCallback(async () => {
+    try {
+      const status = await fetchTagScanStatus()
+      setTagScanStatus(status)
+    } catch {
+      setTagScanStatus(null)
+    }
+  }, [])
+
+  const handleSaveTagScanSchedule = useCallback(async () => {
+    setIsTagScanSaving(true)
+    try {
+      await updateLlmSettings({
+        tagScanEnabled,
+        tagScanStartHour,
+        tagScanStartMinute,
+        tagScanEndHour,
+        tagScanEndMinute,
+      })
+      toast.success(t("tagScan.saved"))
+      setTagScanFormDirty(false)
+      await loadTagScanStatus()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("tagScan.saveFailed"))
+    } finally {
+      setIsTagScanSaving(false)
+    }
+  }, [tagScanEnabled, tagScanStartHour, tagScanStartMinute, tagScanEndHour, tagScanEndMinute, loadTagScanStatus, t])
+
+  const handleTagScanFieldChange = useCallback((field: string, value: string | boolean | number) => {
+    switch (field) {
+      case "tagScanEnabled": setTagScanEnabled(value as boolean); break;
+      case "tagScanStartHour": setTagScanStartHour(value as number); break;
+      case "tagScanStartMinute": setTagScanStartMinute(value as number); break;
+      case "tagScanEndHour": setTagScanEndHour(value as number); break;
+      case "tagScanEndMinute": setTagScanEndMinute(value as number); break;
+    }
+    setTagScanFormDirty(true)
+  }, [])
+
+  const handlePauseTagScan = useCallback(async () => {
+    setIsTagScanPausing(true)
+    try {
+      await pauseTagScan()
+      toast.info(t("tagScan.paused"))
+      await loadTagScanStatus()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("tagScan.pauseFailed"))
+    } finally {
+      setIsTagScanPausing(false)
+    }
+  }, [loadTagScanStatus, t])
+
+  const handleResumeTagScan = useCallback(async () => {
+    setIsTagScanPausing(true)
+    try {
+      await resumeTagScan()
+      toast.info(t("tagScan.resumed"))
+      await loadTagScanStatus()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("tagScan.resumeFailed"))
+    } finally {
+      setIsTagScanPausing(false)
+    }
+  }, [loadTagScanStatus, t])
+
+  // Poll tag scan status periodically
+  useEffect(() => {
+    if (!isAdmin) return
+    loadTagScanStatus()
+    const interval = setInterval(loadTagScanStatus, 3000)
+    return () => clearInterval(interval)
+  }, [isAdmin, loadTagScanStatus])
 
   const handleLoadModels = useCallback(async () => {
     setIsModelsLoading(true)
@@ -930,6 +1022,214 @@ export function AdminSettingsTab() {
                   </Button>
                 </div>
               </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Tag Scan Settings - Admin Only */}
+      {isAdmin && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Wand2 className="h-5 w-5" />
+              {t("tagScan.title")}
+            </CardTitle>
+            <CardDescription>{t("tagScan.description")}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Enable/Disable Checkbox */}
+            <div className="flex items-center space-x-2 rounded-lg border p-3">
+              <Checkbox
+                id="tag-scan-enabled"
+                checked={tagScanEnabled}
+                onCheckedChange={(checked) => handleTagScanFieldChange("tagScanEnabled", checked === true)}
+              />
+              <div className="space-y-0.5">
+                <Label htmlFor="tag-scan-enabled">{t("tagScan.enabled")}</Label>
+                <p className="text-xs text-muted-foreground">
+                  {t("tagScan.description")}
+                </p>
+              </div>
+            </div>
+
+            {tagScanEnabled && (
+              <>
+                {/* Schedule */}
+                <div className="space-y-2">
+                  <Label>{t("tagScan.schedule")}</Label>
+                  <div className="flex items-center gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="tag-scan-start-hour">{t("tagScan.startTime")}</Label>
+                      <div className="flex gap-2">
+                        <Select
+                          value={String(tagScanStartHour)}
+                          onValueChange={(val) => handleTagScanFieldChange("tagScanStartHour", Number(val))}
+                        >
+                          <SelectTrigger id="tag-scan-start-hour" className="w-20">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Array.from({ length: 24 }, (_, i) => i).map((h) => (
+                              <SelectItem key={h} value={String(h)}>
+                                {String(h).padStart(2, "0")}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <span className="self-center text-muted-foreground">:</span>
+                        <Select
+                          value={String(tagScanStartMinute)}
+                          onValueChange={(val) => handleTagScanFieldChange("tagScanStartMinute", Number(val))}
+                        >
+                          <SelectTrigger id="tag-scan-start-minute" className="w-20">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Array.from({ length: 12 }, (_, i) => i * 5).map((m) => (
+                              <SelectItem key={m} value={String(m)}>
+                                {String(m).padStart(2, "0")}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="tag-scan-end-hour">{t("tagScan.endTime")}</Label>
+                      <div className="flex gap-2">
+                        <Select
+                          value={String(tagScanEndHour)}
+                          onValueChange={(val) => handleTagScanFieldChange("tagScanEndHour", Number(val))}
+                        >
+                          <SelectTrigger id="tag-scan-end-hour" className="w-20">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Array.from({ length: 24 }, (_, i) => i).map((h) => (
+                              <SelectItem key={h} value={String(h)}>
+                                {String(h).padStart(2, "0")}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <span className="self-center text-muted-foreground">:</span>
+                        <Select
+                          value={String(tagScanEndMinute)}
+                          onValueChange={(val) => handleTagScanFieldChange("tagScanEndMinute", Number(val))}
+                        >
+                          <SelectTrigger id="tag-scan-end-minute" className="w-20">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Array.from({ length: 12 }, (_, i) => i * 5).map((m) => (
+                              <SelectItem key={m} value={String(m)}>
+                                {String(m).padStart(2, "0")}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Status and Progress */}
+                {tagScanStatus && (
+                  <div className="space-y-2">
+                    <Label>{t("tagScan.status")}</Label>
+                    <div className="flex items-center gap-4 rounded-lg border p-3">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                            tagScanStatus.running && !tagScanStatus.paused
+                              ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                              : tagScanStatus.paused
+                              ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200"
+                              : "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200"
+                          }`}
+                        >
+                          {tagScanStatus.running && !tagScanStatus.paused
+                            ? t("tagScan.running")
+                            : tagScanStatus.paused
+                            ? t("tagScan.paused")
+                            : t("tagScan.stopped")}
+                        </span>
+                      </div>
+
+                      <div className="flex-1 text-sm text-muted-foreground">
+                        {tagScanStatus.scanned} {t("tagScan.of")} {tagScanStatus.total} {t("tagScan.images")}
+                      </div>
+
+                      <div className="flex gap-2">
+                        {tagScanStatus.running && !tagScanStatus.paused ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handlePauseTagScan}
+                            disabled={isTagScanPausing}
+                          >
+                            <Square className="mr-1.5 h-3.5 w-3.5" />
+                            {isTagScanPausing ? t("common.saving") : t("tagScan.pause")}
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleResumeTagScan}
+                            disabled={isTagScanPausing || !tagScanStatus.running}
+                          >
+                            <Play className="mr-1.5 h-3.5 w-3.5" />
+                            {isTagScanPausing ? t("common.saving") : t("tagScan.resume")}
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Progress Bar */}
+                    {tagScanStatus.total > 0 && (
+                      <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-primary transition-all duration-300"
+                          style={{ width: `${(tagScanStatus.scanned / tagScanStatus.total) * 100}%` }}
+                        />
+                      </div>
+                    )}
+
+                    {/* Current Image */}
+                    {tagScanStatus.currentImage && (
+                      <p className="text-xs text-muted-foreground">
+                        {t("tagScan.currentImage")}: {tagScanStatus.currentImage}
+                      </p>
+                    )}
+
+                    {/* Last Error */}
+                    {tagScanStatus.lastError && (
+                      <p className="text-xs text-destructive">
+                        {t("tagScan.lastError")}: {tagScanStatus.lastError}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Save Button */}
+                <div className="flex justify-end pt-2">
+                  <Button
+                    onClick={handleSaveTagScanSchedule}
+                    disabled={isTagScanSaving || !tagScanFormDirty}
+                  >
+                    {isTagScanSaving ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        {t("common.saving")}
+                      </>
+                    ) : (
+                      t("tagScan.save")
+                    )}
+                  </Button>
+                </div>
+              </>
             )}
           </CardContent>
         </Card>

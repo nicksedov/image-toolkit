@@ -55,6 +55,7 @@ import type {
   LlmModelsResponse,
   ThumbnailCacheStatsResponse,
   WarmupThumbnailsRequest,
+  TagScanStatusResponse,
 } from "@/types"
 
 export function fetchDuplicates(page: number, pageSize: number): Promise<DuplicatesResponse> {
@@ -412,6 +413,20 @@ export function fetchLlmRecognition(path: string): Promise<LlmOcrDataResponse> {
 
 export function fetchLlmModels(): Promise<LlmModelsResponse> {
   return apiGet<LlmModelsResponse>("/api/llm/models")
+}
+
+// --- Tag Scan ---
+
+export function fetchTagScanStatus(): Promise<TagScanStatusResponse> {
+  return apiGet<TagScanStatusResponse>("/api/tag-scan/status")
+}
+
+export function pauseTagScan(): Promise<{ message: string }> {
+  return apiPost<{ message: string }>("/api/tag-scan/pause", {})
+}
+
+export function resumeTagScan(): Promise<{ message: string }> {
+  return apiPost<{ message: string }>("/api/tag-scan/resume", {})
 }
 
 // --- Thumbnail Cache Management ---
