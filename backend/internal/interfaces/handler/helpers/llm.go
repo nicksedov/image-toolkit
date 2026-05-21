@@ -23,40 +23,52 @@ func NewLLMFactory(db *gorm.DB, maxImageMegapixels float64) *LLMFactory {
 }
 
 // CreateClient creates an LLM client from the current database settings.
-// Returns (client, settings, success). If success is false, an error response has been written.
-func (f *LLMFactory) CreateClient(c *gin.Context) (llm.Client, domain.LlmSettings, bool) {
+// Returns (client, provider, success). If success is false, an error response has been written.
+func (f *LLMFactory) CreateClient(c *gin.Context) (llm.Client, domain.LlmProvider, bool) {
 	var settings domain.LlmSettings
 	if err := f.db.First(&settings).Error; err != nil {
 		c.JSON(http.StatusNotFound, i18n.ErrorResponse(i18n.MsgLlmOcrSettingsNotFound))
-		return nil, domain.LlmSettings{}, false
+		return nil, domain.LlmProvider{}, false
 	}
 
-	if !settings.Enabled {
+	var provider domain.LlmProvider
+	if err := f.db.Where("name = ?", settings.ActiveProvider).First(&provider).Error; err != nil {
+		c.JSON(http.StatusNotFound, i18n.ErrorResponse(i18n.MsgLlmOcrSettingsNotFound))
+		return nil, domain.LlmProvider{}, false
+	}
+
+	if !provider.Enabled {
 		c.JSON(http.StatusServiceUnavailable, i18n.ErrorResponse(i18n.MsgLlmOcrNotEnabled))
-		return nil, domain.LlmSettings{}, false
+		return nil, domain.LlmProvider{}, false
 	}
 
-	client, err := llm.NewClient(settings.Provider, settings.ApiUrl, settings.ApiKey, settings.Model, f.maxImageMegapixels)
+	client, err := llm.NewClient(provider.Name, provider.ApiUrl, provider.ApiKey, provider.Model, f.maxImageMegapixels)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, i18n.ErrorResponse(i18n.MsgLlmOcrRecognitionFailed))
-		return nil, domain.LlmSettings{}, false
+		return nil, domain.LlmProvider{}, false
 	}
 
-	return client, settings, true
+	return client, provider, true
 }
 
-// GetEnabledSettings returns LLM settings only if enabled, otherwise writes error and returns false.
-func (f *LLMFactory) GetEnabledSettings(c *gin.Context) (domain.LlmSettings, bool) {
+// GetEnabledSettings returns LLM settings and active provider only if enabled, otherwise writes error and returns false.
+func (f *LLMFactory) GetEnabledSettings(c *gin.Context) (domain.LlmSettings, domain.LlmProvider, bool) {
 	var settings domain.LlmSettings
 	if err := f.db.First(&settings).Error; err != nil {
 		c.JSON(http.StatusNotFound, i18n.ErrorResponse(i18n.MsgLlmOcrSettingsNotFound))
-		return domain.LlmSettings{}, false
+		return domain.LlmSettings{}, domain.LlmProvider{}, false
 	}
 
-	if !settings.Enabled {
+	var provider domain.LlmProvider
+	if err := f.db.Where("name = ?", settings.ActiveProvider).First(&provider).Error; err != nil {
+		c.JSON(http.StatusNotFound, i18n.ErrorResponse(i18n.MsgLlmOcrSettingsNotFound))
+		return domain.LlmSettings{}, domain.LlmProvider{}, false
+	}
+
+	if !provider.Enabled {
 		c.JSON(http.StatusServiceUnavailable, i18n.ErrorResponse(i18n.MsgLlmOcrNotEnabled))
-		return domain.LlmSettings{}, false
+		return domain.LlmSettings{}, domain.LlmProvider{}, false
 	}
 
-	return settings, true
+	return settings, provider, true
 }

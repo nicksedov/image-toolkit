@@ -43,9 +43,7 @@ func (sl *SettingsLoader) LlmSettings() domain.LlmSettings {
 	var settings domain.LlmSettings
 	if err := sl.db.First(&settings).Error; err != nil {
 		return domain.LlmSettings{
-			Provider: "ollama",
-			ApiUrl:   "http://localhost:11434",
-			Model:    "minicpm-v",
+			ActiveProvider: "ollama",
 		}
 	}
 	return settings
@@ -56,4 +54,18 @@ func (sl *SettingsLoader) LlmSettingsIfExists() (domain.LlmSettings, bool) {
 	var settings domain.LlmSettings
 	err := sl.db.First(&settings).Error
 	return settings, err == nil
+}
+
+// LlmProvider loads settings for a specific provider by name.
+func (sl *SettingsLoader) LlmProvider(name string) (domain.LlmProvider, bool) {
+	var provider domain.LlmProvider
+	err := sl.db.Where("name = ?", name).First(&provider).Error
+	return provider, err == nil
+}
+
+// AllLlmProviders loads all LLM providers ordered by name.
+func (sl *SettingsLoader) AllLlmProviders() []domain.LlmProvider {
+	var providers []domain.LlmProvider
+	sl.db.Order("name").Find(&providers)
+	return providers
 }

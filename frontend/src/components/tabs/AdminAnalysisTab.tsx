@@ -9,7 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { fetchOCRStatus, startOcrClassification, startOcrClassificationChanges, stopOcrClassification, fetchOcrClassificationStatus, fetchLlmSettings, updateLlmSettings, fetchLlmModels, fetchTagScanStatus, pauseTagScan, resumeTagScan, updateSettings, fetchSettings } from "@/api/endpoints"
 import { Shield, Loader2, Zap, Wand2, Play, Square, RefreshCw } from "lucide-react"
 import { useTranslation } from "@/i18n"
-import type { OCRStatus, OcrClassificationStatusResponse, LlmSettingsDTO, LlmModelDTO, TagScanStatusResponse } from "@/types"
+import type { OCRStatus, OcrClassificationStatusResponse, LlmSettingsResponse, LlmProviderDTO, LlmModelDTO, TagScanStatusResponse } from "@/types"
 
 export function AdminAnalysisTab() {
   const { t } = useTranslation()
@@ -22,18 +22,15 @@ export function AdminAnalysisTab() {
   const [isSavingWorkers, setIsSavingWorkers] = useState(false)
 
   // LLM Settings state
-  const [llmSettings, setLlmSettings] = useState<LlmSettingsDTO>({
+  const [llmSettings, setLlmSettings] = useState<LlmSettingsResponse>({
     id: 0,
-    provider: "ollama",
-    apiUrl: "http://localhost:11434",
-    apiKey: "",
-    model: "minicpm-v",
-    enabled: false,
+    activeProvider: "ollama",
     tagScanEnabled: false,
     tagScanStartHour: 23,
     tagScanStartMinute: 0,
     tagScanEndHour: 7,
     tagScanEndMinute: 0,
+    providers: [],
   })
   const [isLlmLoading, setIsLlmLoading] = useState(false)
   const [isLlmSaving, setIsLlmSaving] = useState(false)
@@ -41,6 +38,11 @@ export function AdminAnalysisTab() {
   const [availableModels, setAvailableModels] = useState<LlmModelDTO[]>([])
   const [isModelsLoading, setIsModelsLoading] = useState(false)
   const [showModelInput, setShowModelInput] = useState(false)
+
+  // Helper to get current provider settings
+  const getCurrentProvider = (): LlmProviderDTO | undefined => {
+    return llmSettings.providers.find((p) => p.name === llmSettings.activeProvider)
+  }
 
   // Tag Scan state
   const [tagScanEnabled, setTagScanEnabled] = useState(false)
@@ -160,16 +162,13 @@ export function AdminAnalysisTab() {
     } catch {
       setLlmSettings({
         id: 0,
-        provider: "ollama",
-        apiUrl: "http://localhost:11434",
-        apiKey: "",
-        model: "minicpm-v",
-        enabled: false,
+        activeProvider: "ollama",
         tagScanEnabled: false,
         tagScanStartHour: 23,
         tagScanStartMinute: 0,
         tagScanEndHour: 7,
         tagScanEndMinute: 0,
+        providers: [],
       })
     } finally {
       setIsLlmLoading(false)
@@ -179,13 +178,27 @@ export function AdminAnalysisTab() {
   const handleSaveLlmSettings = useCallback(async () => {
     setIsLlmSaving(true)
     try {
+      const currentProvider = getCurrentProvider()
+      // Save active provider and tag scan settings
       await updateLlmSettings({
-        provider: llmSettings.provider,
-        apiUrl: llmSettings.apiUrl,
-        apiKey: llmSettings.apiKey,
-        model: llmSettings.model,
-        enabled: llmSettings.enabled,
+        activeProvider: llmSettings.activeProvider,
+        tagScanEnabled: llmSettings.tagScanEnabled,
+        tagScanStartHour: llmSettings.tagScanStartHour,
+        tagScanStartMinute: llmSettings.tagScanStartMinute,
+        tagScanEndHour: llmSettings.tagScanEndHour,
+        tagScanEndMinute: llmSettings.tagScanEndMinute,
+        tagScanTimezoneOffset: new Date().getTimezoneOffset(),
       })
+      // Save current provider settings if dirty
+      if (currentProvider) {
+        await updateLlmSettings({
+          providerName: currentProvider.name,
+          providerApiUrl: currentProvider.apiUrl,
+          providerApiKey: currentProvider.apiKey,
+          providerModel: currentProvider.model,
+          providerEnabled: currentProvider.enabled,
+        })
+      }
       toast.success(t("llm_ocr.settingsSaved"))
       setLlmFormDirty(false)
       await loadLlmSettings()
@@ -196,8 +209,22 @@ export function AdminAnalysisTab() {
     }
   }, [llmSettings, loadLlmSettings, t])
 
-  const handleLlmFieldChange = useCallback((field: keyof LlmSettingsDTO, value: string | boolean) => {
-    setLlmSettings((prev) => ({ ...prev, [field]: value }))
+  const handleLlmFieldChange = useCallback((field: keyof LlmProviderDTO, value: string | boolean) => {
+    // Update the current provider's settings
+    setLlmSettings((prev) => {
+      const providers = prev.providers.map((p) => {
+        if (p.name === prev.activeProvider) {
+          return { ...p, [field]: value }
+        }
+        return p
+      })
+      return { ...prev, providers }
+    })
+    setLlmFormDirty(true)
+  }, [])
+
+  const handleActiveProviderChange = useCallback((value: string) => {
+    setLlmSettings((prev) => ({ ...prev, activeProvider: value as LlmSettingsResponse["activeProvider"] }))
     setLlmFormDirty(true)
   }, [])
 
@@ -480,12 +507,12 @@ export function AdminAnalysisTab() {
             </div>
           ) : (
             <div className="space-y-4">
-              {/* Provider Selection */}
+              {/* Provider Selection (active provider) */}
               <div className="space-y-2">
                 <Label htmlFor="llm-provider">{t("llm_ocr.provider")}</Label>
                 <Select
-                  value={llmSettings.provider}
-                  onValueChange={(value) => handleLlmFieldChange("provider", value)}
+                  value={llmSettings.activeProvider}
+                  onValueChange={handleActiveProviderChange}
                 >
                   <SelectTrigger id="llm-provider">
                     <SelectValue />
@@ -498,32 +525,28 @@ export function AdminAnalysisTab() {
                 </Select>
               </div>
 
-              {/* API URL */}
+              {/* API URL (hidden for Ollama Cloud — always https://ollama.com/api) */}
+              {getCurrentProvider()?.name !== "ollama_cloud" && (
               <div className="space-y-2">
                 <Label htmlFor="llm-apiurl">API URL</Label>
                 <Input
                   id="llm-apiurl"
-                  placeholder={
-                    llmSettings.provider === "ollama"
-                      ? "http://localhost:11434"
-                      : llmSettings.provider === "ollama_cloud"
-                        ? "https://ollama.com/api"
-                        : "https://api.openai.com"
-                  }
-                  value={llmSettings.apiUrl}
+                  placeholder={getCurrentProvider()?.name === "ollama" ? "http://localhost:11434" : "https://api.openai.com"}
+                  value={getCurrentProvider()?.apiUrl ?? ""}
                   onChange={(e) => handleLlmFieldChange("apiUrl", e.target.value)}
                 />
               </div>
+              )}
 
               {/* API Key (only for OpenAI and Ollama Cloud) */}
-              {(llmSettings.provider === "openai" || llmSettings.provider === "ollama_cloud") && (
+              {(getCurrentProvider()?.name === "openai" || getCurrentProvider()?.name === "ollama_cloud") && (
                 <div className="space-y-2">
                   <Label htmlFor="llm-apikey">API Key</Label>
                   <Input
                     id="llm-apikey"
                     type="password"
                     placeholder="sk-..."
-                    value={llmSettings.apiKey}
+                    value={getCurrentProvider()?.apiKey ?? ""}
                     onChange={(e) => handleLlmFieldChange("apiKey", e.target.value)}
                   />
                 </div>
@@ -553,7 +576,7 @@ export function AdminAnalysisTab() {
                 {availableModels.length > 0 && !showModelInput ? (
                   <div className="space-y-2">
                     <Select
-                      value={llmSettings.model}
+                      value={getCurrentProvider()?.model ?? ""}
                       onValueChange={(value) => handleLlmFieldChange("model", value)}
                     >
                       <SelectTrigger id="llm-model">
@@ -582,13 +605,13 @@ export function AdminAnalysisTab() {
                     <Input
                       id="llm-model"
                       placeholder={
-                        llmSettings.provider === "ollama"
+                        getCurrentProvider()?.name === "ollama"
                           ? "minicpm-v"
-                          : llmSettings.provider === "ollama_cloud"
+                          : getCurrentProvider()?.name === "ollama_cloud"
                             ? "minicpm-v"
                             : "gpt-4-vision-preview"
                       }
-                      value={llmSettings.model}
+                      value={getCurrentProvider()?.model ?? ""}
                       onChange={(e) => handleLlmFieldChange("model", e.target.value)}
                     />
                     {availableModels.length > 0 && showModelInput && (
@@ -609,7 +632,7 @@ export function AdminAnalysisTab() {
               <div className="flex items-center space-x-2 rounded-lg border p-3">
                 <Checkbox
                   id="llm-enabled"
-                  checked={llmSettings.enabled}
+                  checked={getCurrentProvider()?.enabled ?? false}
                   onCheckedChange={(checked) => handleLlmFieldChange("enabled", checked === true)}
                 />
                 <div className="space-y-0.5">

@@ -36,6 +36,7 @@ func InitDatabase(cfg *config.AppConfig) (*gorm.DB, error) {
 		&domain.AuditLog{},
 		&domain.OcrClassification{},
 		&domain.OcrBoundingBox{},
+		&domain.LlmProvider{},
 		&domain.LlmSettings{},
 		&domain.OcrLlmRecognition{},
 		&domain.ImageTag{},
@@ -58,11 +59,19 @@ func InitDatabase(cfg *config.AppConfig) (*gorm.DB, error) {
 	db.Model(&domain.LlmSettings{}).Count(&llmCount)
 	if llmCount == 0 {
 		db.Create(&domain.LlmSettings{
-			ID:       1,
-			Provider: "ollama",
-			ApiUrl:   "http://localhost:11434",
-			Model:    "minicpm-v",
-			Enabled:  false,
+			ID:             1,
+			ActiveProvider: "ollama",
+		})
+	}
+
+	// Seed default LLM providers if not exist
+	var providerCount int64
+	db.Model(&domain.LlmProvider{}).Count(&providerCount)
+	if providerCount == 0 {
+		db.Create([]domain.LlmProvider{
+			{Name: "ollama", ApiUrl: "http://localhost:11434", Model: "minicpm-v", Enabled: false},
+			{Name: "ollama_cloud", ApiUrl: "https://ollama.com/api", Model: "minicpm-v", Enabled: false},
+			{Name: "openai", ApiUrl: "https://api.openai.com", Model: "gpt-4-vision-preview", Enabled: false},
 		})
 	}
 

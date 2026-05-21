@@ -493,27 +493,33 @@ export interface OcrClassificationStatusResponse {
 
 // --- LLM OCR Types ---
 
-export interface LlmSettingsDTO {
-  id: number
-  provider: "ollama" | "ollama_cloud" | "openai"
+export interface LlmProviderDTO {
+  name: "ollama" | "ollama_cloud" | "openai"
   apiUrl: string
   apiKey: string
   model: string
   enabled: boolean
+}
+
+export interface LlmSettingsResponse {
+  id: number
+  activeProvider: "ollama" | "ollama_cloud" | "openai"
   tagScanEnabled?: boolean
   tagScanStartHour?: number
   tagScanStartMinute?: number
   tagScanEndHour?: number
   tagScanEndMinute?: number
   tagScanTimezoneOffset?: number // User's timezone offset in minutes (JS getTimezoneOffset: UTC+3 = -180)
+  providers: LlmProviderDTO[]
 }
 
 export interface UpdateLlmSettingsRequest {
-  provider?: "ollama" | "ollama_cloud" | "openai"
-  apiUrl?: string
-  apiKey?: string
-  model?: string
-  enabled?: boolean
+  activeProvider?: "ollama" | "ollama_cloud" | "openai"
+  providerName?: "ollama" | "ollama_cloud" | "openai"
+  providerApiUrl?: string
+  providerApiKey?: string
+  provider_model?: string
+  providerEnabled?: boolean
   tagScanEnabled?: boolean
   tagScanStartHour?: number
   tagScanStartMinute?: number

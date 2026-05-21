@@ -454,35 +454,42 @@ type OcrDataResponse struct {
 
 // --- LLM Settings API ---
 
-// LlmSettingsDTO for LLM settings responses
-type LlmSettingsDTO struct {
-	ID                 uint   `json:"id"`
-	Provider           string `json:"provider"`
-	ApiUrl             string `json:"apiUrl"`
-	ApiKey             string `json:"apiKey"`
-	Model              string `json:"model"`
-	Enabled            bool   `json:"enabled"`
-	TagScanEnabled     bool   `json:"tagScanEnabled"`
-	TagScanStartHour   int    `json:"tagScanStartHour"`
-	TagScanStartMinute int    `json:"tagScanStartMinute"`
-	TagScanEndHour       int    `json:"tagScanEndHour"`
-	TagScanEndMinute     int    `json:"tagScanEndMinute"`
-	TagScanTimezoneOffset int   `json:"tagScanTimezoneOffset"`
+// LlmProviderDTO for per-provider LLM settings responses
+type LlmProviderDTO struct {
+	Name    string `json:"name"`    // "ollama", "ollama_cloud", "openai"
+	ApiUrl  string `json:"apiUrl"`
+	ApiKey  string `json:"apiKey"` // Masked in responses
+	Model   string `json:"model"`
+	Enabled bool   `json:"enabled"`
 }
 
-// UpdateLlmSettingsRequest for PUT /api/llm/settings
+// LlmSettingsResponse for GET /api/llm/settings
+type LlmSettingsResponse struct {
+	ID                  uint            `json:"id"`
+	ActiveProvider      string          `json:"activeProvider"`
+	TagScanEnabled      bool            `json:"tagScanEnabled"`
+	TagScanStartHour    int             `json:"tagScanStartHour"`
+	TagScanStartMinute  int             `json:"tagScanStartMinute"`
+	TagScanEndHour      int             `json:"tagScanEndHour"`
+	TagScanEndMinute    int             `json:"tagScanEndMinute"`
+	TagScanTimezoneOffset int           `json:"tagScanTimezoneOffset"`
+	Providers           []LlmProviderDTO `json:"providers"`
+}
+
+// UpdateLlmSettingsRequest for PUT /api/llm/settings (global settings + provider updates)
 type UpdateLlmSettingsRequest struct {
-	Provider           *string `json:"provider"`
-	ApiUrl             *string `json:"apiUrl"`
-	ApiKey             *string `json:"apiKey"`
-	Model              *string `json:"model"`
-	Enabled            *bool   `json:"enabled"`
-	TagScanEnabled     *bool   `json:"tagScanEnabled,omitempty"`
-	TagScanStartHour   *int    `json:"tagScanStartHour,omitempty"`
-	TagScanStartMinute *int    `json:"tagScanStartMinute,omitempty"`
-	TagScanEndHour     *int    `json:"tagScanEndHour,omitempty"`
-	TagScanEndMinute       *int `json:"tagScanEndMinute,omitempty"`
-	TagScanTimezoneOffset  *int `json:"tagScanTimezoneOffset,omitempty"`
+	ActiveProvider      *string `json:"activeProvider"`
+	ProviderName        *string `json:"providerName"`         // Which provider to update
+	ProviderApiUrl      *string `json:"providerApiUrl"`
+	ProviderApiKey      *string `json:"providerApiKey"`
+	ProviderModel       *string `json:"providerModel"`
+	ProviderEnabled     *bool   `json:"providerEnabled"`
+	TagScanEnabled      *bool   `json:"tagScanEnabled,omitempty"`
+	TagScanStartHour    *int    `json:"tagScanStartHour,omitempty"`
+	TagScanStartMinute  *int    `json:"tagScanStartMinute,omitempty"`
+	TagScanEndHour      *int    `json:"tagScanEndHour,omitempty"`
+	TagScanEndMinute    *int    `json:"tagScanEndMinute,omitempty"`
+	TagScanTimezoneOffset *int  `json:"tagScanTimezoneOffset,omitempty"`
 }
 
 // TagScanStatusResponse for GET /api/tag-scan/status

@@ -2012,103 +2012,133 @@ func (s *Server) handleGetOcrData(c *gin.Context) {
 	})
 }
 
-// handleGetLlmSettings returns LLM settings
+// handleGetLlmSettings returns LLM settings with all providers
 func (s *Server) handleGetLlmSettings(c *gin.Context) {
 	settings := s.settingsLoader.LlmSettings()
+	providers := s.settingsLoader.AllLlmProviders()
 
-	// Don't expose API key in full, mask it
-	apiKey := settings.ApiKey
-	if len(apiKey) > 8 {
-		apiKey = apiKey[:4] + "..." + apiKey[len(apiKey)-4:]
+	// Build provider DTOs with masked API keys
+	providerDTOs := make([]dto.LlmProviderDTO, len(providers))
+	for i, p := range providers {
+		apiKey := p.ApiKey
+		if len(apiKey) > 8 {
+			apiKey = apiKey[:4] + "..." + apiKey[len(apiKey)-4:]
+		}
+		providerDTOs[i] = dto.LlmProviderDTO{
+			Name:    p.Name,
+			ApiUrl:  p.ApiUrl,
+			ApiKey:  apiKey,
+			Model:   p.Model,
+			Enabled: p.Enabled,
+		}
 	}
 
-	c.JSON(http.StatusOK, dto.LlmSettingsDTO{
-		ID:                 settings.ID,
-		Provider:           settings.Provider,
-		ApiUrl:             settings.ApiUrl,
-		ApiKey:             apiKey,
-		Model:              settings.Model,
-		Enabled:            settings.Enabled,
-		TagScanEnabled:     settings.TagScanEnabled,
-		TagScanStartHour:   settings.TagScanStartHour,
-		TagScanStartMinute: settings.TagScanStartMinute,
-		TagScanEndHour:     settings.TagScanEndHour,
-		TagScanEndMinute:       settings.TagScanEndMinute,
-		TagScanTimezoneOffset:  settings.TagScanTimezoneOffset,
+	c.JSON(http.StatusOK, dto.LlmSettingsResponse{
+		ID:                    settings.ID,
+		ActiveProvider:        settings.ActiveProvider,
+		TagScanEnabled:        settings.TagScanEnabled,
+		TagScanStartHour:      settings.TagScanStartHour,
+		TagScanStartMinute:    settings.TagScanStartMinute,
+		TagScanEndHour:        settings.TagScanEndHour,
+		TagScanEndMinute:      settings.TagScanEndMinute,
+		TagScanTimezoneOffset: settings.TagScanTimezoneOffset,
+		Providers:             providerDTOs,
 	})
 }
 
-// handleUpdateLlmSettings updates LLM settings
+// handleUpdateLlmSettings updates LLM settings and/or a specific provider's settings
 func (s *Server) handleUpdateLlmSettings(c *gin.Context) {
 	var req dto.UpdateLlmSettingsRequest
 	if !helpers.BindJSON(c, &req) {
 		return
 	}
 
+	// Update a specific provider's settings if providerName is provided
+	if req.ProviderName != nil {
+		var provider domain.LlmProvider
+		err := s.db.Where("name = ?", *req.ProviderName).First(&provider).Error
+		provUpdates := make(map[string]interface{})
+		if req.ProviderApiUrl != nil {
+			provUpdates["api_url"] = *req.ProviderApiUrl
+		}
+		if req.ProviderApiKey != nil {
+			provUpdates["api_key"] = *req.ProviderApiKey
+		}
+		if req.ProviderModel != nil {
+			provUpdates["model"] = *req.ProviderModel
+		}
+		if req.ProviderEnabled != nil {
+			provUpdates["enabled"] = *req.ProviderEnabled
+		}
+
+		if err == gorm.ErrRecordNotFound {
+			// Create new provider
+			provider = domain.LlmProvider{
+				Name: *req.ProviderName,
+			}
+			if req.ProviderApiUrl != nil {
+				provider.ApiUrl = *req.ProviderApiUrl
+			}
+			if req.ProviderApiKey != nil {
+				provider.ApiKey = *req.ProviderApiKey
+			}
+			if req.ProviderModel != nil {
+				provider.Model = *req.ProviderModel
+			}
+			if req.ProviderEnabled != nil {
+				provider.Enabled = *req.ProviderEnabled
+			}
+			if err := s.db.Create(&provider).Error; err != nil {
+				c.JSON(http.StatusInternalServerError, i18n.ErrorResponse(i18n.MsgLlmOcrSettingsSaveFailed))
+				return
+			}
+		} else if err != nil {
+			c.JSON(http.StatusInternalServerError, i18n.ErrorResponse(i18n.MsgLlmOcrSettingsSaveFailed))
+			return
+		} else {
+			if len(provUpdates) > 0 {
+				s.db.Model(&provider).Updates(provUpdates)
+			}
+		}
+	}
+
+	// Update global LLM settings (active provider + tag scan schedule)
 	var settings domain.LlmSettings
 	err := s.db.First(&settings).Error
-
-	updates := make(map[string]interface{})
-	if req.Provider != nil {
-		updates["provider"] = *req.Provider
-	}
-	if req.ApiUrl != nil {
-		updates["api_url"] = *req.ApiUrl
-	}
-	if req.ApiKey != nil {
-		updates["api_key"] = *req.ApiKey
-	}
-	if req.Model != nil {
-		updates["model"] = *req.Model
-	}
-	if req.Enabled != nil {
-		updates["enabled"] = *req.Enabled
+	globalUpdates := make(map[string]interface{})
+	if req.ActiveProvider != nil {
+		globalUpdates["active_provider"] = *req.ActiveProvider
 	}
 	if req.TagScanEnabled != nil {
-		updates["tag_scan_enabled"] = *req.TagScanEnabled
+		globalUpdates["tag_scan_enabled"] = *req.TagScanEnabled
 	}
 	if req.TagScanStartHour != nil {
-		updates["tag_scan_start_hour"] = *req.TagScanStartHour
+		globalUpdates["tag_scan_start_hour"] = *req.TagScanStartHour
 	}
 	if req.TagScanStartMinute != nil {
-		updates["tag_scan_start_minute"] = *req.TagScanStartMinute
+		globalUpdates["tag_scan_start_minute"] = *req.TagScanStartMinute
 	}
 	if req.TagScanEndHour != nil {
-		updates["tag_scan_end_hour"] = *req.TagScanEndHour
+		globalUpdates["tag_scan_end_hour"] = *req.TagScanEndHour
 	}
 	if req.TagScanEndMinute != nil {
-		updates["tag_scan_end_minute"] = *req.TagScanEndMinute
+		globalUpdates["tag_scan_end_minute"] = *req.TagScanEndMinute
 	}
 	if req.TagScanTimezoneOffset != nil {
-		updates["tag_scan_timezone_offset"] = *req.TagScanTimezoneOffset
+		globalUpdates["tag_scan_timezone_offset"] = *req.TagScanTimezoneOffset
 	}
 
 	if err == gorm.ErrRecordNotFound {
-		// Create new settings
 		settings = domain.LlmSettings{
-			Provider:           "ollama",
-			ApiUrl:             "http://localhost:11434",
-			Model:              "minicpm-v",
+			ActiveProvider:     "ollama",
 			TagScanEnabled:     true,
 			TagScanStartHour:   22,
 			TagScanStartMinute: 0,
 			TagScanEndHour:     7,
 			TagScanEndMinute:   0,
 		}
-		if req.Provider != nil {
-			settings.Provider = *req.Provider
-		}
-		if req.ApiUrl != nil {
-			settings.ApiUrl = *req.ApiUrl
-		}
-		if req.ApiKey != nil {
-			settings.ApiKey = *req.ApiKey
-		}
-		if req.Model != nil {
-			settings.Model = *req.Model
-		}
-		if req.Enabled != nil {
-			settings.Enabled = *req.Enabled
+		if req.ActiveProvider != nil {
+			settings.ActiveProvider = *req.ActiveProvider
 		}
 		if req.TagScanEnabled != nil {
 			settings.TagScanEnabled = *req.TagScanEnabled
@@ -2136,9 +2166,8 @@ func (s *Server) handleUpdateLlmSettings(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, i18n.ErrorResponse(i18n.MsgLlmOcrSettingsSaveFailed))
 		return
 	} else {
-		// Update existing settings
-		if len(updates) > 0 {
-			s.db.Model(&settings).Updates(updates)
+		if len(globalUpdates) > 0 {
+			s.db.Model(&settings).Updates(globalUpdates)
 		}
 	}
 
@@ -2210,7 +2239,7 @@ func (s *Server) handleLlmRecognize(c *gin.Context) {
 	}
 
 	// Create LLM client (also validates settings and enabled state)
-	llmClient, settings, ok := s.llmFactory.CreateClient(c)
+	llmClient, provider, ok := s.llmFactory.CreateClient(c)
 	if !ok {
 		return
 	}
@@ -2244,7 +2273,7 @@ func (s *Server) handleLlmRecognize(c *gin.Context) {
 		return
 	}
 
-	_ = s.llmOcrService.StartRecognizeAsync(imageFile.ID, llmClient, settings)
+	_ = s.llmOcrService.StartRecognizeAsync(imageFile.ID, llmClient, provider)
 	c.JSON(http.StatusAccepted, dto.LlmRecognizeStatusResponse{
 		Status: "processing",
 	})
@@ -2372,22 +2401,33 @@ func (s *Server) handleGetLlmModels(c *gin.Context) {
 		return
 	}
 
-	if !settings.Enabled {
+	// Get active provider settings
+	provider, found := s.settingsLoader.LlmProvider(settings.ActiveProvider)
+	if !found {
+		c.JSON(http.StatusNotFound, dto.LlmModelsResponse{
+			Success:  false,
+			Error:    "Active provider not configured",
+			Provider: settings.ActiveProvider,
+		})
+		return
+	}
+
+	if !provider.Enabled {
 		c.JSON(http.StatusServiceUnavailable, dto.LlmModelsResponse{
 			Success:  false,
 			Error:    "LLM recognition is not enabled",
-			Provider: settings.Provider,
+			Provider: provider.Name,
 		})
 		return
 	}
 
 	// Create LLM client
-	llmClient, err := llm.NewClient(settings.Provider, settings.ApiUrl, settings.ApiKey, settings.Model, s.config.LlmMaxImageMegapixels)
+	llmClient, err := llm.NewClient(provider.Name, provider.ApiUrl, provider.ApiKey, provider.Model, s.config.LlmMaxImageMegapixels)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, dto.LlmModelsResponse{
 			Success:  false,
 			Error:    err.Error(),
-			Provider: settings.Provider,
+			Provider: provider.Name,
 		})
 		return
 	}
@@ -2398,7 +2438,7 @@ func (s *Server) handleGetLlmModels(c *gin.Context) {
 		c.JSON(http.StatusOK, dto.LlmModelsResponse{
 			Success:  false,
 			Error:    err.Error(),
-			Provider: settings.Provider,
+			Provider: provider.Name,
 		})
 		return
 	}
@@ -2416,7 +2456,7 @@ func (s *Server) handleGetLlmModels(c *gin.Context) {
 	c.JSON(http.StatusOK, dto.LlmModelsResponse{
 		Success:  true,
 		Models:   modelDTOs,
-		Provider: settings.Provider,
+		Provider: provider.Name,
 	})
 }
 
@@ -2428,7 +2468,7 @@ func (s *Server) handleAiAction(c *gin.Context) {
 	}
 
 	// Create LLM client (also validates settings and enabled state)
-	llmClient, _, ok := s.llmFactory.CreateClient(c)
+	llmClient, provider, ok := s.llmFactory.CreateClient(c)
 	if !ok {
 		// CreateClient already wrote the error response
 		return
@@ -2469,7 +2509,7 @@ func (s *Server) handleAiAction(c *gin.Context) {
 	taskID := uuid.New().String()
 
 	// Start async processing
-	s.llmOcrService.StartAiActionAsync(taskID, imageFile.ID, string(req.Action), req.Question, req.Language, llmClient, s.settingsLoader.LlmSettings())
+	s.llmOcrService.StartAiActionAsync(taskID, imageFile.ID, string(req.Action), req.Question, req.Language, llmClient, provider)
 
 	// Return 202 Accepted with task ID
 	c.JSON(http.StatusAccepted, dto.AiActionStartResponse{

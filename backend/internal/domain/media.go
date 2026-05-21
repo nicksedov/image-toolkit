@@ -116,21 +116,29 @@ type OcrBoundingBox struct {
 	Confidence       float32 `json:"confidence"`
 }
 
-// LlmSettings stores VL LLM connection settings (singleton, ID=1)
+// LlmProvider stores per-provider LLM connection settings
+type LlmProvider struct {
+	ID        uint      `gorm:"primaryKey" json:"id"`
+	Name      string    `gorm:"uniqueIndex;not null" json:"name"` // "ollama", "ollama_cloud", "openai"
+	ApiUrl    string    `gorm:"not null" json:"apiUrl"`
+	ApiKey    string    `gorm:"default:''" json:"apiKey"`
+	Model     string    `gorm:"not null" json:"model"`
+	Enabled   bool      `gorm:"default:false" json:"enabled"`
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
+}
+
+// LlmSettings stores global LLM settings (singleton, ID=1)
 type LlmSettings struct {
 	ID                   uint      `gorm:"primaryKey" json:"id"`
-	Provider             string    `gorm:"default:ollama;not null" json:"provider"` // "ollama", "ollama_cloud" or "openai"
-	ApiUrl               string    `gorm:"not null" json:"apiUrl"`
-	ApiKey               string    `gorm:"default:''" json:"apiKey"` // Empty for Ollama
-	Model                string    `gorm:"not null" json:"model"`
-	Enabled              bool      `gorm:"default:false" json:"enabled"`
+	ActiveProvider       string    `gorm:"default:ollama;not null" json:"activeProvider"` // "ollama", "ollama_cloud" or "openai"
 	TagScanEnabled       bool      `gorm:"default:true" json:"tagScanEnabled"`
 	TagScanStartHour     int       `gorm:"default:22" json:"tagScanStartHour"`
 	TagScanStartMinute   int       `gorm:"default:0" json:"tagScanStartMinute"`
 	TagScanEndHour       int       `gorm:"default:7" json:"tagScanEndHour"`
-	TagScanEndMinute      int       `gorm:"default:0" json:"tagScanEndMinute"`
-	TagScanTimezoneOffset int       `gorm:"default:0" json:"tagScanTimezoneOffset"` // User's timezone offset in minutes (JS getTimezoneOffset: UTC+3 = -180)
-	CreatedAt             time.Time `json:"createdAt"`
+	TagScanEndMinute     int       `gorm:"default:0" json:"tagScanEndMinute"`
+	TagScanTimezoneOffset int      `gorm:"default:0" json:"tagScanTimezoneOffset"` // User's timezone offset in minutes (JS getTimezoneOffset: UTC+3 = -180)
+	CreatedAt            time.Time `json:"createdAt"`
 	UpdatedAt            time.Time `json:"updatedAt"`
 }
 
