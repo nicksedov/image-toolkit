@@ -525,7 +525,7 @@ export function AdminAnalysisTab() {
                 </Select>
               </div>
 
-              {/* API URL (hidden for Ollama Cloud — always https://ollama.com/api) */}
+              {/* API URL (hidden for Ollama Cloud — always https://ollama.com) */}
               {getCurrentProvider()?.name !== "ollama_cloud" && (
               <div className="space-y-2">
                 <Label htmlFor="llm-apiurl">API URL</Label>

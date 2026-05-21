@@ -70,7 +70,7 @@ func InitDatabase(cfg *config.AppConfig) (*gorm.DB, error) {
 	if providerCount == 0 {
 		db.Create([]domain.LlmProvider{
 			{Name: "ollama", ApiUrl: "http://localhost:11434", Model: "minicpm-v", Enabled: false},
-			{Name: "ollama_cloud", ApiUrl: "https://ollama.com/api", Model: "minicpm-v", Enabled: false},
+			{Name: "ollama_cloud", ApiUrl: "https://ollama.com", Model: "minicpm-v", Enabled: false},
 			{Name: "openai", ApiUrl: "https://api.openai.com", Model: "gpt-4-vision-preview", Enabled: false},
 		})
 	}
