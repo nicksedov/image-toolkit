@@ -47,7 +47,7 @@ import type {
   OcrDocumentsResponse,
   OcrDataResponse,
   OcrClassificationStatusResponse,
-  LlmSettingsDTO,
+  LlmSettingsResponse,
   UpdateLlmSettingsRequest,
   LlmOcrRequest,
   LlmRecognizeStatusResponse,

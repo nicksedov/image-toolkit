@@ -195,7 +195,7 @@ export function AdminAnalysisTab() {
           providerName: currentProvider.name,
           providerApiUrl: currentProvider.apiUrl,
           providerApiKey: currentProvider.apiKey,
-          providerModel: currentProvider.model,
+          provider_model: currentProvider.model,
           providerEnabled: currentProvider.enabled,
         })
       }
