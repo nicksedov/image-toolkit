@@ -377,6 +377,8 @@ export const translationsRu = {
   "adminPanel.administration": "Администрирование",
   "adminPanel.adminSettings": "Настройки",
   "adminPanel.adminSettingsDescription": "Системные настройки для администраторов",
+  "adminSettings.tabs.general": "Основные",
+  "adminSettings.tabs.analysis": "Инструменты анализа",
   "adminPanel.ocr.title": "Поиск документов с OCR",
   "adminPanel.ocr.description": "Поиск и классификация изображений для обнаружения текстовых документов с помощью OCR",
   "adminPanel.ocr.scanAll": "Сканировать все",
