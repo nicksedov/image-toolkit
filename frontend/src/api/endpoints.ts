@@ -391,8 +391,8 @@ export function fetchOcrData(path: string): Promise<OcrDataResponse> {
 
 // --- LLM OCR ---
 
-export function fetchLlmSettings(): Promise<LlmSettingsDTO> {
-  return apiGet<LlmSettingsDTO>("/api/llm/settings")
+export function fetchLlmSettings(): Promise<LlmSettingsResponse> {
+  return apiGet<LlmSettingsResponse>("/api/llm/settings")
 }
 
 export function updateLlmSettings(req: UpdateLlmSettingsRequest): Promise<{ message: string }> {
