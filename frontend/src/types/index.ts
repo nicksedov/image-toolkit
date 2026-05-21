@@ -518,7 +518,7 @@ export interface UpdateLlmSettingsRequest {
   providerName?: "ollama" | "ollama_cloud" | "openai"
   providerApiUrl?: string
   providerApiKey?: string
-  provider_model?: string
+  providerModel?: string
   providerEnabled?: boolean
   tagScanEnabled?: boolean
   tagScanStartHour?: number
