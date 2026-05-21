@@ -19,6 +19,7 @@ type ModelInfo struct {
 
 // Provider type enumeration
 const (
-	ProviderOllama = "ollama"
-	ProviderOpenAI = "openai"
+	ProviderOllama      = "ollama"
+	ProviderOllamaCloud = "ollama_cloud"
+	ProviderOpenAI      = "openai"
 )

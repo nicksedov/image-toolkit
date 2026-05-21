@@ -6,7 +6,12 @@ import "fmt"
 func NewClient(provider, baseURL, apiKey, model string, maxImageMegapixels float64) (Client, error) {
 	switch provider {
 	case ProviderOllama:
-		return NewOllamaClient(baseURL, model, maxImageMegapixels), nil
+		return NewOllamaClient(baseURL, "", model, maxImageMegapixels), nil
+	case ProviderOllamaCloud:
+		if apiKey == "" {
+			return nil, fmt.Errorf("API key is required for Ollama Cloud provider")
+		}
+		return NewOllamaClient(baseURL, apiKey, model, maxImageMegapixels), nil
 	case ProviderOpenAI:
 		if apiKey == "" {
 			return nil, fmt.Errorf("API key is required for OpenAI provider")

@@ -492,6 +492,7 @@ export function AdminAnalysisTab() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="ollama">Ollama</SelectItem>
+                    <SelectItem value="ollama_cloud">Ollama Cloud</SelectItem>
                     <SelectItem value="openai">OpenAI API</SelectItem>
                   </SelectContent>
                 </Select>
@@ -502,14 +503,20 @@ export function AdminAnalysisTab() {
                 <Label htmlFor="llm-apiurl">API URL</Label>
                 <Input
                   id="llm-apiurl"
-                  placeholder={llmSettings.provider === "ollama" ? "http://localhost:11434" : "https://api.openai.com"}
+                  placeholder={
+                    llmSettings.provider === "ollama"
+                      ? "http://localhost:11434"
+                      : llmSettings.provider === "ollama_cloud"
+                        ? "https://ollama.com/api"
+                        : "https://api.openai.com"
+                  }
                   value={llmSettings.apiUrl}
                   onChange={(e) => handleLlmFieldChange("apiUrl", e.target.value)}
                 />
               </div>
 
-              {/* API Key (only for OpenAI) */}
-              {llmSettings.provider === "openai" && (
+              {/* API Key (only for OpenAI and Ollama Cloud) */}
+              {(llmSettings.provider === "openai" || llmSettings.provider === "ollama_cloud") && (
                 <div className="space-y-2">
                   <Label htmlFor="llm-apikey">API Key</Label>
                   <Input
@@ -574,7 +581,13 @@ export function AdminAnalysisTab() {
                   <div className="space-y-2">
                     <Input
                       id="llm-model"
-                      placeholder={llmSettings.provider === "ollama" ? "minicpm-v" : "gpt-4-vision-preview"}
+                      placeholder={
+                        llmSettings.provider === "ollama"
+                          ? "minicpm-v"
+                          : llmSettings.provider === "ollama_cloud"
+                            ? "minicpm-v"
+                            : "gpt-4-vision-preview"
+                      }
                       value={llmSettings.model}
                       onChange={(e) => handleLlmFieldChange("model", e.target.value)}
                     />

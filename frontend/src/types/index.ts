@@ -495,7 +495,7 @@ export interface OcrClassificationStatusResponse {
 
 export interface LlmSettingsDTO {
   id: number
-  provider: "ollama" | "openai"
+  provider: "ollama" | "ollama_cloud" | "openai"
   apiUrl: string
   apiKey: string
   model: string
@@ -509,7 +509,7 @@ export interface LlmSettingsDTO {
 }
 
 export interface UpdateLlmSettingsRequest {
-  provider?: "ollama" | "openai"
+  provider?: "ollama" | "ollama_cloud" | "openai"
   apiUrl?: string
   apiKey?: string
   model?: string

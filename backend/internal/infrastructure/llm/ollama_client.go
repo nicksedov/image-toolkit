@@ -13,15 +13,17 @@ import (
 // OllamaClient implements Client for Ollama API
 type OllamaClient struct {
 	BaseURL            string
+	APIKey             string
 	Model              string
 	Timeout            time.Duration
 	MaxImageMegapixels float64
 }
 
 // NewOllamaClient creates a new Ollama client
-func NewOllamaClient(baseURL, model string, maxImageMegapixels float64) *OllamaClient {
+func NewOllamaClient(baseURL, apiKey, model string, maxImageMegapixels float64) *OllamaClient {
 	return &OllamaClient{
 		BaseURL:            baseURL,
+		APIKey:             apiKey,
 		Model:              model,
 		Timeout:            5 * time.Minute, // VL models can be slow
 		MaxImageMegapixels: maxImageMegapixels,
@@ -84,7 +86,15 @@ func (c *OllamaClient) Recognize(imagePath string, systemPrompt string, userMess
 
 	// Send request
 	client := &http.Client{Timeout: c.Timeout}
-	resp, err := client.Post(c.BaseURL+"/api/chat", "application/json", bytes.NewBuffer(reqBody))
+	httpReq, err := http.NewRequest("POST", c.BaseURL+"/api/chat", bytes.NewBuffer(reqBody))
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	if c.APIKey != "" {
+		httpReq.Header.Set("Authorization", "Bearer "+c.APIKey)
+	}
+	resp, err := client.Do(httpReq)
 	if err != nil {
 		return "", fmt.Errorf("failed to send request: %w", err)
 	}
@@ -118,7 +128,15 @@ type ollamaModel struct {
 
 // ListModels returns a list of available models from Ollama server
 func (c *OllamaClient) ListModels() ([]ModelInfo, error) {
-	resp, err := http.Get(c.BaseURL + "/api/tags")
+	httpReq, err := http.NewRequest("GET", c.BaseURL+"/api/tags", nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	if c.APIKey != "" {
+		httpReq.Header.Set("Authorization", "Bearer "+c.APIKey)
+	}
+	client := &http.Client{Timeout: c.Timeout}
+	resp, err := client.Do(httpReq)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to Ollama: %w", err)
 	}

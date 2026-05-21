@@ -119,7 +119,7 @@ type OcrBoundingBox struct {
 // LlmSettings stores VL LLM connection settings (singleton, ID=1)
 type LlmSettings struct {
 	ID                   uint      `gorm:"primaryKey" json:"id"`
-	Provider             string    `gorm:"default:ollama;not null" json:"provider"` // "ollama" or "openai"
+	Provider             string    `gorm:"default:ollama;not null" json:"provider"` // "ollama", "ollama_cloud" or "openai"
 	ApiUrl               string    `gorm:"not null" json:"apiUrl"`
 	ApiKey               string    `gorm:"default:''" json:"apiKey"` // Empty for Ollama
 	Model                string    `gorm:"not null" json:"model"`
