@@ -330,7 +330,7 @@ export function AdminAnalysisTab() {
   const handleLoadModels = useCallback(async () => {
     setIsModelsLoading(true)
     try {
-      const response = await fetchLlmModels()
+      const response = await fetchLlmModels(llmSettings.activeProvider)
       if (response.success && response.models.length > 0) {
         setAvailableModels(response.models)
         toast.success(`Загружено ${response.models.length} моделей`)
@@ -342,7 +342,7 @@ export function AdminAnalysisTab() {
     } finally {
       setIsModelsLoading(false)
     }
-  }, [])
+  }, [llmSettings.activeProvider])
 
   // Check OCR classification status on mount to detect already running processes
   const checkInitialOCRStatus = useCallback(async () => {

@@ -411,8 +411,12 @@ export function fetchLlmRecognition(path: string): Promise<LlmOcrDataResponse> {
   return apiGet<LlmOcrDataResponse>("/api/llm/recognition", { path })
 }
 
-export function fetchLlmModels(): Promise<LlmModelsResponse> {
-  return apiGet<LlmModelsResponse>("/api/llm/models")
+export function fetchLlmModels(provider?: string): Promise<LlmModelsResponse> {
+  const params: Record<string, string> = {}
+  if (provider) {
+    params.provider = provider
+  }
+  return apiGet<LlmModelsResponse>("/api/llm/models", params)
 }
 
 // --- Tag Scan ---

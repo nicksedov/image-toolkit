@@ -2390,24 +2390,34 @@ func (s *Server) handleGetLlmRecognition(c *gin.Context) {
 
 // handleGetLlmModels returns a list of available LLM models from the configured server
 func (s *Server) handleGetLlmModels(c *gin.Context) {
-	// Get LLM settings
-	settings, found := s.settingsLoader.LlmSettingsIfExists()
-	if !found {
-		c.JSON(http.StatusNotFound, dto.LlmModelsResponse{
-			Success:  false,
-			Error:    "LLM settings not configured",
-			Provider: "",
-		})
-		return
+	// Check for optional provider query parameter
+	providerName := c.Query("provider")
+
+	var provider domain.LlmProvider
+	var found bool
+
+	if providerName != "" {
+		// Load specific provider
+		provider, found = s.settingsLoader.LlmProvider(providerName)
+	} else {
+		// Get active provider from settings
+		settings, settingsFound := s.settingsLoader.LlmSettingsIfExists()
+		if !settingsFound {
+			c.JSON(http.StatusNotFound, dto.LlmModelsResponse{
+				Success:  false,
+				Error:    "LLM settings not configured",
+				Provider: "",
+			})
+			return
+		}
+		provider, found = s.settingsLoader.LlmProvider(settings.ActiveProvider)
 	}
 
-	// Get active provider settings
-	provider, found := s.settingsLoader.LlmProvider(settings.ActiveProvider)
 	if !found {
 		c.JSON(http.StatusNotFound, dto.LlmModelsResponse{
 			Success:  false,
-			Error:    "Active provider not configured",
-			Provider: settings.ActiveProvider,
+			Error:    "Provider not configured",
+			Provider: providerName,
 		})
 		return
 	}
@@ -2415,7 +2425,7 @@ func (s *Server) handleGetLlmModels(c *gin.Context) {
 	if !provider.Enabled {
 		c.JSON(http.StatusServiceUnavailable, dto.LlmModelsResponse{
 			Success:  false,
-			Error:    "LLM recognition is not enabled",
+			Error:    "LLM recognition is not enabled for this provider",
 			Provider: provider.Name,
 		})
 		return
