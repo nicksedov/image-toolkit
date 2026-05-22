@@ -196,7 +196,6 @@ export function AdminAnalysisTab() {
           providerApiUrl: currentProvider.apiUrl,
           providerApiKey: currentProvider.apiKey,
           providerModel: currentProvider.model,
-          providerEnabled: currentProvider.enabled,
         })
       }
       toast.success(t("llm_ocr.settingsSaved"))
@@ -626,21 +625,6 @@ export function AdminAnalysisTab() {
                     )}
                   </div>
                 )}
-              </div>
-
-              {/* Enable/Disable Checkbox */}
-              <div className="flex items-center space-x-2 rounded-lg border p-3">
-                <Checkbox
-                  id="llm-enabled"
-                  checked={getCurrentProvider()?.enabled ?? false}
-                  onCheckedChange={(checked) => handleLlmFieldChange("enabled", checked === true)}
-                />
-                <div className="space-y-0.5">
-                  <Label htmlFor="llm-enabled">{t("llm_ocr.enableRecognition")}</Label>
-                  <p className="text-xs text-muted-foreground">
-                    {t("llm_ocr.enableDescription")}
-                  </p>
-                </div>
               </div>
 
               {/* Save Button */}

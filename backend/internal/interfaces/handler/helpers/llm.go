@@ -37,11 +37,6 @@ func (f *LLMFactory) CreateClient(c *gin.Context) (llm.Client, domain.LlmProvide
 		return nil, domain.LlmProvider{}, false
 	}
 
-	if !provider.Enabled {
-		c.JSON(http.StatusServiceUnavailable, i18n.ErrorResponse(i18n.MsgLlmOcrNotEnabled))
-		return nil, domain.LlmProvider{}, false
-	}
-
 	client, err := llm.NewClient(provider.Name, provider.ApiUrl, provider.ApiKey, provider.Model, f.maxImageMegapixels)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, i18n.ErrorResponse(i18n.MsgLlmOcrRecognitionFailed))
@@ -62,11 +57,6 @@ func (f *LLMFactory) GetEnabledSettings(c *gin.Context) (domain.LlmSettings, dom
 	var provider domain.LlmProvider
 	if err := f.db.Where("name = ?", settings.ActiveProvider).First(&provider).Error; err != nil {
 		c.JSON(http.StatusNotFound, i18n.ErrorResponse(i18n.MsgLlmOcrSettingsNotFound))
-		return domain.LlmSettings{}, domain.LlmProvider{}, false
-	}
-
-	if !provider.Enabled {
-		c.JSON(http.StatusServiceUnavailable, i18n.ErrorResponse(i18n.MsgLlmOcrNotEnabled))
 		return domain.LlmSettings{}, domain.LlmProvider{}, false
 	}
 

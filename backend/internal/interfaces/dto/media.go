@@ -456,11 +456,10 @@ type OcrDataResponse struct {
 
 // LlmProviderDTO for per-provider LLM settings responses
 type LlmProviderDTO struct {
-	Name    string `json:"name"`    // "ollama", "ollama_cloud", "openai"
-	ApiUrl  string `json:"apiUrl"`
-	ApiKey  string `json:"apiKey"` // Masked in responses
-	Model   string `json:"model"`
-	Enabled bool   `json:"enabled"`
+	Name   string `json:"name"`    // "ollama", "ollama_cloud", "openai"
+	ApiUrl string `json:"apiUrl"`
+	ApiKey string `json:"apiKey"` // Masked in responses
+	Model  string `json:"model"`
 }
 
 // LlmSettingsResponse for GET /api/llm/settings
@@ -483,7 +482,6 @@ type UpdateLlmSettingsRequest struct {
 	ProviderApiUrl      *string `json:"providerApiUrl"`
 	ProviderApiKey      *string `json:"providerApiKey"`
 	ProviderModel       *string `json:"providerModel"`
-	ProviderEnabled     *bool   `json:"providerEnabled"`
 	TagScanEnabled      *bool   `json:"tagScanEnabled,omitempty"`
 	TagScanStartHour    *int    `json:"tagScanStartHour,omitempty"`
 	TagScanStartMinute  *int    `json:"tagScanStartMinute,omitempty"`

@@ -44,6 +44,9 @@ func InitDatabase(cfg *config.AppConfig) (*gorm.DB, error) {
 		return nil, fmt.Errorf("failed to migrate database: %w", err)
 	}
 
+	// Drop legacy enabled column from llm_providers (LLM is always active now)
+	db.Exec("ALTER TABLE llm_providers DROP COLUMN IF EXISTS enabled")
+
 	// Create composite index for calendar pagination: covers ORDER BY date_taken, image_file_id
 	db.Exec("CREATE INDEX IF NOT EXISTS idx_image_metadata_date_taken_file_id ON image_metadata (date_taken, image_file_id)")
 
@@ -69,9 +72,9 @@ func InitDatabase(cfg *config.AppConfig) (*gorm.DB, error) {
 	db.Model(&domain.LlmProvider{}).Count(&providerCount)
 	if providerCount == 0 {
 		db.Create([]domain.LlmProvider{
-			{Name: "ollama", ApiUrl: "http://localhost:11434", Model: "minicpm-v", Enabled: false},
-			{Name: "ollama_cloud", ApiUrl: "https://ollama.com", Model: "minicpm-v", Enabled: false},
-			{Name: "openai", ApiUrl: "https://api.openai.com", Model: "gpt-4-vision-preview", Enabled: false},
+			{Name: "ollama", ApiUrl: "http://localhost:11434", Model: "minicpm-v"},
+			{Name: "ollama_cloud", ApiUrl: "https://ollama.com", Model: "minicpm-v"},
+			{Name: "openai", ApiUrl: "https://api.openai.com", Model: "gpt-4-vision-preview"},
 		})
 	}
 

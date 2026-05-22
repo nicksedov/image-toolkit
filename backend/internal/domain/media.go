@@ -123,7 +123,6 @@ type LlmProvider struct {
 	ApiUrl    string    `gorm:"not null" json:"apiUrl"`
 	ApiKey    string    `gorm:"default:''" json:"apiKey"`
 	Model     string    `gorm:"not null" json:"model"`
-	Enabled   bool      `gorm:"default:false" json:"enabled"`
 	CreatedAt time.Time `json:"createdAt"`
 	UpdatedAt time.Time `json:"updatedAt"`
 }
