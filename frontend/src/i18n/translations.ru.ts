@@ -318,6 +318,7 @@ export const translationsRu = {
   "adminPanel.delete": "Удалить",
   "adminPanel.deleteConfirm": "Удалить пользователя \"{displayName}\"?",
   "adminPanel.deleteSuccess": "Пользователь удален",
+  "adminPanel.createUserSuccess": "Пользователь создан",
   "adminPanel.deleteFailed": "Не удалось удалить пользователя",
   "adminPanel.activateSuccess": "Пользователь активирован",
   "adminPanel.deactivateSuccess": "Пользователь деактивирован",

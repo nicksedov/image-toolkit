@@ -46,7 +46,7 @@ export function AdminPanel() {
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [t])
 
   useEffect(() => {
     loadUsers()
@@ -212,7 +212,7 @@ function CreateUserDialog({
     setIsLoading(true)
     try {
       await createUser({ login, displayName, role, password })
-      toast.success(t("adminPanel.deleteSuccess"))
+      toast.success(t("adminPanel.createUserSuccess"))
       setLogin("")
       setDisplayName("")
       setPassword("")

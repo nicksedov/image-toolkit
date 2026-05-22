@@ -318,6 +318,7 @@ export const translationsEn = {
   "adminPanel.delete": "Delete",
   "adminPanel.deleteConfirm": "Delete user \"{displayName}\"?",
   "adminPanel.deleteSuccess": "User deleted",
+  "adminPanel.createUserSuccess": "User created",
   "adminPanel.deleteFailed": "Failed to delete user",
   "adminPanel.activateSuccess": "User activated",
   "adminPanel.deactivateSuccess": "User deactivated",

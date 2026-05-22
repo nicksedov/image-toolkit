@@ -47,7 +47,7 @@ export function AiLightbox({ imagePath, onClose }: AiLightboxProps) {
   }, [])
 
   // Start polling for task status
-  const startPolling = useCallback((taskId: string, _action: AiActionType) => {
+  const startPolling = useCallback((taskId: string) => {
     stopPolling()
 
     pollingRef.current = setInterval(async () => {
@@ -89,7 +89,7 @@ export function AiLightbox({ imagePath, onClose }: AiLightboxProps) {
       })
 
       // Start polling for result
-      startPolling(startResponse.taskId, action)
+      startPolling(startResponse.taskId)
     } catch (err) {
       console.error("AI action start failed:", err)
       setLoading(false)
