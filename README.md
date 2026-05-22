@@ -1,114 +1,84 @@
 # Image Toolkit
 
-Приложение для поиска и управления дубликатами изображений в медиатеке на локальном диске.
+A web application for finding and managing duplicate images in local media libraries.
 
-Проект разделен на два подпроекта:
-- **backend/** -- Go REST API с бизнес-логикой (сканирование, БД, генерация скриптов)
-- **frontend/** -- React + TypeScript веб-интерфейс (Vite, Tailwind CSS, shadcn/ui)
+## Features
 
-## Возможности
+- Scan one or more directories for duplicate images
+- Detect duplicates by file size and MD5 checksum matching
+- Web interface with image thumbnails (up to 192px)
+- Direct file deletion or move to trash
+- Generate bash/PowerShell scripts for file relocation
+- Batch deduplication by folder patterns
+- Asynchronous scanning with progress display
+- Metadata caching in PostgreSQL for faster rescans
+- OCR classification for document detection
+- Geolocation extraction and clustering on map
+- AI-powered image tagging
+- User authentication with session management
+- Multi-language support (English, Russian)
+- Dark/light theme
 
-- Сканирование одной или нескольких директорий на наличие дубликатов изображений
-- Определение дубликатов по совпадению размера файла и контрольной суммы (MD5)
-- Веб-интерфейс с миниатюрами изображений (до 192px)
-- Прямое удаление или перемещение файлов в корзину
-- Генерация bash/PowerShell скриптов для перемещения файлов
-- Пакетная дедупликация по шаблонам папок
-- Асинхронное сканирование с отображением прогресса
-- Кэширование метаданных в PostgreSQL для ускорения повторных сканирований
-
-## Поддерживаемые форматы
+## Supported Formats
 
 JPG, JPEG, PNG, GIF, BMP, TIFF, TIF, WEBP
 
-## Требования
+## Requirements
 
-- Go 1.23 или выше
-- Node.js 18 или выше (для фронтенда)
-- PostgreSQL 12 или выше
+- Go 1.25 or higher
+- Node.js 18 or higher (for frontend)
+- PostgreSQL 12 or higher
+- exiftool (for EXIF metadata extraction)
 
-## Структура проекта
 
-```
-image-toolkit/
-├── backend/
-│   ├── main.go           # Точка входа, CLI, запуск сервера
-│   ├── config.go         # Конфигурация (переменные окружения)
-│   ├── database.go       # Подключение к PostgreSQL
-│   ├── models.go         # Модели данных (ImageFile, DuplicateGroup)
-│   ├── scanner.go        # Сканирование и поиск дубликатов
-│   ├── thumbnail.go      # Генерация миниатюр
-│   ├── handlers.go       # HTTP обработчики (JSON API)
-│   ├── dto.go            # DTO для запросов/ответов API
-│   ├── middleware.go      # CORS middleware
-│   ├── scan_manager.go   # Асинхронное сканирование
-│   ├── .env.example      # Пример конфигурации
-│   ├── go.mod
-│   └── go.sum
-│
-├── frontend/
-│   ├── src/
-│   │   ├── App.tsx       # Главный компонент
-│   │   ├── api/          # HTTP клиент и функции API
-│   │   ├── types/        # TypeScript интерфейсы
-│   │   ├── hooks/        # React хуки
-│   │   ├── components/   # UI компоненты
-│   │   └── lib/          # Утилиты
-│   ├── .env.example      # Пример конфигурации
-│   ├── package.json
-│   └── vite.config.ts
-│
-├── .gitignore
-└── README.md
-```
 
-## Конфигурация
+## Configuration
 
 ### Backend (`backend/.env`)
 
-| Переменная     | Описание                              | По умолчанию             |
-|----------------|---------------------------------------|--------------------------|
-| `DB_HOST`      | Хост PostgreSQL                       | `localhost`              |
-| `DB_PORT`      | Порт PostgreSQL                       | `5432`                   |
-| `DB_USER`      | Пользователь PostgreSQL               | `postgres`               |
-| `DB_PASSWORD`  | Пароль PostgreSQL                     | `postgres`               |
-| `DB_NAME`      | Имя базы данных                       | `image_toolkit`          |
-| `SERVER_HOST`  | Адрес привязки API сервера            | `0.0.0.0`                |
-| `SERVER_PORT`  | Порт API сервера                      | `5170`                   |
-| `CORS_ORIGINS` | Разрешенные источники (через запятую), или `*` для разрешения всех | `http://localhost:5173`  |
+| Variable       | Description                              | Default                  |
+|----------------|------------------------------------------|--------------------------|
+| `DB_HOST`      | PostgreSQL host                          | `localhost`              |
+| `DB_PORT`      | PostgreSQL port                          | `5432`                   |
+| `DB_USER`      | PostgreSQL user                          | `postgres`               |
+| `DB_PASSWORD`  | PostgreSQL password                      | `postgres`               |
+| `DB_NAME`      | Database name                            | `image_toolkit`          |
+| `SERVER_HOST`  | API server bind address                  | `0.0.0.0`                |
+| `SERVER_PORT`  | API server port                          | `5170`                   |
+| `CORS_ORIGINS` | Allowed origins (comma-separated), or `*` | `http://localhost:5173` |
 
 ### Frontend (`frontend/.env`)
 
-| Переменная     | Описание                            | По умолчанию |
-|----------------|-------------------------------------|--------------|
-| `VITE_API_URL` | URL бэкенд API                      | (пусто -- используется Vite прокси) |
+| Variable       | Description                          | Default |
+|----------------|--------------------------------------|---------|
+| `VITE_API_URL` | Backend API URL                      | (empty -- uses Vite proxy) |
 
-В режиме разработки Vite проксирует запросы `/api/*` на бэкенд (`http://localhost:5170`).
-Для продакшена укажите полный URL бэкенда в `VITE_API_URL`.
+In development mode, Vite proxies `/api/*` requests to the backend (`http://localhost:5170`).
+For production, specify the full backend URL in `VITE_API_URL`.
 
-## Сборка и запуск
+## Build & Run
 
-### 1. Создание базы данных PostgreSQL
+### 1. Create PostgreSQL Database
 
 ```sql
 CREATE DATABASE image_toolkit;
 ```
 
-### 2. Настройка окружения
+### 2. Setup Environment
 
 ```bash
 # Backend
 cp backend/.env.example backend/.env
-# Отредактируйте backend/.env -- укажите параметры подключения к БД
+# Edit backend/.env -- specify database connection parameters
 
 # Frontend
 cp frontend/.env.example frontend/.env
-# Для разработки можно оставить VITE_API_URL пустым (используется прокси)
+# For development, VITE_API_URL can be left empty (uses proxy)
 ```
 
-### 3. Сборка бэкенда 
+### 3. Build Backend 
 
-#### Для запуска на сервере без Docker
+#### For server deployment without Docker
 ```bash
 cd backend
 go mod tidy
@@ -116,56 +86,56 @@ go build -o image-toolkit.exe ./cmd/server/    # Windows
 go build -o image-toolkit ./cmd/server/        # Linux/macOS
 ```
 
-#### Для запуска на сервере в Docker-контейнере
+#### For Docker container deployment
 docker build -t localhost:5000/image-tool:<X.Y> .
 docker push localhost:5000/image-tool:<X.Y>
 
-### 4. Сборка фронтенда
+### 4. Build Frontend
 
 ```bash
 cd frontend
 npm install
-npm run build    # Собирает в frontend/dist/
+npm run build    # Builds to frontend/dist/
 ```
 
-### 5. Запуск (режим разработки)
+### 5. Run (Development Mode)
 
-**Терминал 1 -- бэкенд:**
+**Terminal 1 -- Backend:**
 
 ```bash
 cd backend
 go run .
 ```
 
-Бэкенд запустится на `http://0.0.0.0:5170` по умолчанию.
+Backend will start on `http://0.0.0.0:5170` by default.
 
-**Терминал 2 -- фронтенд:**
+**Terminal 2 -- Frontend:**
 
 ```bash
 cd frontend
 npm run dev
 ```
 
-Откройте в браузере: `http://localhost:5173`
+Open in browser: `http://localhost:5173`
 
-### 6. Запуск (продакшен)
+### 6. Run (Production)
 
 ```bash
-# Бэкенд
+# Backend
 cd backend
 ./image-toolkit      # Windows: image-toolkit.exe
 
-# Фронтенд -- статические файлы из frontend/dist/
-# Раздайте через nginx, Caddy или любой другой веб-сервер
+# Frontend -- static files from frontend/dist/
+# Serve via nginx, Caddy, or any other web server
 ```
 
-## Доступ с удалённой машины (тестирование в локальной сети)
+## Remote Access (Local Network Testing)
 
-Оба сервера (бэкенд и фронтенд) по умолчанию слушают на `0.0.0.0`, что делает их доступными с любой машины в локальной сети.
+Both servers (backend and frontend) listen on `0.0.0.0` by default, making them accessible from any machine on the local network.
 
-### 1. Узнайте IP-адрес сервера
+### 1. Find Server IP Address
 
-На машине, где запущены серверы:
+On the machine where servers are running:
 
 ```bash
 # Windows
@@ -175,37 +145,37 @@ ipconfig
 ip addr        # или: hostname -I
 ```
 
-Запомните IPv4-адрес (например, `192.168.1.100`).
+Remember the IPv4 address (e.g., `192.168.1.100`).
 
-### 2. Настройте бэкенд
+### 2. Configure Backend
 
-В `backend/.env` убедитесь, что заданы:
+In `backend/.env`, ensure these are set:
 
 ```env
 SERVER_HOST=0.0.0.0
 CORS_ORIGINS=*
 ```
 
-- `SERVER_HOST=0.0.0.0` -- бэкенд слушает на всех сетевых интерфейсах
-- `CORS_ORIGINS=*` -- разрешает запросы с любого источника (подходит для разработки в доверенной сети)
+- `SERVER_HOST=0.0.0.0` -- backend listens on all network interfaces
+- `CORS_ORIGINS=*` -- allows requests from any origin (suitable for development in trusted network)
 
-Для более строгой настройки перечислите конкретные источники:
+For stricter configuration, list specific origins:
 
 ```env
 CORS_ORIGINS=http://192.168.1.100:5173,http://localhost:5173
 ```
 
-### 3. Настройте фронтенд
+### 3. Configure Frontend
 
-В `frontend/.env` оставьте `VITE_API_URL` пустым:
+In `frontend/.env`, leave `VITE_API_URL` empty:
 
 ```env
 VITE_API_URL=
 ```
 
-Это обеспечивает проксирование через Vite -- все `/api/*` запросы будут перенаправляться на бэкенд на той же машине. Vite dev-сервер уже слушает на `0.0.0.0` (`host: true` в `vite.config.ts`).
+This enables proxying through Vite -- all `/api/*` requests will be forwarded to the backend on the same machine. The Vite dev server already listens on `0.0.0.0` (`host: true` in `vite.config.ts`).
 
-### 4. Запустите оба сервера
+### 4. Start Both Servers
 
 ```bash
 # Терминал 1 -- бэкенд
@@ -217,19 +187,19 @@ cd frontend
 npm run dev
 ```
 
-### 5. Откройте с удалённой машины
+### 5. Access from Remote Machine
 
-На удалённой машине в браузере откройте:
+On the remote machine, open in browser:
 
 ```
 http://192.168.1.100:5173
 ```
 
-Замените `192.168.1.100` на реальный IP-адрес сервера.
+Replace `192.168.1.100` with the actual server IP address.
 
-### 6. Файрвол
+### 6. Firewall
 
-Если удалённая машина не может подключиться, проверьте, что файрвол на серверной машине разрешает входящие соединения на порты **5170** (бэкенд) и **5173** (фронтенд).
+If the remote machine cannot connect, check that the firewall on the server machine allows incoming connections on ports **5170** (backend) and **5173** (frontend).
 
 Windows (PowerShell от администратора):
 
@@ -245,20 +215,20 @@ sudo ufw allow 5170/tcp
 sudo ufw allow 5173/tcp
 ```
 
-## API
+## API Reference
 
-Все маршруты с префиксом `/api/`. Ответы в формате JSON.
+All routes are prefixed with `/api/`. Responses are in JSON format.
 
-| Метод | Маршрут               | Описание                                |
-|-------|-----------------------|-----------------------------------------|
-| GET   | `/api/duplicates`     | Группы дубликатов с пагинацией          |
-| POST  | `/api/scan`           | Запуск асинхронного сканирования        |
-| GET   | `/api/status`         | Статус текущего сканирования            |
-| GET   | `/api/thumbnail`      | Миниатюра для файла                     |
-| POST  | `/api/generate-script`| Генерация скрипта удаления              |
-| POST  | `/api/delete-files`   | Прямое удаление файлов                  |
-| GET   | `/api/folder-patterns`| Шаблоны папок для пакетной дедупликации |
-| POST  | `/api/batch-delete`   | Пакетное удаление по правилам           |
+| Method | Route                | Description                             |
+|--------|----------------------|-----------------------------------------|
+| GET    | `/api/duplicates`    | Duplicate groups with pagination        |
+| POST   | `/api/scan`          | Start asynchronous scan                 |
+| GET    | `/api/status`        | Current scan status                     |
+| GET    | `/api/thumbnail`     | Thumbnail for file                      |
+| POST   | `/api/generate-script`| Generate deletion script              |
+| POST   | `/api/delete-files`  | Direct file deletion                    |
+| GET    | `/api/folder-patterns`| Folder patterns for batch deduplication|
+| POST   | `/api/batch-delete`  | Batch deletion by rules                 |
 
 ## Лицензия
 
