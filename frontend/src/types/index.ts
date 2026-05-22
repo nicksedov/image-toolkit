@@ -494,12 +494,11 @@ export interface OcrClassificationStatusResponse {
 // --- LLM OCR Types ---
 
 export interface LlmProviderDTO {
-  name: "ollama" | "ollama_cloud" | "openai"
-  apiUrl: string
-  apiKey: string
-  model: string
-  enabled: boolean
-}
+   name: "ollama" | "ollama_cloud" | "openai"
+   apiUrl: string
+   apiKey: string
+   model: string
+ }
 
 export interface LlmSettingsResponse {
   id: number
@@ -514,19 +513,18 @@ export interface LlmSettingsResponse {
 }
 
 export interface UpdateLlmSettingsRequest {
-  activeProvider?: "ollama" | "ollama_cloud" | "openai"
-  providerName?: "ollama" | "ollama_cloud" | "openai"
-  providerApiUrl?: string
-  providerApiKey?: string
-  providerModel?: string
-  providerEnabled?: boolean
-  tagScanEnabled?: boolean
-  tagScanStartHour?: number
-  tagScanStartMinute?: number
-  tagScanEndHour?: number
-  tagScanEndMinute?: number
-  tagScanTimezoneOffset?: number // User's timezone offset in minutes (JS getTimezoneOffset: UTC+3 = -180)
-}
+   activeProvider?: "ollama" | "ollama_cloud" | "openai"
+   providerName?: "ollama" | "ollama_cloud" | "openai"
+   providerApiUrl?: string
+   providerApiKey?: string
+   providerModel?: string
+   tagScanEnabled?: boolean
+   tagScanStartHour?: number
+   tagScanStartMinute?: number
+   tagScanEndHour?: number
+   tagScanEndMinute?: number
+   tagScanTimezoneOffset?: number // User's timezone offset in minutes (JS getTimezoneOffset: UTC+3 = -180)
+ }
 
 export interface TagScanStatusResponse {
   running: boolean

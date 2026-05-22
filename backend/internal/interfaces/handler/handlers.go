@@ -1028,15 +1028,15 @@ func (s *Server) handleGetImagesMissingExif(c *gin.Context) {
 		missingDate := r.DateTaken == nil
 		missingGps := r.GPSLatitude == nil || r.GPSLongitude == nil
 		imageDTOs[i] = dto.GalleryImageDTO{
-			ID:             r.ID,
-			Path:           r.Path,
-			FileName:       filepath.Base(r.Path),
-			DirPath:        filepath.Dir(r.Path),
-			Size:           r.Size,
-			SizeHuman:      formatSize(r.Size),
-			ModTime:        r.ModTime.Format(helpers.DateTimeFormat),
-			MissingDate:    missingDate,
-			MissingGps:     missingGps,
+			ID:          r.ID,
+			Path:        r.Path,
+			FileName:    filepath.Base(r.Path),
+			DirPath:     filepath.Dir(r.Path),
+			Size:        r.Size,
+			SizeHuman:   formatSize(r.Size),
+			ModTime:     r.ModTime.Format(helpers.DateTimeFormat),
+			MissingDate: missingDate,
+			MissingGps:  missingGps,
 		}
 	}
 
@@ -2025,11 +2025,10 @@ func (s *Server) handleGetLlmSettings(c *gin.Context) {
 			apiKey = apiKey[:4] + "..." + apiKey[len(apiKey)-4:]
 		}
 		providerDTOs[i] = dto.LlmProviderDTO{
-			Name:    p.Name,
-			ApiUrl:  p.ApiUrl,
-			ApiKey:  apiKey,
-			Model:   p.Model,
-			Enabled: p.Enabled,
+			Name:   p.Name,
+			ApiUrl: p.ApiUrl,
+			ApiKey: apiKey,
+			Model:  p.Model,
 		}
 	}
 
@@ -2067,9 +2066,6 @@ func (s *Server) handleUpdateLlmSettings(c *gin.Context) {
 		if req.ProviderModel != nil {
 			provUpdates["model"] = *req.ProviderModel
 		}
-		if req.ProviderEnabled != nil {
-			provUpdates["enabled"] = *req.ProviderEnabled
-		}
 
 		if err == gorm.ErrRecordNotFound {
 			// Create new provider
@@ -2084,9 +2080,6 @@ func (s *Server) handleUpdateLlmSettings(c *gin.Context) {
 			}
 			if req.ProviderModel != nil {
 				provider.Model = *req.ProviderModel
-			}
-			if req.ProviderEnabled != nil {
-				provider.Enabled = *req.ProviderEnabled
 			}
 			if err := s.db.Create(&provider).Error; err != nil {
 				c.JSON(http.StatusInternalServerError, i18n.ErrorResponse(i18n.MsgLlmOcrSettingsSaveFailed))
@@ -2418,15 +2411,6 @@ func (s *Server) handleGetLlmModels(c *gin.Context) {
 			Success:  false,
 			Error:    "Provider not configured",
 			Provider: providerName,
-		})
-		return
-	}
-
-	if !provider.Enabled {
-		c.JSON(http.StatusServiceUnavailable, dto.LlmModelsResponse{
-			Success:  false,
-			Error:    "LLM recognition is not enabled for this provider",
-			Provider: provider.Name,
 		})
 		return
 	}

@@ -484,13 +484,8 @@ func (tsm *TagScanManager) processImage(imageFile domain.ImageFile) {
 		tsm.mu.Unlock()
 		return
 	}
-	log.Printf("Tag scan: provider=%s, enabled=%v, model=%s, url=%s",
-		provider.Name, provider.Enabled, provider.Model, provider.ApiUrl)
-
-	if !provider.Enabled {
-		log.Println("Tag scan: LLM not enabled, skipping")
-		return
-	}
+	log.Printf("Tag scan: provider=%s, model=%s, url=%s",
+		provider.Name, provider.Model, provider.ApiUrl)
 
 	// Create LLM client
 	log.Printf("Tag scan: creating LLM client for provider=%s, url=%s, model=%s",
