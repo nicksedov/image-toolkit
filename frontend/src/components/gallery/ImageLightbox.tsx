@@ -26,16 +26,16 @@ export function ImageLightbox({ imagePath, onClose }: ImageLightboxProps) {
       titleKey="lightbox.title"
       descriptionKey="lightbox.description"
     >
-      <div className="flex flex-col md:flex-row h-full max-h-[85vh]">
-        <div className="flex-1 flex items-center justify-center bg-black min-h-[300px] min-w-0">
+      <div className="flex flex-col md:flex-row h-full">
+        <div className="flex-1 flex items-center justify-center bg-black min-h-[300px] min-w-0 h-full">
           <img
             src={imageUrl}
             alt={t("lightbox.alt")}
-            className="max-w-full max-h-[85vh] md:max-h-[85vh] object-contain"
+            className="max-w-full max-h-full object-contain"
           />
         </div>
 
-        <div className="w-full md:w-[300px] lg:w-[340px] md:min-w-[280px] border-t md:border-t-0 md:border-l bg-card overflow-y-auto max-h-[40vh] md:max-h-[85vh] shrink-0">
+        <div className="w-full md:w-[300px] lg:w-[340px] md:min-w-[280px] border-t md:border-t-0 md:border-l bg-card overflow-y-auto shrink-0 h-full">
           <div className="p-4">
             <h3 className="text-sm font-semibold mb-3">{t("metadata.title")}</h3>
             {isLoading ? (

@@ -24,7 +24,7 @@ export function AiImagePanel({ imageUrl }: AiImagePanelProps) {
   }
 
   return (
-    <div className="flex-1 flex items-center justify-center bg-black min-h-[300px] min-w-0 relative">
+    <div className="flex-1 flex items-center justify-center bg-black min-h-[300px] min-w-0 relative h-full">
       {!imageLoaded && !imageError && (
         <div className="absolute inset-0 flex items-center justify-center">
           <Skeleton className="w-32 h-32 rounded-lg" />

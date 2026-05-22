@@ -33,7 +33,7 @@ export function OcrImagePanel({
     : 1
 
   return (
-    <div className="w-[50%] flex items-center justify-center p-8 relative">
+    <div className="w-[50%] flex items-center justify-center p-8 relative h-full">
       {loading && (
         <div className="absolute inset-0 flex items-center justify-center">
           <Loader2 className="h-8 w-8 animate-spin text-white" />
@@ -46,7 +46,7 @@ export function OcrImagePanel({
             ref={imageRef}
             src={imageUrl}
             alt={t("lightbox.alt")}
-            className="max-w-full max-h-[75vh] object-contain"
+            className="max-w-full max-h-full object-contain"
             onLoad={handleImageLoad}
           />
         ) : loading && (

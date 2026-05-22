@@ -124,7 +124,7 @@ export function AiActionPanel({
   }
 
   return (
-    <div className="w-full md:w-[400px] lg:w-[450px] md:min-w-[350px] border-l bg-card max-h-[90vh] shrink-0 flex flex-col">
+    <div className="w-full md:w-[400px] lg:w-[450px] md:min-w-[350px] border-l bg-card h-full shrink-0 flex flex-col overflow-y-auto">
       <div className="p-4 flex-shrink-0">
         <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
           <Sparkles className="h-4 w-4" />
