@@ -1,8 +1,6 @@
 @import "tailwindcss";
 @import "leaflet/dist/leaflet.css";
 
-@custom-variant dark (&:is(.dark *));
-
 :root {
   /* Light Purple Theme */
   --color-light-purple-bg: hsl(270 100% 98%);
@@ -60,7 +58,8 @@
   --color-light-green-muted-foreground: hsl(150 50% 45%);
   --color-light-green-accent: hsl(150 70% 82%);
   --color-light-green-accent-foreground: hsl(150 75% 25%);
-  --color-light-green-border: hsl(150 55% 78%);
+  --color-light-green-border: hsl(150 80% 70%);
+  --color-light-green-foreground: hsl(0 0% 100%);
   --color-light-green-input: hsl(150 55% 78%);
   --color-light-green-ring: hsl(150 75% 40%);
   --color-light-green-card: hsl(150 100% 94%);
