@@ -544,4 +544,24 @@ export const translationsEn = {
   "exif.emptyHint": "Great! All your images have date and GPS information.",
   "exif.missingDate": "Missing date taken",
   "exif.missingGps": "Missing GPS coordinates",
-} as const
+ 
+  // LLM Providers
+  "llm_providers.alias": "Alias",
+  "llm_providers.rename": "Rename",
+  "llm_providers.selectProvider": "Select a provider",
+  "llm_providers.selectModel": "Select a model",
+  "llm_providers.loadModels": "Load models",
+  "llm_providers.enterModelManually": "Enter model name manually",
+  "llm_providers.selectFromModels": "Select from available models",
+  "llm_providers.noProviders": "No providers configured. Add one below.",
+  "llm_providers.newProvider": "New Provider",
+  "llm_providers.type": "Type",
+  "llm_providers.add": "Add",
+  "llm_providers.addProvider": "Add Provider",
+  "llm_providers.aliasPlaceholder": "e.g., my_ollama_2",
+  "llm_providers.aliasMustBeUnique": "Alias must be unique",
+  "llm_providers.deleteConfirm": "Delete provider \"{alias}\"?",
+  "llm_providers.modelsLoaded": "Loaded {count} models",
+  "llm_providers.modelsLoadFailed": "Failed to load model list",
+  "llm_providers.providerLabel": "Provider: {alias}",
+ } as const

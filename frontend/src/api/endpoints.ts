@@ -48,6 +48,7 @@ import type {
   OcrDataResponse,
   OcrClassificationStatusResponse,
   LlmSettingsResponse,
+  LlmProviderDTO,
   UpdateLlmSettingsRequest,
   LlmOcrRequest,
   LlmRecognizeStatusResponse,
@@ -389,7 +390,7 @@ export function fetchOcrData(path: string): Promise<OcrDataResponse> {
   return apiGet<OcrDataResponse>("/api/ocr/data", { path })
 }
 
-// --- LLM OCR ---
+// --- LLM Settings (global: active provider + tag scan) ---
 
 export function fetchLlmSettings(): Promise<LlmSettingsResponse> {
   return apiGet<LlmSettingsResponse>("/api/llm/settings")
@@ -398,6 +399,33 @@ export function fetchLlmSettings(): Promise<LlmSettingsResponse> {
 export function updateLlmSettings(req: UpdateLlmSettingsRequest): Promise<{ message: string }> {
   return apiPut<{ message: string }>("/api/llm/settings", req)
 }
+
+// --- LLM Provider CRUD ---
+
+export function createLlmProvider(req: {
+  alias: string
+  name: string
+  apiUrl?: string
+  apiKey?: string
+  model?: string
+}): Promise<LlmProviderDTO> {
+  return apiPost<LlmProviderDTO>("/api/llm/providers", req)
+}
+
+export function updateLlmProvider(alias: string, req: {
+  apiUrl?: string
+  apiKey?: string
+  model?: string
+  alias?: string
+}): Promise<{ message: string }> {
+  return apiPut<{ message: string }>(`/api/llm/providers/${encodeURIComponent(alias)}`, req)
+}
+
+export function deleteLlmProvider(alias: string): Promise<{ message: string }> {
+  return apiDelete<{ message: string }>(`/api/llm/providers/${encodeURIComponent(alias)}`)
+}
+
+// --- LLM OCR ---
 
 export function recognizeWithLlm(req: LlmOcrRequest): Promise<LlmRecognizeStatusResponse> {
   return apiPost<LlmRecognizeStatusResponse>("/api/llm/recognize", req)

@@ -477,7 +477,7 @@ func (tsm *TagScanManager) processImage(imageFile domain.ImageFile) {
 
 	// Get active provider
 	var provider domain.LlmProvider
-	if err := tsm.db.Where("name = ?", settings.ActiveProvider).First(&provider).Error; err != nil {
+	if err := tsm.db.Where("alias = ?", settings.ActiveProvider).First(&provider).Error; err != nil {
 		log.Printf("Tag scan: failed to load provider settings: %v", err)
 		tsm.mu.Lock()
 		tsm.progress.LastError = "Failed to load LLM provider settings"

@@ -493,16 +493,20 @@ export interface OcrClassificationStatusResponse {
 
 // --- LLM OCR Types ---
 
+export type LlmProviderType = "ollama" | "ollama_cloud" | "openai"
+
 export interface LlmProviderDTO {
-   name: "ollama" | "ollama_cloud" | "openai"
-   apiUrl: string
-   apiKey: string
-   model: string
- }
+  id: number
+  alias: string
+  name: LlmProviderType
+  apiUrl: string
+  apiKey: string
+  model: string
+}
 
 export interface LlmSettingsResponse {
   id: number
-  activeProvider: "ollama" | "ollama_cloud" | "openai"
+  activeProvider: string // References LlmProvider.alias
   tagScanEnabled?: boolean
   tagScanStartHour?: number
   tagScanStartMinute?: number
@@ -513,18 +517,21 @@ export interface LlmSettingsResponse {
 }
 
 export interface UpdateLlmSettingsRequest {
-   activeProvider?: "ollama" | "ollama_cloud" | "openai"
-   providerName?: "ollama" | "ollama_cloud" | "openai"
-   providerApiUrl?: string
-   providerApiKey?: string
-   providerModel?: string
-   tagScanEnabled?: boolean
-   tagScanStartHour?: number
-   tagScanStartMinute?: number
-   tagScanEndHour?: number
-   tagScanEndMinute?: number
-   tagScanTimezoneOffset?: number // User's timezone offset in minutes (JS getTimezoneOffset: UTC+3 = -180)
- }
+  activeProvider?: string // References LlmProvider.alias
+  providerAlias?: string // Which provider to update/delete (by alias)
+  providerName?: LlmProviderType // For new providers
+  providerApiUrl?: string
+  providerApiKey?: string
+  providerModel?: string
+  providerAliasUpdate?: string // New alias value for the provider
+  providerDelete?: boolean // Delete the provider identified by providerAlias
+  tagScanEnabled?: boolean
+  tagScanStartHour?: number
+  tagScanStartMinute?: number
+  tagScanEndHour?: number
+  tagScanEndMinute?: number
+  tagScanTimezoneOffset?: number // User's timezone offset in minutes (JS getTimezoneOffset: UTC+3 = -180)
+}
 
 export interface TagScanStatusResponse {
   running: boolean

@@ -2025,6 +2025,8 @@ func (s *Server) handleGetLlmSettings(c *gin.Context) {
 			apiKey = apiKey[:4] + "..." + apiKey[len(apiKey)-4:]
 		}
 		providerDTOs[i] = dto.LlmProviderDTO{
+			ID:     p.ID,
+			Alias:  p.Alias,
 			Name:   p.Name,
 			ApiUrl: p.ApiUrl,
 			ApiKey: apiKey,
@@ -2045,57 +2047,13 @@ func (s *Server) handleGetLlmSettings(c *gin.Context) {
 	})
 }
 
-// handleUpdateLlmSettings updates LLM settings and/or a specific provider's settings
+// handleUpdateLlmSettings updates only LLM global settings (active provider + tag scan schedule)
 func (s *Server) handleUpdateLlmSettings(c *gin.Context) {
 	var req dto.UpdateLlmSettingsRequest
 	if !helpers.BindJSON(c, &req) {
 		return
 	}
 
-	// Update a specific provider's settings if providerName is provided
-	if req.ProviderName != nil {
-		var provider domain.LlmProvider
-		err := s.db.Where("name = ?", *req.ProviderName).First(&provider).Error
-		provUpdates := make(map[string]interface{})
-		if req.ProviderApiUrl != nil {
-			provUpdates["api_url"] = *req.ProviderApiUrl
-		}
-		if req.ProviderApiKey != nil {
-			provUpdates["api_key"] = *req.ProviderApiKey
-		}
-		if req.ProviderModel != nil {
-			provUpdates["model"] = *req.ProviderModel
-		}
-
-		if err == gorm.ErrRecordNotFound {
-			// Create new provider
-			provider = domain.LlmProvider{
-				Name: *req.ProviderName,
-			}
-			if req.ProviderApiUrl != nil {
-				provider.ApiUrl = *req.ProviderApiUrl
-			}
-			if req.ProviderApiKey != nil {
-				provider.ApiKey = *req.ProviderApiKey
-			}
-			if req.ProviderModel != nil {
-				provider.Model = *req.ProviderModel
-			}
-			if err := s.db.Create(&provider).Error; err != nil {
-				c.JSON(http.StatusInternalServerError, i18n.ErrorResponse(i18n.MsgLlmOcrSettingsSaveFailed))
-				return
-			}
-		} else if err != nil {
-			c.JSON(http.StatusInternalServerError, i18n.ErrorResponse(i18n.MsgLlmOcrSettingsSaveFailed))
-			return
-		} else {
-			if len(provUpdates) > 0 {
-				s.db.Model(&provider).Updates(provUpdates)
-			}
-		}
-	}
-
-	// Update global LLM settings (active provider + tag scan schedule)
 	var settings domain.LlmSettings
 	err := s.db.First(&settings).Error
 	globalUpdates := make(map[string]interface{})
@@ -2123,7 +2081,7 @@ func (s *Server) handleUpdateLlmSettings(c *gin.Context) {
 
 	if err == gorm.ErrRecordNotFound {
 		settings = domain.LlmSettings{
-			ActiveProvider:     "ollama",
+			ActiveProvider:     "ollama_1",
 			TagScanEnabled:     true,
 			TagScanStartHour:   22,
 			TagScanStartMinute: 0,
@@ -2170,6 +2128,131 @@ func (s *Server) handleUpdateLlmSettings(c *gin.Context) {
 	// Update tag scan manager if running
 	if s.tagScanManager != nil && s.tagScanManager.IsRunning() {
 		s.tagScanManager.UpdateSchedule(settings.TagScanEnabled, settings.TagScanStartHour, settings.TagScanStartMinute, settings.TagScanEndHour, settings.TagScanEndMinute, settings.TagScanTimezoneOffset)
+	}
+
+	c.JSON(http.StatusOK, map[string]string{"message": string(i18n.MsgLlmOcrSettingsSaved)})
+}
+
+// handleCreateLlmProvider creates a new LLM provider
+func (s *Server) handleCreateLlmProvider(c *gin.Context) {
+	var req dto.CreateLlmProviderRequest
+	if !helpers.BindJSON(c, &req) {
+		return
+	}
+
+	// Check alias uniqueness
+	var existing domain.LlmProvider
+	if err := s.db.Where("alias = ?", req.Alias).First(&existing).Error; err == nil {
+		c.JSON(http.StatusConflict, i18n.CreateValidationError(i18n.ValidationError))
+		return
+	}
+
+	provider := domain.LlmProvider{
+		Name:   req.Name,
+		Alias:  req.Alias,
+		ApiUrl: req.ApiUrl,
+		ApiKey: req.ApiKey,
+		Model:  req.Model,
+	}
+	if provider.ApiUrl == "" {
+		switch provider.Name {
+		case "ollama":
+			provider.ApiUrl = "http://localhost:11434"
+		case "ollama_cloud":
+			provider.ApiUrl = "https://ollama.com"
+		case "openai":
+			provider.ApiUrl = "https://api.openai.com"
+		}
+	}
+	if provider.Model == "" {
+		provider.Model = "minicpm-v"
+	}
+
+	if err := s.db.Create(&provider).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, i18n.ErrorResponse(i18n.MsgLlmOcrSettingsSaveFailed))
+		return
+	}
+
+	c.JSON(http.StatusCreated, dto.LlmProviderDTO{
+		ID:     provider.ID,
+		Alias:  provider.Alias,
+		Name:   provider.Name,
+		ApiUrl: provider.ApiUrl,
+		Model:  provider.Model,
+	})
+}
+
+// handleUpdateLlmProvider updates an existing LLM provider by alias
+func (s *Server) handleUpdateLlmProvider(c *gin.Context) {
+	alias := c.Param("alias")
+	var req dto.UpdateLlmProviderRequest
+	if !helpers.BindJSON(c, &req) {
+		return
+	}
+
+	var provider domain.LlmProvider
+	if err := s.db.Where("alias = ?", alias).First(&provider).Error; err != nil {
+		c.JSON(http.StatusNotFound, i18n.ErrorResponse(i18n.MsgLlmOcrSettingsNotFound))
+		return
+	}
+
+	updates := make(map[string]interface{})
+	if req.ApiUrl != nil {
+		updates["api_url"] = *req.ApiUrl
+	}
+	if req.ApiKey != nil {
+		updates["api_key"] = *req.ApiKey
+	}
+	if req.Model != nil {
+		updates["model"] = *req.Model
+	}
+	if req.Alias != nil && *req.Alias != alias {
+		// Check new alias uniqueness
+		var existing domain.LlmProvider
+		if err := s.db.Where("alias = ?", *req.Alias).First(&existing).Error; err == nil {
+			c.JSON(http.StatusConflict, i18n.CreateValidationError(i18n.ValidationError))
+			return
+		}
+		updates["alias"] = *req.Alias
+		// Update LlmSettings.ActiveProvider if it referenced the old alias
+		var settings domain.LlmSettings
+		if s.db.First(&settings).Error == nil && settings.ActiveProvider == alias {
+			s.db.Model(&settings).Update("active_provider", *req.Alias)
+		}
+	}
+
+	if len(updates) > 0 {
+		if err := s.db.Model(&provider).Updates(updates).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, i18n.ErrorResponse(i18n.MsgLlmOcrSettingsSaveFailed))
+			return
+		}
+	}
+
+	c.JSON(http.StatusOK, map[string]string{"message": string(i18n.MsgLlmOcrSettingsSaved)})
+}
+
+// handleDeleteLlmProvider deletes an LLM provider by alias
+func (s *Server) handleDeleteLlmProvider(c *gin.Context) {
+	alias := c.Param("alias")
+
+	var provider domain.LlmProvider
+	if err := s.db.Where("alias = ?", alias).First(&provider).Error; err != nil {
+		c.JSON(http.StatusNotFound, i18n.ErrorResponse(i18n.MsgLlmOcrSettingsNotFound))
+		return
+	}
+
+	// If this was the active provider, reset active provider to first available
+	var settings domain.LlmSettings
+	if s.db.First(&settings).Error == nil && settings.ActiveProvider == alias {
+		var firstProvider domain.LlmProvider
+		if s.db.Where("id != ?", provider.ID).First(&firstProvider).Error == nil {
+			s.db.Model(&settings).Update("active_provider", firstProvider.Alias)
+		}
+	}
+
+	if err := s.db.Delete(&provider).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, i18n.ErrorResponse(i18n.MsgLlmOcrSettingsSaveFailed))
+		return
 	}
 
 	c.JSON(http.StatusOK, map[string]string{"message": string(i18n.MsgLlmOcrSettingsSaved)})
