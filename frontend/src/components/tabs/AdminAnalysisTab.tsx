@@ -61,9 +61,12 @@ export function AdminAnalysisTab() {
   const [editingAlias, setEditingAlias] = useState("")
  
   // Helper to get current active provider
-  const getCurrentProvider = (): LlmProviderDTO | undefined => {
-  	return llmSettings.providers.find((p) => p.alias === llmSettings.activeProvider)
-  }
+  const getCurrentProvider = useCallback(
+    (): LlmProviderDTO | undefined => {
+      return llmSettings.providers.find((p) => p.alias === llmSettings.activeProvider)
+    },
+    [llmSettings.providers, llmSettings.activeProvider]
+  )
 
   // Tag Scan state
   const [tagScanEnabled, setTagScanEnabled] = useState(false)
@@ -231,7 +234,7 @@ export function AdminAnalysisTab() {
     } finally {
       setIsLlmSaving(false)
     }
-  }, [llmSettings, loadLlmSettings, t])
+  }, [llmSettings, loadLlmSettings, getCurrentProvider, t])
 
   // Update a field on a specific provider identified by alias
   const handleProviderFieldChange = useCallback((alias: string, field: keyof LlmProviderDTO, value: string | boolean) => {
@@ -444,26 +447,56 @@ export function AdminAnalysisTab() {
     } finally {
       setIsModelsLoading(false)
     }
-  }, [llmSettings.activeProvider])
-
-  // Check OCR classification status on mount to detect already running processes
-  const checkInitialOCRStatus = useCallback(async () => {
-    try {
-      const status = await fetchOcrClassificationStatus()
-      if (status.processing) {
-        setOcrScanning(true)
-        setOcrScanStatus(status)
-      }
-    } catch {
-      // Ignore errors on initial check
-    }
-  }, [])
+  }, [getCurrentProvider, t])
 
   useEffect(() => {
-    loadOCRStatus()
-    loadLlmSettings()
-    checkInitialOCRStatus()
-  }, [loadOCRStatus, loadLlmSettings, checkInitialOCRStatus])
+    const init = async () => {
+      // Load OCR status
+      try {
+        setIsOcrLoading(true)
+        const response = await fetchOCRStatus()
+        setOcrStatus(response.status)
+      } catch {
+        setOcrStatus(null)
+      } finally {
+        setIsOcrLoading(false)
+      }
+
+      // Load LLM settings
+      try {
+        setIsLlmLoading(true)
+        const settings = await fetchLlmSettings()
+        setLlmSettings(settings)
+        setLlmFormDirty(false)
+        setShowNewProvider(false)
+        setNewProviderAlias("")
+        const active = settings.providers.find((p) => p.alias === settings.activeProvider)
+        setEditingAlias(active?.alias ?? "")
+        setTagScanEnabled(settings.tagScanEnabled ?? false)
+        setTagScanStartHour(settings.tagScanStartHour ?? 23)
+        setTagScanStartMinute(settings.tagScanStartMinute ?? 0)
+        setTagScanEndHour(settings.tagScanEndHour ?? 7)
+        setTagScanEndMinute(settings.tagScanEndMinute ?? 0)
+      } catch {
+        setLlmSettings(EMPTY_SETTINGS)
+      } finally {
+        setIsLlmLoading(false)
+      }
+
+      // Check initial OCR classification status
+      try {
+        const status = await fetchOcrClassificationStatus()
+        if (status.processing) {
+          setOcrScanning(true)
+          setOcrScanStatus(status)
+        }
+      } catch {
+        // Ignore errors on initial check
+      }
+    }
+
+    init()
+  }, [])
 
   // Load app settings to sync ocrConcurrentWorkers
   useEffect(() => {
@@ -475,14 +508,12 @@ export function AdminAnalysisTab() {
   }, [])
 
   const currentProvider = getCurrentProvider()
- 
-  // Keep editingAlias in sync when active provider changes
-  useEffect(() => {
-  	if (currentProvider) {
-  		setEditingAlias(currentProvider.alias)
-  	}
-  }, [llmSettings.activeProvider, llmSettings.providers.length])
- 
+
+  // Keep editingAlias in sync when active provider changes (render-phase update avoids cascading renders)
+  if (currentProvider && editingAlias !== currentProvider.alias) {
+    setEditingAlias(currentProvider.alias)
+  }
+
   // Provider type display name lookup
   const getProviderLabel = (name: LlmProviderType): string => {
   	return PROVIDER_LABELS[name] ?? name
