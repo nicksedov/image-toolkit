@@ -367,6 +367,7 @@ export const translationsRu = {
   "adminPanel.passwordPlaceholder": "Введите пароль",
   "adminPanel.adminSetup": "Первичная настройка",
   "adminPanel.loginTitle": "Image Toolkit",
+  "adminPanel.signIn": "Войти",
   "adminPanel.bootstrapTitle": "Первичная настройка",
   "adminPanel.bootstrapDescAdmin": "Войдите под учетной записью администратора для первичной настройки системы",
   "adminPanel.loginDesc": "Введите свои учетные данные для входа",
