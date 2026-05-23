@@ -106,6 +106,19 @@ npx tsc -b                     # Type-check
 7. Custom i18n (en/ru), strict typing
 8. Background jobs: sync, cleanup, OCR, tags
 
+## MCP Tools
+The following MCP servers are connected and available for agent tasks:
+
+| Server | Purpose |
+|---|---|
+| **filesystem** | Read, write, edit, move, and search project files |
+| **github** | Manage repos, branches, PRs, issues, commits |
+| **postgres** | Run read-only SQL queries against the database |
+| **sequentialthinking** | Break down complex multi-step problems with revision support |
+| **context7** | Provides up-to-date version-specific docs for external libraries and frameworks |
+
+Prefer using these MCP tools over raw CLI commands where applicable: use [`filesystem`](.roo/mcp.json) for file operations (read/write/search), [`github`](.roo/mcp.json) for Git workflows, [`postgres`](.roo/mcp.json) for database inspection, [`sequentialthinking`](.roo/mcp.json) for planning non-trivial logic, [`context7`](.roo/mcp.json) for up-to-date external dependencies docs.
+
 ## Validation
 - `npx tsc -b` (frontend)
 - `go build ./...` (backend)
