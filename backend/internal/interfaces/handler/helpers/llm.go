@@ -32,7 +32,7 @@ func (f *LLMFactory) CreateClient(c *gin.Context) (llm.Client, domain.LlmProvide
 	}
 
 	var provider domain.LlmProvider
-	if err := f.db.Where("name = ?", settings.ActiveProvider).First(&provider).Error; err != nil {
+	if err := f.db.Where("alias = ?", settings.ActiveProvider).First(&provider).Error; err != nil {
 		c.JSON(http.StatusNotFound, i18n.ErrorResponse(i18n.MsgLlmOcrSettingsNotFound))
 		return nil, domain.LlmProvider{}, false
 	}
@@ -55,7 +55,7 @@ func (f *LLMFactory) GetEnabledSettings(c *gin.Context) (domain.LlmSettings, dom
 	}
 
 	var provider domain.LlmProvider
-	if err := f.db.Where("name = ?", settings.ActiveProvider).First(&provider).Error; err != nil {
+	if err := f.db.Where("alias = ?", settings.ActiveProvider).First(&provider).Error; err != nil {
 		c.JSON(http.StatusNotFound, i18n.ErrorResponse(i18n.MsgLlmOcrSettingsNotFound))
 		return domain.LlmSettings{}, domain.LlmProvider{}, false
 	}

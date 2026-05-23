@@ -634,4 +634,24 @@ export const translationsRu = {
   "exif.emptyHint": "Отлично! У всех ваших изображений есть дата и GPS информация.",
   "exif.missingDate": "Отсутствует дата съемки",
   "exif.missingGps": "Отсутствуют GPS координаты",
-} as const
+ 
+  // LLM Providers
+  "llm_providers.alias": "Алиас",
+  "llm_providers.rename": "Переименовать",
+  "llm_providers.selectProvider": "Выберите провайдера",
+  "llm_providers.selectModel": "Выберите модель",
+  "llm_providers.loadModels": "Загрузить модели",
+  "llm_providers.enterModelManually": "Ввести название модели вручную",
+  "llm_providers.selectFromModels": "Выбрать из списка доступных моделей",
+  "llm_providers.noProviders": "Провайдеры не настроены. Добавьте ниже.",
+  "llm_providers.newProvider": "Новый провайдер",
+  "llm_providers.type": "Тип",
+  "llm_providers.add": "Добавить",
+  "llm_providers.addProvider": "Добавить провайдера",
+  "llm_providers.aliasPlaceholder": "напр., my_ollama_2",
+  "llm_providers.aliasMustBeUnique": "Алиас должен быть уникальным",
+  "llm_providers.deleteConfirm": "Удалить провайдера \"{alias}\"?",
+  "llm_providers.modelsLoaded": "Загружено {count} моделей",
+  "llm_providers.modelsLoadFailed": "Не удалось загрузить список моделей",
+  "llm_providers.providerLabel": "Провайдер: {alias}",
+ } as const

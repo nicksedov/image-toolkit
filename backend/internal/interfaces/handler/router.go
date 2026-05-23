@@ -98,6 +98,9 @@ func (s *Server) SetupRouter(authMiddleware *middleware.AuthMiddleware, csrfProt
 			// LLM OCR endpoints
 			protected.GET("/llm/settings", s.handleGetLlmSettings)
 			protected.PUT("/llm/settings", s.handleUpdateLlmSettings)
+			protected.POST("/llm/providers", s.handleCreateLlmProvider)
+			protected.PUT("/llm/providers/:alias", s.handleUpdateLlmProvider)
+			protected.DELETE("/llm/providers/:alias", s.handleDeleteLlmProvider)
 			protected.POST("/llm/recognize", s.handleLlmRecognize)
 			protected.GET("/llm/recognize-status", s.handleLlmRecognizeStatus)
 			protected.GET("/llm/recognition", s.handleGetLlmRecognition)

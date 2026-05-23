@@ -117,9 +117,11 @@ type OcrBoundingBox struct {
 }
 
 // LlmProvider stores per-provider LLM connection settings
+// Name is the provider type ("ollama", "ollama_cloud", "openai"), Alias is a unique user-defined identifier
 type LlmProvider struct {
 	ID        uint      `gorm:"primaryKey" json:"id"`
-	Name      string    `gorm:"uniqueIndex;not null" json:"name"` // "ollama", "ollama_cloud", "openai"
+	Name      string    `gorm:"index;not null" json:"name"` // "ollama", "ollama_cloud", "openai"
+	Alias     string    `gorm:"uniqueIndex;not null" json:"alias"`
 	ApiUrl    string    `gorm:"not null" json:"apiUrl"`
 	ApiKey    string    `gorm:"default:''" json:"apiKey"`
 	Model     string    `gorm:"not null" json:"model"`
@@ -129,16 +131,16 @@ type LlmProvider struct {
 
 // LlmSettings stores global LLM settings (singleton, ID=1)
 type LlmSettings struct {
-	ID                   uint      `gorm:"primaryKey" json:"id"`
-	ActiveProvider       string    `gorm:"default:ollama;not null" json:"activeProvider"` // "ollama", "ollama_cloud" or "openai"
-	TagScanEnabled       bool      `gorm:"default:true" json:"tagScanEnabled"`
-	TagScanStartHour     int       `gorm:"default:22" json:"tagScanStartHour"`
-	TagScanStartMinute   int       `gorm:"default:0" json:"tagScanStartMinute"`
-	TagScanEndHour       int       `gorm:"default:7" json:"tagScanEndHour"`
-	TagScanEndMinute     int       `gorm:"default:0" json:"tagScanEndMinute"`
-	TagScanTimezoneOffset int      `gorm:"default:0" json:"tagScanTimezoneOffset"` // User's timezone offset in minutes (JS getTimezoneOffset: UTC+3 = -180)
-	CreatedAt            time.Time `json:"createdAt"`
-	UpdatedAt            time.Time `json:"updatedAt"`
+	ID                    uint      `gorm:"primaryKey" json:"id"`
+	ActiveProvider        string    `gorm:"default:ollama_1;not null" json:"activeProvider"` // References LlmProvider.Alias
+	TagScanEnabled        bool      `gorm:"default:true" json:"tagScanEnabled"`
+	TagScanStartHour      int       `gorm:"default:22" json:"tagScanStartHour"`
+	TagScanStartMinute    int       `gorm:"default:0" json:"tagScanStartMinute"`
+	TagScanEndHour        int       `gorm:"default:7" json:"tagScanEndHour"`
+	TagScanEndMinute      int       `gorm:"default:0" json:"tagScanEndMinute"`
+	TagScanTimezoneOffset int       `gorm:"default:0" json:"tagScanTimezoneOffset"` // User's timezone offset in minutes (JS getTimezoneOffset: UTC+3 = -180)
+	CreatedAt             time.Time `json:"createdAt"`
+	UpdatedAt             time.Time `json:"updatedAt"`
 }
 
 // ImageTag stores AI-generated tags for an image

@@ -43,7 +43,7 @@ func (sl *SettingsLoader) LlmSettings() domain.LlmSettings {
 	var settings domain.LlmSettings
 	if err := sl.db.First(&settings).Error; err != nil {
 		return domain.LlmSettings{
-			ActiveProvider: "ollama",
+			ActiveProvider: "ollama_1",
 		}
 	}
 	return settings
@@ -56,16 +56,23 @@ func (sl *SettingsLoader) LlmSettingsIfExists() (domain.LlmSettings, bool) {
 	return settings, err == nil
 }
 
-// LlmProvider loads settings for a specific provider by name.
-func (sl *SettingsLoader) LlmProvider(name string) (domain.LlmProvider, bool) {
+// LlmProvider loads settings for a specific provider by alias.
+func (sl *SettingsLoader) LlmProvider(alias string) (domain.LlmProvider, bool) {
 	var provider domain.LlmProvider
-	err := sl.db.Where("name = ?", name).First(&provider).Error
+	err := sl.db.Where("alias = ?", alias).First(&provider).Error
 	return provider, err == nil
 }
 
-// AllLlmProviders loads all LLM providers ordered by name.
+// LlmProviderByID loads settings for a specific provider by ID.
+func (sl *SettingsLoader) LlmProviderByID(id uint) (domain.LlmProvider, bool) {
+	var provider domain.LlmProvider
+	err := sl.db.First(&provider, id).Error
+	return provider, err == nil
+}
+
+// AllLlmProviders loads all LLM providers ordered by alias.
 func (sl *SettingsLoader) AllLlmProviders() []domain.LlmProvider {
 	var providers []domain.LlmProvider
-	sl.db.Order("name").Find(&providers)
+	sl.db.Order("alias").Find(&providers)
 	return providers
 }

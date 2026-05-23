@@ -6,10 +6,30 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
-import { fetchOCRStatus, startOcrClassification, startOcrClassificationChanges, stopOcrClassification, fetchOcrClassificationStatus, fetchLlmSettings, updateLlmSettings, fetchLlmModels, fetchTagScanStatus, pauseTagScan, resumeTagScan, updateSettings, fetchSettings } from "@/api/endpoints"
-import { Shield, Loader2, Zap, Wand2, Play, Square, RefreshCw } from "lucide-react"
+import { fetchOCRStatus, startOcrClassification, startOcrClassificationChanges, stopOcrClassification, fetchOcrClassificationStatus, fetchLlmSettings, updateLlmSettings, createLlmProvider, updateLlmProvider, deleteLlmProvider, fetchLlmModels, fetchTagScanStatus, pauseTagScan, resumeTagScan, updateSettings, fetchSettings } from "@/api/endpoints"
+import { Shield, Loader2, Zap, Wand2, Play, Square, RefreshCw, Plus, Trash2 } from "lucide-react"
 import { useTranslation } from "@/i18n"
-import type { OCRStatus, OcrClassificationStatusResponse, LlmSettingsResponse, LlmProviderDTO, LlmModelDTO, TagScanStatusResponse } from "@/types"
+import type { OCRStatus, OcrClassificationStatusResponse, LlmSettingsResponse, LlmProviderDTO, LlmModelDTO, TagScanStatusResponse, LlmProviderType } from "@/types"
+// Provider type display labels
+const PROVIDER_LABELS: Record<LlmProviderType, string> = {
+  ollama: "Ollama",
+  ollama_cloud: "Ollama Cloud",
+  openai: "OpenAI API",
+}
+
+// Allowed provider types for new providers
+const ALLOWED_PROVIDER_TYPES: LlmProviderType[] = ["ollama", "ollama_cloud", "openai"]
+
+const EMPTY_SETTINGS: LlmSettingsResponse = {
+  id: 0,
+  activeProvider: "",
+  tagScanEnabled: false,
+  tagScanStartHour: 23,
+  tagScanStartMinute: 0,
+  tagScanEndHour: 7,
+  tagScanEndMinute: 0,
+  providers: [],
+}
 
 export function AdminAnalysisTab() {
   const { t } = useTranslation()
@@ -22,16 +42,7 @@ export function AdminAnalysisTab() {
   const [isSavingWorkers, setIsSavingWorkers] = useState(false)
 
   // LLM Settings state
-  const [llmSettings, setLlmSettings] = useState<LlmSettingsResponse>({
-    id: 0,
-    activeProvider: "ollama",
-    tagScanEnabled: false,
-    tagScanStartHour: 23,
-    tagScanStartMinute: 0,
-    tagScanEndHour: 7,
-    tagScanEndMinute: 0,
-    providers: [],
-  })
+  const [llmSettings, setLlmSettings] = useState<LlmSettingsResponse>(EMPTY_SETTINGS)
   const [isLlmLoading, setIsLlmLoading] = useState(false)
   const [isLlmSaving, setIsLlmSaving] = useState(false)
   const [llmFormDirty, setLlmFormDirty] = useState(false)
@@ -39,9 +50,19 @@ export function AdminAnalysisTab() {
   const [isModelsLoading, setIsModelsLoading] = useState(false)
   const [showModelInput, setShowModelInput] = useState(false)
 
-  // Helper to get current provider settings
+  // New provider form state
+  const [showNewProvider, setShowNewProvider] = useState(false)
+  const [newProviderType, setNewProviderType] = useState<LlmProviderType>("ollama")
+  const [newProviderAlias, setNewProviderAlias] = useState("")
+  const [newProviderApiKey, setNewProviderApiKey] = useState("")
+  const [newProviderModel, setNewProviderModel] = useState("minicpm-v")
+ 
+  // Alias editing state — separate from provider data to avoid collapsing the form on keystroke
+  const [editingAlias, setEditingAlias] = useState("")
+ 
+  // Helper to get current active provider
   const getCurrentProvider = (): LlmProviderDTO | undefined => {
-    return llmSettings.providers.find((p) => p.name === llmSettings.activeProvider)
+  	return llmSettings.providers.find((p) => p.alias === llmSettings.activeProvider)
   }
 
   // Tag Scan state
@@ -153,6 +174,11 @@ export function AdminAnalysisTab() {
       const settings = await fetchLlmSettings()
       setLlmSettings(settings)
       setLlmFormDirty(false)
+      setShowNewProvider(false)
+      setNewProviderAlias("")
+      // Sync alias editing state with current provider
+      const active = settings.providers.find((p) => p.alias === settings.activeProvider)
+      setEditingAlias(active?.alias ?? "")
       // Update tag scan state from LLM settings
       setTagScanEnabled(settings.tagScanEnabled ?? false)
       setTagScanStartHour(settings.tagScanStartHour ?? 23)
@@ -160,16 +186,7 @@ export function AdminAnalysisTab() {
       setTagScanEndHour(settings.tagScanEndHour ?? 7)
       setTagScanEndMinute(settings.tagScanEndMinute ?? 0)
     } catch {
-      setLlmSettings({
-        id: 0,
-        activeProvider: "ollama",
-        tagScanEnabled: false,
-        tagScanStartHour: 23,
-        tagScanStartMinute: 0,
-        tagScanEndHour: 7,
-        tagScanEndMinute: 0,
-        providers: [],
-      })
+      setLlmSettings(EMPTY_SETTINGS)
     } finally {
       setIsLlmLoading(false)
     }
@@ -179,6 +196,7 @@ export function AdminAnalysisTab() {
     setIsLlmSaving(true)
     try {
       const currentProvider = getCurrentProvider()
+
       // Save active provider and tag scan settings
       await updateLlmSettings({
         activeProvider: llmSettings.activeProvider,
@@ -189,30 +207,37 @@ export function AdminAnalysisTab() {
         tagScanEndMinute: llmSettings.tagScanEndMinute,
         tagScanTimezoneOffset: new Date().getTimezoneOffset(),
       })
-      // Save current provider settings if dirty
+
+      // Save current provider settings if exists — uses dedicated provider endpoint
       if (currentProvider) {
-        await updateLlmSettings({
-          providerName: currentProvider.name,
-          providerApiUrl: currentProvider.apiUrl,
-          providerApiKey: currentProvider.apiKey,
-          providerModel: currentProvider.model,
-        })
+      	const provUpdate: { apiUrl?: string; apiKey?: string; model?: string } = {
+      		apiUrl: currentProvider.apiUrl,
+      		model: currentProvider.model,
+      	}
+      	// Only send API key if it was changed by the user (not masked)
+      	// Masked key format: "XXXX...XXXX" (4 chars + "..." + 4 chars = 11 chars)
+      	const isMasked = /^.{4}\.\.\..{4}$/.test(currentProvider.apiKey) && currentProvider.apiKey.length === 11
+      	if (!isMasked) {
+      		provUpdate.apiKey = currentProvider.apiKey
+      	}
+      	await updateLlmProvider(currentProvider.alias, provUpdate)
       }
+
       toast.success(t("llm_ocr.settingsSaved"))
       setLlmFormDirty(false)
       await loadLlmSettings()
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : t("llm_ocr.settingsSaveFailed"))
+    } catch {
+    	toast.error(t("llm_ocr.settingsSaveFailed"))
     } finally {
       setIsLlmSaving(false)
     }
   }, [llmSettings, loadLlmSettings, t])
 
-  const handleLlmFieldChange = useCallback((field: keyof LlmProviderDTO, value: string | boolean) => {
-    // Update the current provider's settings
+  // Update a field on a specific provider identified by alias
+  const handleProviderFieldChange = useCallback((alias: string, field: keyof LlmProviderDTO, value: string | boolean) => {
     setLlmSettings((prev) => {
       const providers = prev.providers.map((p) => {
-        if (p.name === prev.activeProvider) {
+        if (p.alias === alias) {
           return { ...p, [field]: value }
         }
         return p
@@ -222,8 +247,83 @@ export function AdminAnalysisTab() {
     setLlmFormDirty(true)
   }, [])
 
+  // Update alias for a specific provider (backend + local)
+  const handleAliasUpdate = useCallback(async (oldAlias: string, newAlias: string) => {
+  	if (!newAlias.trim() || newAlias === oldAlias) return
+ 
+  	// Check uniqueness
+  	if (llmSettings.providers.some((p) => p.alias === newAlias && p.alias !== oldAlias)) {
+  		toast.error(t("llm_providers.aliasMustBeUnique"))
+  		return
+  	}
+ 
+  	setIsLlmSaving(true)
+  	try {
+  		await updateLlmProvider(oldAlias, { alias: newAlias })
+  		toast.success(t("llm_ocr.settingsSaved"))
+  		await loadLlmSettings()
+  	} catch {
+  		toast.error(t("llm_ocr.settingsSaveFailed"))
+  	} finally {
+  		setIsLlmSaving(false)
+  	}
+  }, [llmSettings.providers, loadLlmSettings, t])
+
+  // Delete a provider
+  const handleDeleteProvider = useCallback(async (alias: string) => {
+  	if (!confirm(t("llm_providers.deleteConfirm", { alias }))) return
+ 
+  	setIsLlmSaving(true)
+  	try {
+  		await deleteLlmProvider(alias)
+  		toast.success(t("llm_ocr.settingsSaved"))
+  		setLlmFormDirty(false)
+  		await loadLlmSettings()
+  	} catch {
+  		toast.error(t("llm_ocr.settingsSaveFailed"))
+  	} finally {
+  		setIsLlmSaving(false)
+  	}
+  }, [loadLlmSettings, t])
+
+  // Add a new provider
+  const handleAddProvider = useCallback(async () => {
+  	if (!newProviderAlias.trim()) {
+  		toast.error("Alias is required")
+  		return
+  	}
+ 
+  	// Check uniqueness
+  	if (llmSettings.providers.some((p) => p.alias === newProviderAlias.trim())) {
+  		toast.error(t("llm_providers.aliasMustBeUnique"))
+  		return
+  	}
+ 
+  	setIsLlmSaving(true)
+  	try {
+  		await createLlmProvider({
+  			alias: newProviderAlias.trim(),
+  			name: newProviderType,
+  			apiUrl: newProviderType === "ollama" ? "http://localhost:11434" : newProviderType === "ollama_cloud" ? "https://ollama.com" : "https://api.openai.com",
+  			apiKey: (newProviderType === "ollama_cloud" || newProviderType === "openai") ? newProviderApiKey : undefined,
+  			model: newProviderModel || "minicpm-v",
+  		})
+  		toast.success(t("llm_ocr.settingsSaved"))
+  		setShowNewProvider(false)
+  		setNewProviderAlias("")
+  		setNewProviderApiKey("")
+  		setNewProviderModel("minicpm-v")
+  		setLlmFormDirty(false)
+  		await loadLlmSettings()
+  	} catch {
+  		toast.error(t("llm_ocr.settingsSaveFailed"))
+  	} finally {
+  		setIsLlmSaving(false)
+  	}
+  }, [newProviderAlias, newProviderType, newProviderApiKey, newProviderModel, llmSettings.providers, loadLlmSettings, t])
+
   const handleActiveProviderChange = useCallback((value: string) => {
-    setLlmSettings((prev) => ({ ...prev, activeProvider: value as LlmSettingsResponse["activeProvider"] }))
+    setLlmSettings((prev) => ({ ...prev, activeProvider: value }))
     setLlmFormDirty(true)
   }, [])
 
@@ -327,17 +427,20 @@ export function AdminAnalysisTab() {
   }, [])
 
   const handleLoadModels = useCallback(async () => {
+    const currentProvider = getCurrentProvider()
+    if (!currentProvider) return
+
     setIsModelsLoading(true)
     try {
-      const response = await fetchLlmModels(llmSettings.activeProvider)
-      if (response.success && response.models.length > 0) {
-        setAvailableModels(response.models)
-        toast.success(`Загружено ${response.models.length} моделей`)
-      } else {
-        toast.error(response.error || "Не удалось загрузить список моделей")
-      }
+    	const response = await fetchLlmModels(currentProvider.alias)
+    	if (response.success && response.models.length > 0) {
+    		setAvailableModels(response.models)
+    		toast.success(t("llm_providers.modelsLoaded", { count: response.models.length }))
+    	} else {
+    		toast.error(response.error || t("llm_providers.modelsLoadFailed"))
+    	}
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Не удалось загрузить список моделей")
+    	toast.error(err instanceof Error ? err.message : t("llm_providers.modelsLoadFailed"))
     } finally {
       setIsModelsLoading(false)
     }
@@ -370,6 +473,20 @@ export function AdminAnalysisTab() {
       // Use local state values
     })
   }, [])
+
+  const currentProvider = getCurrentProvider()
+ 
+  // Keep editingAlias in sync when active provider changes
+  useEffect(() => {
+  	if (currentProvider) {
+  		setEditingAlias(currentProvider.alias)
+  	}
+  }, [llmSettings.activeProvider, llmSettings.providers.length])
+ 
+  // Provider type display name lookup
+  const getProviderLabel = (name: LlmProviderType): string => {
+  	return PROVIDER_LABELS[name] ?? name
+  }
 
   return (
     <div className="space-y-6">
@@ -506,7 +623,7 @@ export function AdminAnalysisTab() {
             </div>
           ) : (
             <div className="space-y-4">
-              {/* Provider Selection (active provider) */}
+              {/* Active Provider Selection */}
               <div className="space-y-2">
                 <Label htmlFor="llm-provider">{t("llm_ocr.provider")}</Label>
                 <Select
@@ -514,116 +631,330 @@ export function AdminAnalysisTab() {
                   onValueChange={handleActiveProviderChange}
                 >
                   <SelectTrigger id="llm-provider">
-                    <SelectValue />
+                    <SelectValue placeholder={t("llm_providers.selectProvider")} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="ollama">Ollama</SelectItem>
-                    <SelectItem value="ollama_cloud">Ollama Cloud</SelectItem>
-                    <SelectItem value="openai">OpenAI API</SelectItem>
+                    {llmSettings.providers.map((p) => (
+                      <SelectItem key={p.alias} value={p.alias}>
+                        {p.alias} ({getProviderLabel(p.name)})
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
 
-              {/* API URL (hidden for Ollama Cloud — always https://ollama.com) */}
-              {getCurrentProvider()?.name !== "ollama_cloud" && (
-              <div className="space-y-2">
-                <Label htmlFor="llm-apiurl">API URL</Label>
-                <Input
-                  id="llm-apiurl"
-                  placeholder={getCurrentProvider()?.name === "ollama" ? "http://localhost:11434" : "https://api.openai.com"}
-                  value={getCurrentProvider()?.apiUrl ?? ""}
-                  onChange={(e) => handleLlmFieldChange("apiUrl", e.target.value)}
-                />
-              </div>
-              )}
+              {/* Current Provider Settings */}
+              {currentProvider && (
+                <div className="space-y-4 rounded-lg border p-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-medium">
+                      {t("llm_providers.providerLabel", { alias: currentProvider.alias })}
+                      <span className="ml-2 text-xs text-muted-foreground">
+                        ({getProviderLabel(currentProvider.name)})
+                      </span>
+                    </h4>
+                    <div className="flex gap-2">
+                      {llmSettings.providers.length > 1 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeleteProvider(currentProvider.alias)}
+                          className="h-8 w-8 p-0 text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
 
-              {/* API Key (only for OpenAI and Ollama Cloud) */}
-              {(getCurrentProvider()?.name === "openai" || getCurrentProvider()?.name === "ollama_cloud") && (
-                <div className="space-y-2">
-                  <Label htmlFor="llm-apikey">API Key</Label>
-                  <Input
-                    id="llm-apikey"
-                    type="password"
-                    placeholder="sk-..."
-                    value={getCurrentProvider()?.apiKey ?? ""}
-                    onChange={(e) => handleLlmFieldChange("apiKey", e.target.value)}
-                  />
-                </div>
-              )}
-
-              {/* Model */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="llm-model">{t("llm_ocr.model")}</Label>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleLoadModels}
-                    disabled={isModelsLoading}
-                    className="h-6 px-2 text-xs"
-                  >
-                    {isModelsLoading ? (
-                      <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                    ) : (
-                      <RefreshCw className="mr-1 h-3 w-3" />
-                    )}
-                    Загрузить модели
-                  </Button>
-                </div>
-
-                {/* Model dropdown */}
-                {availableModels.length > 0 && !showModelInput ? (
+                  {/* Alias field */}
                   <div className="space-y-2">
-                    <Select
-                      value={getCurrentProvider()?.model ?? ""}
-                      onValueChange={(value) => handleLlmFieldChange("model", value)}
-                    >
-                      <SelectTrigger id="llm-model">
-                        <SelectValue placeholder="Выберите модель" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {availableModels.map((model) => (
-                          <SelectItem key={model.id} value={model.id}>
-                            {model.name}
-                            {model.size ? ` (${(model.size / 1073741824).toFixed(1)} GB)` : ""}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Button
-                      variant="link"
-                      size="sm"
-                      className="px-0 h-auto text-xs"
-                      onClick={() => setShowModelInput(true)}
-                    >
-                      Ввести название модели вручную
-                    </Button>
+                    <Label htmlFor="llm-alias">{t("llm_providers.alias")}</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="llm-alias"
+                        value={editingAlias}
+                        onChange={(e) => setEditingAlias(e.target.value)}
+                      />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          if (editingAlias !== currentProvider.alias) {
+                            handleAliasUpdate(currentProvider.alias, editingAlias)
+                          }
+                        }}
+                        disabled={isLlmSaving || editingAlias === currentProvider.alias || !editingAlias.trim()}
+                      >
+                        {isLlmSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : t("llm_providers.rename")}
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* API URL */}
+                  {currentProvider.name !== "ollama_cloud" && (
+                    <div className="space-y-2">
+                      <Label htmlFor="llm-apiurl">API URL</Label>
+                      <Input
+                        id="llm-apiurl"
+                        placeholder={currentProvider.name === "ollama" ? "http://localhost:11434" : "https://api.openai.com"}
+                        value={currentProvider.apiUrl}
+                        onChange={(e) => handleProviderFieldChange(currentProvider.alias, "apiUrl", e.target.value)}
+                      />
+                    </div>
+                  )}
+
+                  {/* API Key (only for OpenAI and Ollama Cloud) */}
+                  {(currentProvider.name === "openai" || currentProvider.name === "ollama_cloud") && (
+                  	<div className="space-y-2">
+                  	  <Label htmlFor="llm-apikey">API Key</Label>
+                  	  <Input
+                  	    id="llm-apikey"
+                  	    type="password"
+                  	    autoComplete="new-password"
+                  	    placeholder="sk-..."
+                  	    value={currentProvider.apiKey}
+                  	    onChange={(e) => handleProviderFieldChange(currentProvider.alias, "apiKey", e.target.value)}
+                  	  />
+                  	</div>
+                  )}
+
+                  {/* Model */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="llm-model">{t("llm_ocr.model")}</Label>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleLoadModels}
+                        disabled={isModelsLoading}
+                        className="h-6 px-2 text-xs"
+                      >
+                        {isModelsLoading ? (
+                          <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                        ) : (
+                          <RefreshCw className="mr-1 h-3 w-3" />
+                        )}
+                        {t("llm_providers.loadModels")}
+                      </Button>
+                    </div>
+
+                    {/* Model dropdown or input */}
+                    {availableModels.length > 0 && !showModelInput ? (
+                      <div className="space-y-2">
+                        <Select
+                          value={currentProvider.model}
+                          onValueChange={(value) => handleProviderFieldChange(currentProvider.alias, "model", value)}
+                        >
+                          <SelectTrigger id="llm-model">
+                            <SelectValue placeholder={t("llm_providers.selectModel")} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {availableModels.map((model) => (
+                              <SelectItem key={model.id} value={model.id}>
+                                {model.name}
+                                {model.size ? ` (${(model.size / 1073741824).toFixed(1)} GB)` : ""}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          variant="link"
+                          size="sm"
+                          className="px-0 h-auto text-xs"
+                          onClick={() => setShowModelInput(true)}
+                        >
+                          {t("llm_providers.enterModelManually")}
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <Input
+                          id="llm-model"
+                          placeholder={
+                            currentProvider.name === "ollama" || currentProvider.name === "ollama_cloud"
+                              ? "minicpm-v"
+                              : "gpt-4-vision-preview"
+                          }
+                          value={currentProvider.model}
+                          onChange={(e) => handleProviderFieldChange(currentProvider.alias, "model", e.target.value)}
+                        />
+                        {availableModels.length > 0 && showModelInput && (
+                          <Button
+                            variant="link"
+                            size="sm"
+                            className="px-0 h-auto text-xs"
+                            onClick={() => setShowModelInput(false)}
+                          >
+                            {t("llm_providers.selectFromModels")}
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* No providers message */}
+              {llmSettings.providers.length === 0 && (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  {t("llm_providers.noProviders")}
+                </p>
+              )}
+
+              {/* Add New Provider */}
+              <div className="border-t pt-4">
+                {showNewProvider ? (
+                  <div className="space-y-3 rounded-lg border p-4">
+                    <h4 className="text-sm font-medium">{t("llm_providers.newProvider")}</h4>
+
+                    {/* Provider Type */}
+                    <div className="space-y-2">
+                      <Label>{t("llm_providers.type")}</Label>
+                      <Select
+                        value={newProviderType}
+                        onValueChange={(v) => setNewProviderType(v as LlmProviderType)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {ALLOWED_PROVIDER_TYPES.map((type) => (
+                            <SelectItem key={type} value={type}>
+                              {getProviderLabel(type)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Alias */}
+                    <div className="space-y-2">
+                      <Label htmlFor="new-alias">{t("llm_providers.alias")}</Label>
+                      <Input
+                        id="new-alias"
+                        placeholder={t("llm_providers.aliasPlaceholder")}
+                        value={newProviderAlias}
+                        onChange={(e) => setNewProviderAlias(e.target.value)}
+                      />
+                    </div>
+
+                    {/* API Key (only for Ollama Cloud and OpenAI) */}
+                    {(newProviderType === "ollama_cloud" || newProviderType === "openai") && (
+                      <div className="space-y-2">
+                        <Label htmlFor="new-apikey">API Key</Label>
+                        <Input
+                          id="new-apikey"
+                          type="password"
+                          autoComplete="new-password"
+                          placeholder="sk-..."
+                          value={newProviderApiKey}
+                          onChange={(e) => setNewProviderApiKey(e.target.value)}
+                        />
+                      </div>
+                    )}
+
+                    {/* Model */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="new-model">{t("llm_ocr.model")}</Label>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleLoadModels}
+                          disabled={isModelsLoading || !llmSettings.activeProvider}
+                          className="h-6 px-2 text-xs"
+                        >
+                          {isModelsLoading ? (
+                            <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                          ) : (
+                            <RefreshCw className="mr-1 h-3 w-3" />
+                          )}
+                          {t("llm_providers.loadModels")}
+                        </Button>
+                      </div>
+
+                      {availableModels.length > 0 && !showModelInput ? (
+                        <div className="space-y-2">
+                          <Select
+                            value={newProviderModel}
+                            onValueChange={(value) => setNewProviderModel(value)}
+                          >
+                            <SelectTrigger id="new-model">
+                              <SelectValue placeholder={t("llm_providers.selectModel")} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {availableModels.map((model) => (
+                                <SelectItem key={model.id} value={model.id}>
+                                  {model.name}
+                                  {model.size ? ` (${(model.size / 1073741824).toFixed(1)} GB)` : ""}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Button
+                            variant="link"
+                            size="sm"
+                            className="px-0 h-auto text-xs"
+                            onClick={() => setShowModelInput(true)}
+                          >
+                            {t("llm_providers.enterModelManually")}
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <Input
+                            id="new-model"
+                            placeholder="minicpm-v"
+                            value={newProviderModel}
+                            onChange={(e) => setNewProviderModel(e.target.value)}
+                          />
+                          {availableModels.length > 0 && showModelInput && (
+                            <Button
+                              variant="link"
+                              size="sm"
+                              className="px-0 h-auto text-xs"
+                              onClick={() => setShowModelInput(false)}
+                            >
+                              {t("llm_providers.selectFromModels")}
+                            </Button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex gap-2 justify-end">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setShowNewProvider(false)
+                          setNewProviderAlias("")
+                          setNewProviderApiKey("")
+                        }}
+                      >
+                        {t("common.cancel")}
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={handleAddProvider}
+                        disabled={isLlmSaving || !newProviderAlias.trim()}
+                      >
+                        {isLlmSaving ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Plus className="mr-1 h-4 w-4" />}
+                        {t("llm_providers.add")}
+                      </Button>
+                    </div>
                   </div>
                 ) : (
-                  <div className="space-y-2">
-                    <Input
-                      id="llm-model"
-                      placeholder={
-                        getCurrentProvider()?.name === "ollama"
-                          ? "minicpm-v"
-                          : getCurrentProvider()?.name === "ollama_cloud"
-                            ? "minicpm-v"
-                            : "gpt-4-vision-preview"
-                      }
-                      value={getCurrentProvider()?.model ?? ""}
-                      onChange={(e) => handleLlmFieldChange("model", e.target.value)}
-                    />
-                    {availableModels.length > 0 && showModelInput && (
-                      <Button
-                        variant="link"
-                        size="sm"
-                        className="px-0 h-auto text-xs"
-                        onClick={() => setShowModelInput(false)}
-                      >
-                        Выбрать из списка доступных моделей
-                      </Button>
-                    )}
-                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowNewProvider(true)}
+                    className="w-full"
+                  >
+                    <Plus className="mr-1.5 h-4 w-4" />
+                    {t("llm_providers.addProvider")}
+                  </Button>
                 )}
               </div>
 
