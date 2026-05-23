@@ -107,7 +107,7 @@ export function LoginScreen() {
             )}
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {isLoading ? t("adminPanel.setup") : t("adminPanel.loginTitle")}
+              {isLoading ? t("adminPanel.setup") : t("adminPanel.signIn")}
             </Button>
           </form>
         </CardContent>

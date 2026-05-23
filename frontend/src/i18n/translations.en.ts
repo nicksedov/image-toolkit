@@ -367,6 +367,7 @@ export const translationsEn = {
   "adminPanel.passwordPlaceholder": "Enter password",
   "adminPanel.adminSetup": "Primary Setup",
   "adminPanel.loginTitle": "Image Toolkit",
+  "adminPanel.signIn": "Sign In",
   "adminPanel.bootstrapTitle": "Primary Setup",
   "adminPanel.bootstrapDescAdmin": "Log in as administrator for primary system setup",
   "adminPanel.loginDesc": "Enter your credentials to log in",
