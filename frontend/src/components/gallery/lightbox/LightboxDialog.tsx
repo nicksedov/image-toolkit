@@ -14,7 +14,7 @@ interface LightboxDialogProps {
 export function LightboxDialog({ open, onOpenChange, titleKey, descriptionKey, children }: LightboxDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[95vw] w-[95vw] h-[90vh] p-0 overflow-hidden flex flex-col">
+      <DialogContent className="max-w-[95vw] w-[95vw] h-[90vh] p-0 overflow-hidden flex flex-col bg-background/100">
         <VisuallyHidden>
           <DialogTitle>{titleKey}</DialogTitle>
           <DialogDescription>{descriptionKey}</DialogDescription>
