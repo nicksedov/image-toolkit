@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useAuth } from "@/providers/AuthProvider"
 import { fetchUsers, createUser, updateUser, deleteUser, resetUserPassword } from "@/api/endpoints"
 import { toast } from "sonner"
@@ -48,9 +48,15 @@ export function AdminPanel() {
     }
   }, [t])
 
+  const loadUsersRef = useRef(loadUsers)
+
   useEffect(() => {
-    loadUsers()
+    loadUsersRef.current = loadUsers
   }, [loadUsers])
+
+  useEffect(() => {
+    loadUsersRef.current()
+  }, [])
 
   if (currentUser?.role !== "admin") {
     return (
