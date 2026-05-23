@@ -25,7 +25,7 @@ export function LoginScreen() {
     return () => {
       window.removeEventListener("navigate-to-profile", handleNavigateToProfile as EventListener)
     }
-  }, [])
+  }, [t])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
