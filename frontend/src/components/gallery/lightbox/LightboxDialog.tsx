@@ -14,7 +14,7 @@ interface LightboxDialogProps {
 export function LightboxDialog({ open, onOpenChange, titleKey, descriptionKey, children }: LightboxDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[95vw] w-[95vw] h-[90vh] p-0 overflow-hidden flex flex-col bg-background/100">
+      <DialogContent className="max-w-[95vw] w-[95vw] h-[90vh] p-0 overflow-hidden flex flex-col bg-black/90">
         <VisuallyHidden>
           <DialogTitle>{titleKey}</DialogTitle>
           <DialogDescription>{descriptionKey}</DialogDescription>
@@ -22,7 +22,7 @@ export function LightboxDialog({ open, onOpenChange, titleKey, descriptionKey, c
         <Button
           variant="ghost"
           size="sm"
-          className="absolute right-2 top-2 z-10 h-8 w-8 p-0 bg-black/50 text-white hover:bg-black/70 rounded-full"
+          className="absolute right-2 top-2 z-10 h-8 w-8 p-0 bg-background/80 text-foreground hover:bg-muted/80 rounded-full"
           onClick={() => onOpenChange(false)}
         >
           <X className="h-4 w-4" />
