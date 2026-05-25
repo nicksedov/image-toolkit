@@ -23,7 +23,7 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
   const [galleryExpanded, setGalleryExpanded] = useState(true)
   const [toolsExpanded, setToolsExpanded] = useState(true)
   const [accountExpanded, setAccountExpanded] = useState(true)
-  const [adminExpanded, setAdminExpanded] = useState(false)
+  const [adminExpanded, setAdminExpanded] = useState(true)
 
   const gallerySubModes = [
     { value: "gallery-folders", icon: Folder, label: t("gallery.subModes.folders") },
