@@ -2,7 +2,6 @@ package database
 
 import (
 	"fmt"
-	"strconv"
 
 	"image-toolkit/internal/domain"
 	"image-toolkit/internal/infrastructure/config"
@@ -12,7 +11,7 @@ import (
 	"gorm.io/gorm/logger"
 )
 
-// InitDatabase initializes the database connection and runs migrations
+// InitDatabase initializes the database connection and runs migrations.
 func InitDatabase(cfg *config.AppConfig) (*gorm.DB, error) {
 	dsn := fmt.Sprintf(
 		"host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
@@ -21,28 +20,15 @@ func InitDatabase(cfg *config.AppConfig) (*gorm.DB, error) {
 
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent),
+		// PrepareStmt avoids the simple protocol path in the PostgreSQL migrator
+		// (GetRows), which triggers a pgx sanitizer bug with QueryExecModeSimpleProtocol.
+		PrepareStmt: true,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
 
-	// Before AutoMigrate: add alias column as nullable and populate existing data,
-	// so GORM doesn't fail trying to add NOT NULL column to a non-empty table.
-	db.Exec("ALTER TABLE llm_providers ADD COLUMN IF NOT EXISTS alias VARCHAR(255) DEFAULT ''")
-
-	// Auto-generate aliases for existing records that don't have one
-	var unnamedProviders []domain.LlmProvider
-	db.Where("alias = '' OR alias IS NULL").Find(&unnamedProviders)
-	typeCounts := make(map[string]int)
-	for _, p := range unnamedProviders {
-		typeCounts[p.Name]++
-		alias := p.Name + "_" + strconv.Itoa(typeCounts[p.Name])
-		db.Model(&domain.LlmProvider{}).Where("id = ?", p.ID).Update("alias", alias)
-		// Update ActiveProvider in LlmSettings if it references old name format
-		db.Model(&domain.LlmSettings{}).Where("active_provider = ?", p.Name).Update("active_provider", alias)
-	}
-
-	// Now run AutoMigrate — alias column already exists so GORM won't try to add it
+	// Run AutoMigrate
 	if err := db.AutoMigrate(
 		&domain.ImageFile{},
 		&domain.GalleryFolder{},
@@ -62,14 +48,6 @@ func InitDatabase(cfg *config.AppConfig) (*gorm.DB, error) {
 		return nil, fmt.Errorf("failed to migrate database: %w", err)
 	}
 
-	// Drop legacy enabled column from llm_providers (LLM is always active now)
-	db.Exec("ALTER TABLE llm_providers DROP COLUMN IF EXISTS enabled")
-
-	// Drop old unique index on name column — Name is now a type, not a unique identifier
-	db.Exec("DROP INDEX IF EXISTS idx_llm_providers_name")
-
-	// Set NOT NULL constraint and unique index on alias column after data migration
-	db.Exec("ALTER TABLE llm_providers ALTER COLUMN alias SET NOT NULL")
 	db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_llm_providers_alias ON llm_providers (alias)")
 
 	// Create composite index for calendar pagination: covers ORDER BY date_taken, image_file_id
