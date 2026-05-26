@@ -1,7 +1,9 @@
 package testutil
 
 import (
+	"fmt"
 	"testing"
+	"time"
 
 	"image-toolkit/internal/domain"
 
@@ -193,6 +195,34 @@ func SeedOcrClassificationNoT(db *gorm.DB, imageFileID uint, isTextDocument bool
 
 	db.Create(&classification)
 	return &classification
+}
+
+// SeedSession creates a session in the test database and returns the session and token hash.
+func SeedSession(t *testing.T, db *gorm.DB, userID uint, expired, revoked bool) (*domain.Session, string) {
+	t.Helper()
+
+	session := domain.Session{
+		UserID:       userID,
+		SessionToken: "test-token-hash-" + fmt.Sprintf("%d", userID),
+		IPAddress:    "127.0.0.1",
+	}
+
+	if expired {
+		session.ExpiresAt = time.Now().Add(-1 * time.Hour)
+	} else {
+		session.ExpiresAt = time.Now().Add(24 * time.Hour)
+	}
+
+	if revoked {
+		now := time.Now()
+		session.RevokedAt = &now
+	}
+
+	if err := db.Create(&session).Error; err != nil {
+		t.Fatalf("failed to seed session: %v", err)
+	}
+
+	return &session, session.SessionToken
 }
 
 // SeedAuditLogNoT creates an AuditLog record without requiring testing.T.

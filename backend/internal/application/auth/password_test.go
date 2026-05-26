@@ -53,7 +53,7 @@ func TestVerifyPasswordInvalidHash(t *testing.T) {
 }
 
 func TestGenerateSecureToken_Length(t *testing.T) {
-	// 32 bytes → 44 base64 URL-encoded chars (ceil(32/3)*4 = 44)
+	// 32 bytes → 44 base64 URL-encoded chars (base64.URLEncoding.EncodeToString)
 	token, err := GenerateSecureToken(32)
 	if err != nil {
 		t.Fatalf("GenerateSecureToken failed: %v", err)

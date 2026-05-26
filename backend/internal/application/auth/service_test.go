@@ -306,6 +306,38 @@ func TestAuthService_GetCurrentUser_DeactivatedUser(t *testing.T) {
 	}
 }
 
+func TestAuthService_GetCurrentUser_ExpiredSession(t *testing.T) {
+	db, authService, _, _, _ := setupAuthService(t)
+
+	passwordHash, err := HashPassword("password123")
+	if err != nil {
+		t.Fatalf("failed to hash password: %v", err)
+	}
+	user := domain.User{
+		Login:        "testuser",
+		DisplayName:  "Test User",
+		Role:         domain.RoleUser,
+		PasswordHash: passwordHash,
+		IsActive:     true,
+	}
+	db.Create(&user)
+
+	// Login to get a session
+	loginResult, err := authService.Login("testuser", "password123", "127.0.0.1", "test-agent")
+	if err != nil {
+		t.Fatalf("login failed: %v", err)
+	}
+
+	// Expire the session
+	db.Model(&domain.Session{}).Where("user_id = ?", user.ID).Update("expires_at", time.Now().Add(-1*time.Hour))
+
+	// Try to get current user - should fail
+	_, err = authService.GetCurrentUser(loginResult.Token)
+	if err == nil {
+		t.Fatal("expected error for expired session, got nil")
+	}
+}
+
 func TestAuthService_ChangePassword_Success(t *testing.T) {
 	db, authService, _, _, _ := setupAuthService(t)
 

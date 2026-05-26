@@ -120,10 +120,8 @@ func TestOcrManager_Process_Unclassified_WithImages(t *testing.T) {
 		return mocks.TextDocumentResponse(0.95, 0.90, 100, 0), nil
 	}
 
-	err := om.StartClassification(false)
-	require.NoError(t, err)
-
-	time.Sleep(3 * time.Second)
+	// Call processUnclassified synchronously to avoid goroutine timing issues
+	om.processUnclassified(false)
 
 	var count int64
 	om.db.Model(&domain.OcrClassification{}).Count(&count)
@@ -142,13 +140,11 @@ func TestOcrManager_Process_OCRClientError(t *testing.T) {
 		return nil, assert.AnError
 	}
 
-	err := om.StartClassification(false)
-	require.NoError(t, err)
+	// Call processUnclassified synchronously to avoid goroutine timing issues
+	om.processUnclassified(false)
 
-	time.Sleep(2 * time.Second)
-
-	status := om.GetStatus()
-	assert.False(t, status.Processing, "should have completed")
+	// After synchronous processing, should not be in processing state
+	assert.False(t, om.IsProcessing(), "should not be processing after synchronous call")
 }
 
 func TestOcrManager_ConsumeResults_BatchSaving(t *testing.T) {
@@ -174,9 +170,9 @@ func TestOcrManager_ConsumeResults_BatchSaving(t *testing.T) {
 		results <- OcrResult{
 			Image: *imageFiles[i],
 			Classification: &domain.OcrClassification{
-				ImageFileID:  imageFiles[i].ID,
+				ImageFileID:    imageFiles[i].ID,
 				IsTextDocument: true,
-				MeanConfidence:   0.95,
+				MeanConfidence: 0.95,
 			},
 		}
 	}

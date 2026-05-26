@@ -6,11 +6,11 @@ import (
 
 // MockLlmClient is a mock implementation of llm.Client for testing.
 type MockLlmClient struct {
-	RecognizeFunc func(imagePath string, systemPrompt string, userMessage string) (string, error)
+	RecognizeFunc  func(imagePath string, systemPrompt string, userMessage string) (string, error)
 	ListModelsFunc func() ([]llm.ModelInfo, error)
 
 	// Counters
-	RecognizeCallCount int
+	RecognizeCallCount  int
 	ListModelsCallCount int
 }
 

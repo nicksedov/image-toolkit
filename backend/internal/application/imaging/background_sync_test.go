@@ -55,14 +55,13 @@ func TestBackgroundSyncManager_IsRunning(t *testing.T) {
 func TestBackgroundSyncManager_CalculateNextRunTime_Future(t *testing.T) {
 	bsm, _ := setupBackgroundSyncManager(t)
 
-	// Use fixed times to avoid minute overflow issues
+	// Schedule for a fixed hour:minute that is in the future
 	now := time.Now()
 	scheduleHour := now.Hour()
-	scheduleMinute := 30 // Fixed minute
-
-	// If 30 minutes is in the past, use hour+1
-	if scheduleMinute <= now.Minute() {
-		scheduleHour = (now.Hour() + 1) % 24
+	scheduleMinute := now.Minute() + 5
+	if scheduleMinute >= 60 {
+		scheduleMinute -= 60
+		scheduleHour = (scheduleHour + 1) % 24
 	}
 
 	nextRun := bsm.calculateNextRunTime(scheduleHour, scheduleMinute)
@@ -75,10 +74,10 @@ func TestBackgroundSyncManager_CalculateNextRunTime_Future(t *testing.T) {
 func TestBackgroundSyncManager_CalculateNextRunTime_Past(t *testing.T) {
 	bsm, _ := setupBackgroundSyncManager(t)
 
-	// Schedule time is in the past (1 minute ago)
+	// Schedule for a time that is definitely in the past (2 hours ago)
 	now := time.Now()
-	scheduleHour := now.Hour()
-	scheduleMinute := now.Minute() - 1
+	scheduleHour := (now.Hour() + 22) % 24 // 2 hours ago, safely wrapped
+	scheduleMinute := now.Minute()
 
 	nextRun := bsm.calculateNextRunTime(scheduleHour, scheduleMinute)
 

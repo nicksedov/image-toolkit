@@ -5,8 +5,11 @@ import (
 
 	"image-toolkit/internal/domain"
 	"image-toolkit/internal/testutil"
+	"image-toolkit/internal/testutil/fixtures"
+	"image-toolkit/internal/testutil/mocks"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestDetectLanguage_English(t *testing.T) {
@@ -61,6 +64,94 @@ func TestParseTags_CommaSeparated(t *testing.T) {
 	tags := parseTags(input)
 
 	assert.Equal(t, []string{"cat", "dog", "bird"}, tags)
+}
+
+func TestLlmOcrService_Recognize_Success(t *testing.T) {
+	service, cleanup := setupLlmOcrService(t)
+	defer cleanup()
+
+	// Create image file
+	tmpDir := fixtures.CreateTempDir(t)
+	imgPath := fixtures.CreateMinimalJPEG(t, tmpDir, "test.jpg", 100, 100)
+	imgFile := testutil.SeedImageFileNoT(service.db, imgPath, "hash123", 1000)
+
+	// Create OCR classification with bounding boxes (for language detection)
+	classification := &domain.OcrClassification{
+		ImageFileID:    imgFile.ID,
+		IsTextDocument: true,
+	}
+	service.db.Create(classification)
+
+	// Add bounding boxes with English text
+	for _, word := range []string{"hello", "world"} {
+		service.db.Create(&domain.OcrBoundingBox{
+			ClassificationID: classification.ID,
+			Word:             word,
+		})
+	}
+
+	// Mock LLM to return markdown
+	mockClient := &mocks.MockLlmClient{
+		RecognizeFunc: mocks.TextResponse("# Document Title\n\nContent goes here."),
+	}
+	provider := domain.LlmProvider{Name: "ollama", Model: "minicpm-v"}
+
+	result, err := service.RecognizeWithLlm(imgFile.ID, mockClient, provider)
+
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.True(t, result.Success)
+	assert.Contains(t, result.MarkdownContent, "# Document Title")
+	assert.Equal(t, "en", result.Language)
+	assert.Equal(t, "ollama", result.Provider)
+	assert.Equal(t, "minicpm-v", result.Model)
+
+	// Verify recognition saved to DB
+	saved, err := service.GetRecognition(imgFile.ID)
+	require.NoError(t, err)
+	assert.NotNil(t, saved)
+	assert.True(t, saved.Success)
+}
+
+func TestLlmOcrService_Recognize_LLMError(t *testing.T) {
+	service, cleanup := setupLlmOcrService(t)
+	defer cleanup()
+
+	// Create image file
+	tmpDir := fixtures.CreateTempDir(t)
+	imgPath := fixtures.CreateMinimalJPEG(t, tmpDir, "test.jpg", 100, 100)
+	imgFile := testutil.SeedImageFileNoT(service.db, imgPath, "hash123", 1000)
+
+	// Create OCR classification with bounding boxes
+	classification := &domain.OcrClassification{
+		ImageFileID:    imgFile.ID,
+		IsTextDocument: true,
+	}
+	service.db.Create(classification)
+
+	for _, word := range []string{"hello", "world"} {
+		service.db.Create(&domain.OcrBoundingBox{
+			ClassificationID: classification.ID,
+			Word:             word,
+		})
+	}
+
+	// Mock LLM to return error
+	mockClient := &mocks.MockLlmClient{
+		RecognizeFunc: mocks.LlmErrorResponse(assert.AnError),
+	}
+	provider := domain.LlmProvider{Name: "ollama", Model: "minicpm-v"}
+
+	_, err := service.RecognizeWithLlm(imgFile.ID, mockClient, provider)
+
+	require.Error(t, err)
+
+	// Verify failed recognition was saved to DB
+	saved, dbErr := service.GetRecognition(imgFile.ID)
+	require.NoError(t, dbErr)
+	assert.NotNil(t, saved)
+	assert.False(t, saved.Success)
+	assert.NotEmpty(t, saved.Error)
 }
 
 func TestLlmOcrService_Recognize_MissingClassification(t *testing.T) {
@@ -134,19 +225,46 @@ func TestLlmOcrService_GetRecognizeStatus_Processing(t *testing.T) {
 }
 
 func TestLlmOcrService_ExecuteAiAction_Describe(t *testing.T) {
-	_, cleanup := setupLlmOcrService(t)
+	service, cleanup := setupLlmOcrService(t)
 	defer cleanup()
 
-	// This test requires a mock LLM client, skip for now
-	// The function is covered by integration tests
+	// Create image file
+	tmpDir := fixtures.CreateTempDir(t)
+	imgPath := fixtures.CreateMinimalJPEG(t, tmpDir, "test.jpg", 100, 100)
+	imgFile := testutil.SeedImageFileNoT(service.db, imgPath, "hash123", 1000)
+
+	mockClient := &mocks.MockLlmClient{
+		RecognizeFunc: mocks.TextResponse("A beautiful landscape image with mountains and a lake."),
+	}
+	provider := domain.LlmProvider{Name: "ollama", Model: "minicpm-v"}
+
+	result, err := service.ExecuteAiAction(imgFile.ID, "describe", "", "en", mockClient, provider)
+
+	require.NoError(t, err)
+	assert.True(t, result.Success)
+	assert.Contains(t, result.Result, "landscape")
+	assert.Equal(t, "ollama", result.Provider)
 }
 
 func TestLlmOcrService_ExecuteAiAction_Tags(t *testing.T) {
-	_, cleanup := setupLlmOcrService(t)
+	service, cleanup := setupLlmOcrService(t)
 	defer cleanup()
 
-	// This test requires a mock LLM client, skip for now
-	// The function is covered by integration tests
+	// Create image file
+	tmpDir := fixtures.CreateTempDir(t)
+	imgPath := fixtures.CreateMinimalJPEG(t, tmpDir, "test.jpg", 100, 100)
+	imgFile := testutil.SeedImageFileNoT(service.db, imgPath, "hash123", 1000)
+
+	mockClient := &mocks.MockLlmClient{
+		RecognizeFunc: mocks.TextResponse("cat, dog, bird"),
+	}
+	provider := domain.LlmProvider{Name: "ollama", Model: "minicpm-v"}
+
+	result, err := service.ExecuteAiAction(imgFile.ID, "tags", "", "en", mockClient, provider)
+
+	require.NoError(t, err)
+	assert.True(t, result.Success)
+	assert.Equal(t, []string{"cat", "dog", "bird"}, result.Tags)
 }
 
 func setupLlmOcrService(t *testing.T) (*LlmOcrService, func()) {
