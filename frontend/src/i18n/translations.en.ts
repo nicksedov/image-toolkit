@@ -303,6 +303,7 @@ export const translationsEn = {
   "adminPanel.accessDenied": "Access denied",
   "adminPanel.title": "Users",
   "adminPanel.description": "Create and manage user accounts",
+  "adminPanel.profileDescription": "Manage your profile information and change password",
   "adminPanel.account": "Account",
   "adminPanel.createButton": "Create User",
   "adminPanel.noUsers": "No users",

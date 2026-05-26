@@ -102,7 +102,7 @@ export function UserProfile() {
     <div className="mx-auto max-w-2xl space-y-6">
       <div>
         <h2 className="text-2xl font-bold">{t("adminPanel.updateProfile")}</h2>
-        <p className="text-muted-foreground">{t("adminPanel.description")}</p>
+        <p className="text-muted-foreground">{t("adminPanel.profileDescription")}</p>
       </div>
 
       <Card>

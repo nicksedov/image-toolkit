@@ -303,6 +303,7 @@ export const translationsRu = {
   "adminPanel.accessDenied": "Доступ запрещен",
   "adminPanel.title": "Пользователи",
   "adminPanel.description": "Создание и настройка учетных записей",
+  "adminPanel.profileDescription": "Управление профилем и смена пароля",
   "adminPanel.account": "Учетная запись",
   "adminPanel.createButton": "Создать пользователя",
   "adminPanel.noUsers": "Нет пользователей",
