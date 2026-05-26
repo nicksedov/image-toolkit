@@ -72,6 +72,9 @@ frontend/src/
 - ✅ Use context providers for shared state
 - ✅ Follow clean architecture
 - ✅ Keep i18n en/ru in sync
+- ✅ Cover new Go code with unit-tests, keep tests in sync
+- ✅ Run backend unit tests after every code change — `go test ./internal/application/... -count=1`
+- ✅ Fix failing tests before committing — zero failures required
 - ✅ Functional React components only
 
 ## Commands
@@ -80,7 +83,10 @@ frontend/src/
 ```bash
 cd backend && go mod tidy
 go build -o image-toolkit ./cmd/server/
-go run ./cmd/server/           # Dev: http://localhost:5170
+go run ./cmd/server/                         # Dev: http://localhost:5170
+go test ./internal/application/... -count=1  # Run all unit tests (ALWAYS after changes)
+go test ./internal/application/... -v        # Verbose test output
+go test ./... -coverprofile=coverage.out     # Coverage report
 ```
 
 **Frontend**:
@@ -122,5 +128,6 @@ Prefer using these MCP tools over raw CLI commands where applicable: use [`files
 ## Validation
 - `npx tsc -b` (frontend)
 - `go build ./...` (backend)
+- `go test ./internal/application/... -count=1` (backend unit tests — must pass with 0 failures)
 - `npm run lint` (ESLint)
 - Verify i18n en/ru consistency

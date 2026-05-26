@@ -51,3 +51,47 @@ func TestVerifyPasswordInvalidHash(t *testing.T) {
 		t.Fatal("VerifyPassword succeeded with incomplete hash")
 	}
 }
+
+func TestGenerateSecureToken_Length(t *testing.T) {
+	// 32 bytes → 44 base64 URL-encoded chars (ceil(32/3)*4 = 44)
+	token, err := GenerateSecureToken(32)
+	if err != nil {
+		t.Fatalf("GenerateSecureToken failed: %v", err)
+	}
+
+	if len(token) != 44 {
+		t.Errorf("Expected token length 44, got %d", len(token))
+	}
+}
+
+func TestGenerateSecureToken_Uniqueness(t *testing.T) {
+	tokens := make(map[string]bool)
+	for i := 0; i < 100; i++ {
+		token, err := GenerateSecureToken(32)
+		if err != nil {
+			t.Fatalf("GenerateSecureToken failed: %v", err)
+		}
+
+		if tokens[token] {
+			t.Errorf("Duplicate token generated at iteration %d", i)
+		}
+		tokens[token] = true
+	}
+}
+
+func TestVerifyPassword_EmptyInputs(t *testing.T) {
+	// Empty password
+	if VerifyPassword("", "$argon2id$v=19$m=65536,t=1,p=8$c29tZXNhbHQ$abc123") {
+		t.Fatal("VerifyPassword succeeded with empty password")
+	}
+
+	// Empty hash
+	if VerifyPassword("password", "") {
+		t.Fatal("VerifyPassword succeeded with empty hash")
+	}
+
+	// Both empty
+	if VerifyPassword("", "") {
+		t.Fatal("VerifyPassword succeeded with both empty")
+	}
+}
