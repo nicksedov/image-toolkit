@@ -16,7 +16,6 @@ import {
 import { Button } from "@/components/ui/button"
 import { deleteFiles } from "@/api/endpoints"
 import { useSettings } from "@/providers/useSettings"
-import { useTheme } from "@/theme"
 import { useTranslation } from "@/i18n"
 import type { GalleryImageDTO } from "@/types"
 
@@ -28,8 +27,6 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || ""
 
 export function GalleryTab({ galleryMode }: GalleryTabProps) {
   const { trashDir } = useSettings()
-  const { theme } = useTheme()
-  const isLight = theme.startsWith("light-")
   const { t } = useTranslation()
   const [selectedImage, setSelectedImage] = useState<string | null>(null)
   const [ocrImage, setOcrImage] = useState<string | null>(null)
@@ -130,7 +127,7 @@ export function GalleryTab({ galleryMode }: GalleryTabProps) {
       />
 
       <Dialog open={!!deleteConfirm} onOpenChange={(open) => !open && setDeleteConfirm(null)}>
-        <DialogContent className={isLight ? "bg-white/90" : "bg-black/90"}>
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>{t("gallery.deleteConfirm.title")}</DialogTitle>
             <DialogDescription>
