@@ -11,6 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { useFolderPatterns } from "@/hooks/useFolderPatterns"
 import { batchDelete } from "@/api/endpoints"
 import { useSettings } from "@/providers/useSettings"
+import { useTheme } from "@/theme"
 import { useTranslation } from "@/i18n"
 import type { BatchDeleteRule, FolderPattern } from "@/types"
 
@@ -37,6 +38,8 @@ export function BatchDeduplicationModal({
   const [isCompleted, setIsCompleted] = useState(false)
   const [lastResult, setLastResult] = useState<{ rulesApplied: number; filesDeleted: number } | null>(null)
   const { trashDir } = useSettings()
+  const { theme } = useTheme()
+  const isLight = theme.startsWith("light-")
   const { t } = useTranslation()
 
   const skippedPatterns = useMemo(() => {
@@ -147,7 +150,7 @@ export function BatchDeduplicationModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
+      <DialogContent className={`max-w-2xl max-h-[85vh] flex flex-col overflow-hidden ${isLight ? "bg-white/90" : "bg-black/90"}`}>
         <DialogHeader className="flex-shrink-0">
           <DialogTitle>{t("batchDedup.title")}</DialogTitle>
           <DialogDescription>
