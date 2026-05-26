@@ -3,7 +3,7 @@ import { useAuth } from "@/providers/AuthProvider"
 import { changePassword as apiChangePassword, updateProfile as apiUpdateProfile } from "@/api/endpoints"
 import type { ChangePasswordResponse } from "@/types"
 import { toast } from "sonner"
-import { Loader2, User, Lock } from "lucide-react"
+import { Loader2, Lock } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -106,22 +106,16 @@ export function UserProfile() {
       </div>
 
       <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <User className="h-5 w-5" />
-            <CardTitle>{t("adminPanel.title")}</CardTitle>
-          </div>
-          <CardDescription>{t("adminPanel.description")}</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 pt-6">
           <div className="flex items-center justify-between">
-            <div>
-              <p className="font-medium">{user.displayName}</p>
-              <p className="text-sm text-muted-foreground">{user.login}</p>
-            </div>
+            <p className="font-medium">{user.displayName}</p>
             <Badge variant={user.role === "admin" ? "default" : "secondary"}>
               {user.role === "admin" ? t("adminPanel.admin") : t("adminPanel.user")}
             </Badge>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="login">{t("adminPanel.account")}</Label>
+            <Input id="login" value={user.login} readOnly className="bg-muted text-muted-foreground" />
           </div>
           <Separator />
           <form onSubmit={handleSaveProfile} className="space-y-4">
