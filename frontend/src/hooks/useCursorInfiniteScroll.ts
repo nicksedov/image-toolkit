@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 
 export interface UseCursorInfiniteScrollOptions<T, R> {
   /** Fetch function that takes optional cursor and returns response */
@@ -40,7 +40,8 @@ export interface UseCursorInfiniteScrollResult<T> {
 
 /**
  * Simplified infinite scroll hook using cursor-based pagination.
- * No prefetch buffer, no duplicate detection - server guarantees uniqueness via cursor.
+ * Uses ref-based loading guard and generation counter to prevent duplicate
+ * page loads from stale closures and to invalidate in-flight requests on reset.
  */
 export function useCursorInfiniteScroll<T, R>(
   options: UseCursorInfiniteScrollOptions<T, R>
@@ -60,36 +61,68 @@ export function useCursorInfiniteScroll<T, R>(
   const [initialized, setInitialized] = useState(false)
   const nextCursorRef = useRef<string | null>(null)
 
+  // Synchronous loading guard — ref writes are immediate (no React batching),
+  // so rapid consecutive calls correctly see the updated value.
+  const loadingRef = useRef(false)
+  // Generation counter to invalidate stale requests after reset().
+  const generationRef = useRef(0)
+
+  // Store options in refs so loadMore can access the latest version without
+  // depending on unstable function references.
+  const fetchFnRef = useRef(fetchFn)
+  const transformRef = useRef(transform)
+  const responseNextCursorRef = useRef(responseNextCursor)
+  const responseTotalRef = useRef(responseTotal)
+  useEffect(() => {
+    fetchFnRef.current = fetchFn
+    transformRef.current = transform
+    responseNextCursorRef.current = responseNextCursor
+    responseTotalRef.current = responseTotal
+  })
+
   const loadMore = useCallback(async () => {
-    if (isLoading) return
+    if (loadingRef.current) return
+    loadingRef.current = true
     setIsLoading(true)
     setError(null)
+    const gen = generationRef.current
     try {
       const cursorArg = nextCursorRef.current ?? undefined
-      const result = await fetchFn(cursorArg)
+      const result = await fetchFnRef.current(cursorArg)
 
-      setItems((prev) => [...prev, ...transform(result)])
-      
-      const cursor = responseNextCursor(result)
+      // Discard response if reset() was called during the fetch
+      if (generationRef.current !== gen) return
+
+      setItems((prev) => [...prev, ...transformRef.current(result)])
+
+      const cursor = responseNextCursorRef.current(result)
       nextCursorRef.current = cursor
       setHasMore(cursor !== null)
 
-      if (responseTotal) {
-        setTotal(responseTotal(result))
+      if (responseTotalRef.current) {
+        setTotal(responseTotalRef.current(result))
       }
 
       setInitialized(true)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load data")
+      if (generationRef.current === gen) {
+        setError(err instanceof Error ? err.message : "Failed to load data")
+      }
     } finally {
-      setIsLoading(false)
+      if (generationRef.current === gen) {
+        loadingRef.current = false
+        setIsLoading(false)
+      }
     }
-  }, [isLoading, fetchFn, transform, responseNextCursor, responseTotal])
+  }, [])
 
   const reset = useCallback(() => {
+    generationRef.current += 1
+    loadingRef.current = false
     setItems([])
     setTotal(0)
     setHasMore(true)
+    setIsLoading(false)
     setError(null)
     setInitialized(false)
     nextCursorRef.current = null
