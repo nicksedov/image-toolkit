@@ -29,6 +29,7 @@ export function GalleryTab({ galleryMode }: GalleryTabProps) {
   const { trashDir } = useSettings()
   const { t } = useTranslation()
   const [selectedImage, setSelectedImage] = useState<string | null>(null)
+  const [showGeoForm, setShowGeoForm] = useState(false)
   const [ocrImage, setOcrImage] = useState<string | null>(null)
   const [aiImage, setAiImage] = useState<string | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<{ image: GalleryImageDTO; removeThumbnail: () => void } | null>(null)
@@ -113,7 +114,12 @@ export function GalleryTab({ galleryMode }: GalleryTabProps) {
 
       <ImageLightbox
         imagePath={selectedImage}
-        onClose={() => setSelectedImage(null)}
+        onClose={() => {
+          setSelectedImage(null)
+          setShowGeoForm(false)
+        }}
+        showGeoForm={showGeoForm}
+        onShowGeoFormChange={setShowGeoForm}
       />
 
       <OcrLightbox

@@ -64,7 +64,29 @@ export function ImageLightbox({ imagePath, onClose, showGeoForm, onShowGeoFormCh
                 onGpsSaved={handleGpsSaved}
               />
             ) : (
-              <p className="text-xs text-muted-foreground">{t("metadata.noData")}</p>
+              <div className="space-y-4">
+                <p className="text-xs text-muted-foreground">{t("metadata.noData")}</p>
+                <div>
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t("metadata.sectionLocation")}</span>
+                  </div>
+                  {showGeoForm ? (
+                    <GeoSearchForm imagePath={imagePath} onGpsSaved={handleGpsSaved} />
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="w-full text-xs"
+                      onClick={() => onShowGeoFormChange?.(true)}
+                    >
+                      <MapPinPlus className="h-3.5 w-3.5 mr-1.5" />
+                      {t("geo.addLocation")}
+                    </Button>
+                  )}
+                </div>
+              </div>
             )}
           </div>
         </div>
@@ -289,6 +311,7 @@ function GeoSearchForm({ imagePath, onGpsSaved }: GeoSearchFormProps) {
           <div className="flex flex-wrap gap-1">
             {candidates.map((c, i) => {
               const label = [c.geoCity, c.geoCountry].filter(Boolean).join(", ")
+              const coords = `${c.lat.toFixed(2)}, ${c.lng.toFixed(2)}`
               return (
                 <button
                   key={i}
@@ -297,7 +320,7 @@ function GeoSearchForm({ imagePath, onGpsSaved }: GeoSearchFormProps) {
                   onClick={() => handleSelectCandidate(c)}
                   title={`${label} (${c.photoCount})`}
                 >
-                  {label || `${c.lat.toFixed(2)}, ${c.lng.toFixed(2)}`}
+                  {label ? `${label} · ${coords}` : coords}
                   <span className="text-muted-foreground">({c.photoCount})</span>
                 </button>
               )

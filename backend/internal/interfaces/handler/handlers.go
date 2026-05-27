@@ -2917,8 +2917,8 @@ func (s *Server) handleGetLocationCandidates(c *gin.Context) {
 		Lng float64
 	}
 	type locationGroup struct {
-		Lat        float64
-		Lng        float64
+		LatSum     float64
+		LngSum     float64
 		GeoCountry string
 		GeoCity    string
 		PhotoCount int
@@ -2929,17 +2929,19 @@ func (s *Server) handleGetLocationCandidates(c *gin.Context) {
 	var order []locationKey
 
 	for _, r := range rows {
-		// Round to ~10m precision for grouping
-		roundedLat := math.Round(r.GPSLatitude*10000) / 10000
-		roundedLng := math.Round(r.GPSLongitude*10000) / 10000
+		// Round to ~5km precision for grouping
+		roundedLat := math.Round(r.GPSLatitude*20) / 20
+		roundedLng := math.Round(r.GPSLongitude*20) / 20
 		key := locationKey{Lat: roundedLat, Lng: roundedLng}
 
 		if g, ok := groupMap[key]; ok {
+			g.LatSum += r.GPSLatitude
+			g.LngSum += r.GPSLongitude
 			g.PhotoCount++
 		} else {
 			groupMap[key] = &locationGroup{
-				Lat:        r.GPSLatitude,
-				Lng:        r.GPSLongitude,
+				LatSum:     r.GPSLatitude,
+				LngSum:     r.GPSLongitude,
 				GeoCountry: r.GeoCountry,
 				GeoCity:    r.GeoCity,
 				PhotoCount: 1,
@@ -2957,8 +2959,8 @@ func (s *Server) handleGetLocationCandidates(c *gin.Context) {
 		}
 		g := groupMap[key]
 		candidate := dto.LocationCandidate{
-			Lat:        g.Lat,
-			Lng:        g.Lng,
+			Lat:        g.LatSum / float64(g.PhotoCount),
+			Lng:        g.LngSum / float64(g.PhotoCount),
 			GeoCountry: g.GeoCountry,
 			GeoCity:    g.GeoCity,
 			PhotoCount: g.PhotoCount,
