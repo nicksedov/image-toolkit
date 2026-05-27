@@ -10,6 +10,7 @@ interface ExifImageTileProps {
   onImageAi?: (image: GalleryImageDTO) => void
   onImageDownload?: (image: GalleryImageDTO) => void
   onImageDelete?: (image: GalleryImageDTO) => void
+  onAddGeo?: (image: GalleryImageDTO) => void
 }
 
 export function ExifImageTile({
@@ -20,6 +21,7 @@ export function ExifImageTile({
   onImageAi,
   onImageDownload,
   onImageDelete,
+  onAddGeo,
 }: ExifImageTileProps) {
   const { t } = useTranslation()
 
@@ -53,12 +55,26 @@ export function ExifImageTile({
             </div>
           )}
           {image.missingGps && (
-            <div
-              className="flex items-center justify-center h-5 w-5 rounded bg-black/60 text-red-400"
-              title={t("exif.missingGps")}
-            >
-              <MapPinX className="h-3.5 w-3.5" />
-            </div>
+            onAddGeo ? (
+              <button
+                type="button"
+                className="flex items-center justify-center h-5 w-5 rounded bg-black/60 text-red-400 hover:bg-red-500/80 hover:text-white cursor-pointer transition-colors"
+                title={t("exif.missingGps")}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onAddGeo(image)
+                }}
+              >
+                <MapPinX className="h-3.5 w-3.5" />
+              </button>
+            ) : (
+              <div
+                className="flex items-center justify-center h-5 w-5 rounded bg-black/60 text-red-400"
+                title={t("exif.missingGps")}
+              >
+                <MapPinX className="h-3.5 w-3.5" />
+              </div>
+            )
           )}
         </div>
 

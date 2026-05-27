@@ -10,6 +10,7 @@ import (
 	"image-toolkit/internal/application/imaging"
 	"image-toolkit/internal/application/thumbnail"
 	"image-toolkit/internal/infrastructure/config"
+	"image-toolkit/internal/infrastructure/geocoder"
 	"image-toolkit/internal/infrastructure/ocr"
 	"image-toolkit/internal/interfaces/dto"
 	"image-toolkit/internal/interfaces/handler/helpers"
@@ -39,10 +40,12 @@ type Server struct {
 	llmFactory       *helpers.LLMFactory
 	fileMover        *helpers.FileMover
 	i18n             *i18n.Service
+	geocoder         *geocoder.Geocoder
+	nominatim        *geocoder.NominatimClient
 }
 
 // NewServer creates a new server instance
-func NewServer(db *gorm.DB, scanManager *imaging.ScanManager, ocrManager *imaging.OcrManager, llmOcrService *imaging.LlmOcrService, backgroundSync *imaging.BackgroundSyncManager, tagScanManager *imaging.TagScanManager, thumbnailService *thumbnail.Service, cfg *config.AppConfig) *Server {
+func NewServer(db *gorm.DB, scanManager *imaging.ScanManager, ocrManager *imaging.OcrManager, llmOcrService *imaging.LlmOcrService, backgroundSync *imaging.BackgroundSyncManager, tagScanManager *imaging.TagScanManager, thumbnailService *thumbnail.Service, cfg *config.AppConfig, rgeo *geocoder.Geocoder, nominatimClient *geocoder.NominatimClient) *Server {
 	var ocrClient ocr.Client
 	if cfg.OCREnabled {
 		ocrClient = ocr.NewClient(cfg.OCRHost, cfg.OCRPort)
@@ -67,6 +70,8 @@ func NewServer(db *gorm.DB, scanManager *imaging.ScanManager, ocrManager *imagin
 		ocrClient:        ocrClient,
 		clusterStorage:   geo.NewClusterStorage(),
 		i18n:             i18nSvc,
+		geocoder:         rgeo,
+		nominatim:        nominatimClient,
 	}
 	s.thumbnailBatch = helpers.NewThumbnailBatch(thumbnailService, s.thumbnailCache)
 	s.galleryAccess = helpers.NewGalleryAccess(db)

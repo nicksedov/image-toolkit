@@ -35,5 +35,5 @@ export function useImageMetadata(imagePath: string | null) {
     loadMetadata(imagePath)
   }, [imagePath, loadMetadata])
 
-  return { metadata, isLoading, error }
+  return { metadata, isLoading, error, reload: () => imagePath && loadMetadata(imagePath) }
 }

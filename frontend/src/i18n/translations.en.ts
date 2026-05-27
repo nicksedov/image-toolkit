@@ -546,6 +546,20 @@ export const translationsEn = {
   "exif.emptyHint": "Great! All your images have date and GPS information.",
   "exif.missingDate": "Missing date taken",
   "exif.missingGps": "Missing GPS coordinates",
+
+  // Geo / GPS
+  "geo.addLocation": "Add Location",
+  "geo.searchPlaceholder": "Search for a city or country...",
+  "geo.searching": "Searching...",
+  "geo.noResults": "No locations found",
+  "geo.suggestedLocations": "Suggested locations (from same-day photos)",
+  "geo.selectedLocation": "Selected location",
+  "geo.saveLocation": "Save Location",
+  "geo.savingLocation": "Saving location...",
+  "geo.saveSuccess": "Location saved successfully",
+  "geo.saveFailed": "Failed to save location",
+  "geo.useThisLocation": "Use this location",
+  "geo.addLocationHint": "Search for a location or pick from same-day photos",
  
   // LLM Providers
   "llm_providers.alias": "Alias",

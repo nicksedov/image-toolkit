@@ -57,6 +57,10 @@ import type {
   ThumbnailCacheStatsResponse,
   WarmupThumbnailsRequest,
   TagScanStatusResponse,
+  GeocodeSearchResponse,
+  UpdateGpsRequest,
+  UpdateGpsResponse,
+  LocationCandidatesResponse,
 } from "@/types"
 
 export function fetchDuplicates(page: number, pageSize: number): Promise<DuplicatesResponse> {
@@ -491,4 +495,18 @@ export function startAiAction(req: import("@/types").AiActionRequest): Promise<i
 
 export function fetchAiActionStatus(taskId: string): Promise<import("@/types").AiActionStatusResponse> {
   return apiGet<import("@/types").AiActionStatusResponse>(`/api/ai/status/${taskId}`)
+}
+
+// --- Geocode / GPS ---
+
+export function searchGeocodeLocations(query: string): Promise<GeocodeSearchResponse> {
+  return apiGet<GeocodeSearchResponse>("/api/geocode/search", { q: query })
+}
+
+export function updateImageGps(req: UpdateGpsRequest): Promise<UpdateGpsResponse> {
+  return apiPut<UpdateGpsResponse>("/api/image-metadata/gps", req)
+}
+
+export function fetchLocationCandidates(path: string): Promise<LocationCandidatesResponse> {
+  return apiGet<LocationCandidatesResponse>("/api/image-metadata/location-candidates", { path })
 }

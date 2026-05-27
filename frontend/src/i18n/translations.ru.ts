@@ -636,6 +636,20 @@ export const translationsRu = {
   "exif.emptyHint": "Отлично! У всех ваших изображений есть дата и GPS информация.",
   "exif.missingDate": "Отсутствует дата съемки",
   "exif.missingGps": "Отсутствуют GPS координаты",
+
+  // Гео / GPS
+  "geo.addLocation": "Добавить местоположение",
+  "geo.searchPlaceholder": "Поиск города или страны...",
+  "geo.searching": "Поиск...",
+  "geo.noResults": "Местоположения не найдены",
+  "geo.suggestedLocations": "Предложенные местоположения (из фото за тот же день)",
+  "geo.selectedLocation": "Выбранное местоположение",
+  "geo.saveLocation": "Сохранить местоположение",
+  "geo.savingLocation": "Сохранение местоположения...",
+  "geo.saveSuccess": "Местоположение успешно сохранено",
+  "geo.saveFailed": "Не удалось сохранить местоположение",
+  "geo.useThisLocation": "Использовать это местоположение",
+  "geo.addLocationHint": "Найдите местоположение или выберите из фото за тот же день",
  
   // LLM Providers
   "llm_providers.alias": "Алиас",

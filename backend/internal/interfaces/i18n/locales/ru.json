@@ -158,5 +158,16 @@
   "description_llm": "Сообщения LLM",
   "llm": {
     "models_failed": "Не удалось получить список моделей"
+  },
+
+  "description_geocode": "Сообщения геокодирования / GPS",
+  "geocode": {
+    "query_required": "Требуется поисковый запрос",
+    "search_failed": "Ошибка поиска местоположения",
+    "gps_update_failed": "Не удалось обновить GPS координаты",
+    "invalid_coordinates": "Неверные GPS координаты",
+    "gps_updated": "GPS координаты успешно обновлены",
+    "not_jpeg": "GPS может быть записан только в JPEG файлы",
+    "backup_failed": "Не удалось создать резервную копию файла"
   }
 }

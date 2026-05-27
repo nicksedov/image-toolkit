@@ -6,6 +6,7 @@ import (
 	_ "image/gif"
 	_ "image/jpeg"
 	_ "image/png"
+	"io"
 	"log"
 	"math"
 	"os"
@@ -23,6 +24,9 @@ import (
 
 	"image-toolkit/internal/domain"
 )
+
+// trashTimestampFormat is used for backup file naming.
+const trashTimestampFormat = "20060102_150405"
 
 // exifTool is the global exiftool instance
 var exifTool *exiftool.Exiftool
@@ -395,4 +399,94 @@ func HasExifData(meta *domain.ImageMetadata) bool {
 	return meta.CameraModel != "" || meta.LensModel != "" || meta.ISO != 0 ||
 		meta.Aperture != "" || meta.ShutterSpeed != "" || meta.FocalLength != "" ||
 		meta.DateTaken != nil || meta.Software != "" || meta.GPSLatitude != nil
+}
+
+// WriteGPS backs up the original file and writes GPS coordinates to its EXIF metadata.
+// If trashDir is non-empty, the backup is created there; otherwise alongside the original file.
+func WriteGPS(filePath, trashDir string, lat, lng float64) error {
+	// Validate coordinates
+	if lat < -90 || lat > 90 {
+		return fmt.Errorf("invalid latitude: %f (must be between -90 and 90)", lat)
+	}
+	if lng < -180 || lng > 180 {
+		return fmt.Errorf("invalid longitude: %f (must be between -180 and 180)", lng)
+	}
+
+	// Check JPEG extension
+	ext := strings.ToLower(filepath.Ext(filePath))
+	if ext != ".jpg" && ext != ".jpeg" {
+		return fmt.Errorf("GPS can only be written to JPEG files, got: %s", ext)
+	}
+
+	// Create backup before modifying the file
+	if err := createBackup(filePath, trashDir); err != nil {
+		return fmt.Errorf("failed to create backup: %w", err)
+	}
+
+	// Determine hemisphere references and absolute values for exiftool
+	latRef := "N"
+	lngRef := "E"
+	absLat := lat
+	absLng := lng
+	if lat < 0 {
+		latRef = "S"
+		absLat = -lat
+	}
+	if lng < 0 {
+		lngRef = "W"
+		absLng = -lng
+	}
+
+	// Write GPS using exiftool CLI
+	cmd := exec.Command("exiftool",
+		"-overwrite_original",
+		fmt.Sprintf("-GPSLatitude=%.8f", absLat),
+		fmt.Sprintf("-GPSLatitudeRef=%s", latRef),
+		fmt.Sprintf("-GPSLongitude=%.8f", absLng),
+		fmt.Sprintf("-GPSLongitudeRef=%s", lngRef),
+		filePath,
+	)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		log.Printf("EXIF WriteGPS: exiftool failed for %s: %v, output: %s", filepath.Base(filePath), err, string(output))
+		return fmt.Errorf("exiftool failed: %w", err)
+	}
+
+	log.Printf("EXIF WriteGPS: GPS written to %s (lat=%.8f, lng=%.8f)", filepath.Base(filePath), lat, lng)
+	return nil
+}
+
+// createBackup copies the original file to a backup location before EXIF modification.
+func createBackup(filePath, trashDir string) error {
+	dir := filepath.Dir(filePath)
+	if trashDir != "" {
+		dir = trashDir
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return fmt.Errorf("failed to create trash directory: %w", err)
+		}
+	}
+
+	ext := filepath.Ext(filePath)
+	nameWithoutExt := strings.TrimSuffix(filepath.Base(filePath), ext)
+	backupName := fmt.Sprintf("%s_backup_%s%s", nameWithoutExt, time.Now().Format(trashTimestampFormat), ext)
+	backupPath := filepath.Join(dir, backupName)
+
+	src, err := os.Open(filePath)
+	if err != nil {
+		return fmt.Errorf("failed to open source file: %w", err)
+	}
+	defer src.Close()
+
+	dst, err := os.Create(backupPath)
+	if err != nil {
+		return fmt.Errorf("failed to create backup file: %w", err)
+	}
+	defer dst.Close()
+
+	if _, err := io.Copy(dst, src); err != nil {
+		return fmt.Errorf("failed to copy file: %w", err)
+	}
+
+	log.Printf("EXIF WriteGPS: backup created at %s", backupPath)
+	return nil
 }

@@ -158,5 +158,16 @@
   "description_llm": "LLM messages",
   "llm": {
     "models_failed": "Failed to fetch models"
+  },
+
+  "description_geocode": "Geocode / GPS messages",
+  "geocode": {
+    "query_required": "Search query is required",
+    "search_failed": "Location search failed",
+    "gps_update_failed": "Failed to update GPS coordinates",
+    "invalid_coordinates": "Invalid GPS coordinates",
+    "gps_updated": "GPS coordinates updated successfully",
+    "not_jpeg": "GPS can only be written to JPEG files",
+    "backup_failed": "Failed to create backup copy of the original file"
   }
 }

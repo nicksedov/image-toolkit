@@ -5,9 +5,15 @@ import type { GalleryImageDTO } from "@/types"
 
 export function ExifTab() {
   const [selectedImagePath, setSelectedImagePath] = useState<string | null>(null)
+  const [showGeoForm, setShowGeoForm] = useState(false)
 
   const handleImageClick = (image: GalleryImageDTO) => {
     setSelectedImagePath(image.path)
+  }
+
+  const handleAddGeo = (image: GalleryImageDTO) => {
+    setSelectedImagePath(image.path)
+    setShowGeoForm(true)
   }
 
   return (
@@ -36,11 +42,17 @@ export function ExifTab() {
             })
           )
         }}
+        onAddGeo={handleAddGeo}
       />
 
       <ImageLightbox
         imagePath={selectedImagePath}
-        onClose={() => setSelectedImagePath(null)}
+        onClose={() => {
+          setSelectedImagePath(null)
+          setShowGeoForm(false)
+        }}
+        showGeoForm={showGeoForm}
+        onShowGeoFormChange={setShowGeoForm}
       />
     </>
   )

@@ -628,3 +628,49 @@ type AiActionResponse struct {
 	Model            string       `json:"model,omitempty"`
 	ProcessingTimeMs int          `json:"processingTimeMs,omitempty"`
 }
+
+// --- Geocode / GPS API ---
+
+// GeocodeSearchResult represents a single location from the Nominatim geocoding API.
+type GeocodeSearchResult struct {
+	Lat         float64 `json:"lat"`
+	Lon         float64 `json:"lon"`
+	DisplayName string  `json:"displayName"`
+	Type        string  `json:"type"`
+}
+
+// GeocodeSearchResponse is the JSON response for GET /api/geocode/search
+type GeocodeSearchResponse struct {
+	Results []GeocodeSearchResult `json:"results"`
+}
+
+// UpdateGpsRequest is the JSON request for PUT /api/image-metadata/gps
+type UpdateGpsRequest struct {
+	Path string  `json:"path" binding:"required"`
+	Lat  float64 `json:"lat"`
+	Lng  float64 `json:"lng"`
+}
+
+// UpdateGpsResponse is the JSON response for PUT /api/image-metadata/gps
+type UpdateGpsResponse struct {
+	Success    bool    `json:"success"`
+	Lat        float64 `json:"lat"`
+	Lng        float64 `json:"lng"`
+	GeoCountry string  `json:"geoCountry"`
+	GeoCity    string  `json:"geoCity"`
+}
+
+// LocationCandidate represents a suggested location from same-day photos.
+type LocationCandidate struct {
+	Lat        float64 `json:"lat"`
+	Lng        float64 `json:"lng"`
+	GeoCountry string  `json:"geoCountry"`
+	GeoCity    string  `json:"geoCity"`
+	PhotoCount int     `json:"photoCount"`
+	Thumbnail  string  `json:"thumbnail,omitempty"`
+}
+
+// LocationCandidatesResponse is the JSON response for GET /api/image-metadata/location-candidates
+type LocationCandidatesResponse struct {
+	Candidates []LocationCandidate `json:"candidates"`
+}

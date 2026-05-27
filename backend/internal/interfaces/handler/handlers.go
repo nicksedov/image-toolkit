@@ -2746,3 +2746,238 @@ func (s *Server) handleThumbnailCacheDisable(c *gin.Context) {
 	s.thumbnailService.Disable()
 	s.respondSuccess(c, http.StatusOK, i18n.MsgThumbnailCacheDisabled)
 }
+
+// --- Geocode / GPS Handlers ---
+
+// handleGeocodeSearch searches for locations using the Nominatim geocoding API.
+func (s *Server) handleGeocodeSearch(c *gin.Context) {
+	q := c.Query("q")
+	if strings.TrimSpace(q) == "" {
+		s.respondValidationError(c, http.StatusBadRequest, i18n.MsgGeocodeQueryRequired)
+		return
+	}
+
+	if s.nominatim == nil {
+		s.respondError(c, http.StatusServiceUnavailable, i18n.MsgGeocodeSearchFailed)
+		return
+	}
+
+	results, err := s.nominatim.Search(q)
+	if err != nil {
+		log.Printf("GeocodeSearch: failed for query %q: %v", q, err)
+		s.respondError(c, http.StatusInternalServerError, i18n.MsgGeocodeSearchFailed)
+		return
+	}
+
+	dtoResults := make([]dto.GeocodeSearchResult, len(results))
+	for i, r := range results {
+		dtoResults[i] = dto.GeocodeSearchResult{
+			Lat:         r.Lat,
+			Lon:         r.Lon,
+			DisplayName: r.DisplayName,
+			Type:        r.Type,
+		}
+	}
+
+	s.respondJSON(c, http.StatusOK, dto.GeocodeSearchResponse{Results: dtoResults})
+}
+
+// handleUpdateGps writes GPS coordinates to a JPEG file's EXIF and updates the database.
+func (s *Server) handleUpdateGps(c *gin.Context) {
+	var req dto.UpdateGpsRequest
+	if !helpers.BindJSON(c, &req) {
+		return
+	}
+
+	// Validate coordinates
+	if req.Lat < -90 || req.Lat > 90 || req.Lng < -180 || req.Lng > 180 {
+		s.respondValidationError(c, http.StatusBadRequest, i18n.MsgGpsInvalidCoordinates)
+		return
+	}
+
+	// Validate JPEG extension
+	ext := strings.ToLower(filepath.Ext(req.Path))
+	if ext != ".jpg" && ext != ".jpeg" {
+		s.respondValidationError(c, http.StatusBadRequest, i18n.MsgGpsNotJpeg)
+		return
+	}
+
+	// Look up ImageFile by path
+	var imageFile domain.ImageFile
+	if result := s.db.Where("path = ?", req.Path).First(&imageFile); result.Error != nil {
+		s.respondError(c, http.StatusNotFound, i18n.MsgImageNotFound)
+		return
+	}
+
+	// Convert to OS path
+	osPath := filepath.FromSlash(req.Path)
+
+	// Get trash dir from settings
+	var trashDir string
+	if settings, ok := s.settingsLoader.AppSettingsIfExists(); ok && settings.TrashDir != "" {
+		trashDir = settings.TrashDir
+	}
+
+	// Write GPS to EXIF (creates backup first)
+	if err := imaging.WriteGPS(osPath, trashDir, req.Lat, req.Lng); err != nil {
+		log.Printf("UpdateGps: WriteGPS failed for %s: %v", req.Path, err)
+		if strings.Contains(err.Error(), "backup") {
+			s.respondError(c, http.StatusInternalServerError, i18n.MsgGpsBackupFailed)
+		} else {
+			s.respondError(c, http.StatusInternalServerError, i18n.MsgGpsUpdateFailed)
+		}
+		return
+	}
+
+	// Reverse geocode to get country/city
+	var geoCountry, geoCity string
+	if s.geocoder != nil {
+		geoCountry, geoCity = s.geocoder.ReverseGeocode(req.Lat, req.Lng)
+	}
+
+	// Upsert ImageMetadata in DB
+	var meta domain.ImageMetadata
+	result := s.db.Where("image_file_id = ?", imageFile.ID).First(&meta)
+	if result.Error != nil {
+		// Create new metadata record
+		meta = domain.ImageMetadata{
+			ImageFileID:  imageFile.ID,
+			GPSLatitude:  &req.Lat,
+			GPSLongitude: &req.Lng,
+			GeoCountry:   geoCountry,
+			GeoCity:      geoCity,
+		}
+		s.db.Create(&meta)
+	} else {
+		// Update existing record
+		s.db.Model(&meta).Updates(map[string]interface{}{
+			"gps_latitude":  req.Lat,
+			"gps_longitude": req.Lng,
+			"geo_country":   geoCountry,
+			"geo_city":      geoCity,
+		})
+	}
+
+	s.respondJSON(c, http.StatusOK, dto.UpdateGpsResponse{
+		Success:    true,
+		Lat:        req.Lat,
+		Lng:        req.Lng,
+		GeoCountry: geoCountry,
+		GeoCity:    geoCity,
+	})
+}
+
+// handleGetLocationCandidates returns suggested locations from same-day photos.
+func (s *Server) handleGetLocationCandidates(c *gin.Context) {
+	path := c.Query("path")
+	if path == "" {
+		s.respondValidationError(c, http.StatusBadRequest, i18n.MsgImagePathRequired)
+		return
+	}
+
+	// Look up the target image and its metadata
+	var imageFile domain.ImageFile
+	if result := s.db.Where("path = ?", path).First(&imageFile); result.Error != nil {
+		s.respondJSON(c, http.StatusOK, dto.LocationCandidatesResponse{Candidates: []dto.LocationCandidate{}})
+		return
+	}
+
+	var meta domain.ImageMetadata
+	if result := s.db.Where("image_file_id = ?", imageFile.ID).First(&meta); result.Error != nil || meta.DateTaken == nil {
+		s.respondJSON(c, http.StatusOK, dto.LocationCandidatesResponse{Candidates: []dto.LocationCandidate{}})
+		return
+	}
+
+	// Query same-day photos with GPS data (excluding the target image)
+	type gpsRow struct {
+		GPSLatitude  float64
+		GPSLongitude float64
+		GeoCountry   string
+		GeoCity      string
+		FilePath     string
+	}
+
+	dateStr := meta.DateTaken.Format("2006-01-02")
+	var rows []gpsRow
+	s.db.Table("image_metadata").
+		Select("image_metadata.gps_latitude, image_metadata.gps_longitude, image_metadata.geo_country, image_metadata.geo_city, image_files.path as file_path").
+		Joins("JOIN image_files ON image_files.id = image_metadata.image_file_id").
+		Where("DATE(image_metadata.date_taken) = ? AND image_metadata.gps_latitude IS NOT NULL AND image_files.path != ?", dateStr, path).
+		Limit(200).
+		Find(&rows)
+
+	if len(rows) == 0 {
+		s.respondJSON(c, http.StatusOK, dto.LocationCandidatesResponse{Candidates: []dto.LocationCandidate{}})
+		return
+	}
+
+	// Group by unique (lat, lng) pairs
+	type locationKey struct {
+		Lat float64
+		Lng float64
+	}
+	type locationGroup struct {
+		Lat        float64
+		Lng        float64
+		GeoCountry string
+		GeoCity    string
+		PhotoCount int
+		FirstPath  string
+	}
+
+	groupMap := make(map[locationKey]*locationGroup)
+	var order []locationKey
+
+	for _, r := range rows {
+		// Round to ~10m precision for grouping
+		roundedLat := math.Round(r.GPSLatitude*10000) / 10000
+		roundedLng := math.Round(r.GPSLongitude*10000) / 10000
+		key := locationKey{Lat: roundedLat, Lng: roundedLng}
+
+		if g, ok := groupMap[key]; ok {
+			g.PhotoCount++
+		} else {
+			groupMap[key] = &locationGroup{
+				Lat:        r.GPSLatitude,
+				Lng:        r.GPSLongitude,
+				GeoCountry: r.GeoCountry,
+				GeoCity:    r.GeoCity,
+				PhotoCount: 1,
+				FirstPath:  r.FilePath,
+			}
+			order = append(order, key)
+		}
+	}
+
+	// Build candidates with thumbnails (limit 20)
+	candidates := make([]dto.LocationCandidate, 0, len(order))
+	for i, key := range order {
+		if i >= 20 {
+			break
+		}
+		g := groupMap[key]
+		candidate := dto.LocationCandidate{
+			Lat:        g.Lat,
+			Lng:        g.Lng,
+			GeoCountry: g.GeoCountry,
+			GeoCity:    g.GeoCity,
+			PhotoCount: g.PhotoCount,
+		}
+
+		// Generate thumbnail for the first image in this group
+		if s.thumbnailService != nil {
+			if thumb, err := s.thumbnailService.GetOrGenerate(g.FirstPath); err == nil {
+				candidate.Thumbnail = thumb
+			}
+		}
+
+		candidates = append(candidates, candidate)
+	}
+
+	// Sort by photo count descending
+	slices.SortFunc(candidates, func(a, b dto.LocationCandidate) int {
+		return b.PhotoCount - a.PhotoCount
+	})
+
+	s.respondJSON(c, http.StatusOK, dto.LocationCandidatesResponse{Candidates: candidates})
+}

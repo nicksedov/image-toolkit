@@ -16,9 +16,10 @@ interface ExifFoldersViewProps {
   onImageAi?: (image: GalleryImageDTO) => void
   onImageDownload?: (image: GalleryImageDTO) => void
   onImageDelete?: (image: GalleryImageDTO, removeThumbnail: () => void) => void
+  onAddGeo?: (image: GalleryImageDTO) => void
 }
 
-export function ExifFoldersView({ onImageClick, onImageView, onImageOcr, onImageAi, onImageDownload, onImageDelete }: ExifFoldersViewProps) {
+export function ExifFoldersView({ onImageClick, onImageView, onImageOcr, onImageAi, onImageDownload, onImageDelete, onAddGeo }: ExifFoldersViewProps) {
   const { images, totalImages, hasMore, isLoading, error, initialized, loadMore, removeImage } = useExifImages()
   const { t } = useTranslation()
 
@@ -76,6 +77,7 @@ export function ExifFoldersView({ onImageClick, onImageView, onImageOcr, onImage
             onImageAi={onImageAi}
             onImageDownload={onImageDownload}
             onImageDelete={(image) => onImageDelete?.(image, () => removeImage(image.id))}
+            onAddGeo={onAddGeo}
           />
 
           <div ref={sentinelRef} className="h-4" />

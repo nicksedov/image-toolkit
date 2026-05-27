@@ -138,6 +138,15 @@ const (
 
 	// LLM messages
 	MsgLlmModelsFailed MessageKey = "llm.models_failed"
+
+	// Geocode / GPS messages
+	MsgGeocodeQueryRequired    MessageKey = "geocode.query_required"
+	MsgGeocodeSearchFailed    MessageKey = "geocode.search_failed"
+	MsgGpsUpdateFailed       MessageKey = "geocode.gps_update_failed"
+	MsgGpsInvalidCoordinates MessageKey = "geocode.invalid_coordinates"
+	MsgGpsUpdated            MessageKey = "geocode.gps_updated"
+	MsgGpsNotJpeg            MessageKey = "geocode.not_jpeg"
+	MsgGpsBackupFailed       MessageKey = "geocode.backup_failed"
 )
 
 // GetMessage returns the message key as string

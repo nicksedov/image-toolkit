@@ -656,3 +656,43 @@ export interface AiActionResponse {
   model?: string
   processingTimeMs?: number
 }
+
+// --- Geocode / GPS Types ---
+
+export interface GeocodeSearchResult {
+  lat: number
+  lon: number
+  displayName: string
+  type: string
+}
+
+export interface GeocodeSearchResponse {
+  results: GeocodeSearchResult[]
+}
+
+export interface UpdateGpsRequest {
+  path: string
+  lat: number
+  lng: number
+}
+
+export interface UpdateGpsResponse {
+  success: boolean
+  lat: number
+  lng: number
+  geoCountry: string
+  geoCity: string
+}
+
+export interface LocationCandidate {
+  lat: number
+  lng: number
+  geoCountry: string
+  geoCity: string
+  photoCount: number
+  thumbnail?: string
+}
+
+export interface LocationCandidatesResponse {
+  candidates: LocationCandidate[]
+}

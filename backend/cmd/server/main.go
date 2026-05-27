@@ -142,6 +142,10 @@ func main() {
 		fmt.Println("Geocoder unavailable, geo-enrichment will be disabled")
 	}
 
+	// Initialize Nominatim client for forward geocoding (location search)
+	nominatimClient := geocoder.NewNominatimClient(nil, "")
+	fmt.Println("Nominatim geocoding client initialized")
+
 	// Create background sync manager
 	backgroundSync := imaging.NewBackgroundSyncManager(db, thumbnailService, geo)
 
@@ -235,7 +239,7 @@ func main() {
 	fmt.Printf("Tag scan: window %02d:%02d - %02d:%02d, tzOffset=%d, enabled=%v\n", tagScanStartHour, tagScanStartMinute, tagScanEndHour, tagScanEndMinute, tagScanTimezoneOffset, tagScanEnabled)
 
 	// Start web server
-	server := handler.NewServer(db, scanManager, ocrManager, llmOcrService, backgroundSync, tagScanManager, thumbnailService, cfg)
+	server := handler.NewServer(db, scanManager, ocrManager, llmOcrService, backgroundSync, tagScanManager, thumbnailService, cfg, geo, nominatimClient)
 	router := server.SetupRouter(authMiddleware, csrfProtection, authHandlers)
 
 	// Start OCR health check if enabled

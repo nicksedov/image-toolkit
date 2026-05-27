@@ -12,6 +12,7 @@ interface ExifImageGridProps {
   onImageAi?: (image: GalleryImageDTO) => void
   onImageDownload?: (image: GalleryImageDTO) => void
   onImageDelete?: (image: GalleryImageDTO) => void
+  onAddGeo?: (image: GalleryImageDTO) => void
 }
 
 function getFolderName(dirPath: string): string {
@@ -20,7 +21,7 @@ function getFolderName(dirPath: string): string {
   return lastSlash >= 0 ? normalized.substring(lastSlash + 1) : normalized
 }
 
-export function ExifImageGrid({ images, onImageClick, onImageView, onImageOcr, onImageAi, onImageDownload, onImageDelete }: ExifImageGridProps) {
+export function ExifImageGrid({ images, onImageClick, onImageView, onImageOcr, onImageAi, onImageDownload, onImageDelete, onAddGeo }: ExifImageGridProps) {
   const { t } = useTranslation()
 
   const groupedByFolder = useMemo(() => {
@@ -72,6 +73,7 @@ export function ExifImageGrid({ images, onImageClick, onImageView, onImageOcr, o
                 onImageAi={onImageAi}
                 onImageDownload={onImageDownload}
                 onImageDelete={onImageDelete}
+                onAddGeo={onAddGeo}
               />
             ))}
           </div>
