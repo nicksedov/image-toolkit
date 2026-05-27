@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 import { GalleryImageGrid } from "@/components/gallery/GalleryImageGrid"
 import { useGalleryImages } from "@/hooks/useGalleryImages"
+import { useGalleryFolders } from "@/hooks/useGalleryFolders"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ImageIcon, ArrowDown, ArrowUp, Search, X } from "lucide-react"
 import { useTranslation } from "@/i18n"
@@ -24,6 +25,7 @@ export function GalleryFoldersView({ onImageClick, onImageView, onImageOcr, onIm
   const [searchQuery, setSearchQuery] = useState("")
   const { images, totalImages, hasMore, isLoading, error, initialized, loadMore, removeImage } =
     useGalleryImages("folders", sortOrder, searchQuery || undefined)
+  const { folders: rootFolders } = useGalleryFolders()
   const { t } = useTranslation()
 
   // Debounce search input (500ms delay)
@@ -156,6 +158,7 @@ export function GalleryFoldersView({ onImageClick, onImageView, onImageOcr, onIm
                 onImageAi={onImageAi}
                 onImageDownload={onImageDownload}
                 onImageDelete={(image) => onImageDelete?.(image, () => removeImage(image.id))}
+                rootFolders={rootFolders}
               />
 
               <div ref={sentinelRef} className="h-4" />

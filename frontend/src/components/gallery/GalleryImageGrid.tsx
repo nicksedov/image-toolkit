@@ -1,7 +1,7 @@
 import { useMemo } from "react"
 import { useTranslation } from "@/i18n"
 import { Folder } from "lucide-react"
-import type { GalleryImageDTO } from "@/types"
+import type { GalleryImageDTO, GalleryFolderDTO } from "@/types"
 import { ImageTile } from "./ImageTile"
 
 interface GalleryImageGridProps {
@@ -12,15 +12,40 @@ interface GalleryImageGridProps {
   onImageAi?: (image: GalleryImageDTO) => void
   onImageDownload?: (image: GalleryImageDTO) => void
   onImageDelete?: (image: GalleryImageDTO) => void
+  rootFolders?: GalleryFolderDTO[]
 }
 
-function getFolderName(dirPath: string): string {
-  const normalized = dirPath.replace(/\\/g, "/").replace(/\/+$/, "")
+function normalizePath(p: string): string {
+  return p.replace(/\\/g, "/").replace(/\/+$/, "")
+}
+
+function getRelativeFolderName(dirPath: string, rootFolders?: GalleryFolderDTO[]): string {
+  const normalized = normalizePath(dirPath)
+
+  if (rootFolders?.length) {
+    // Find the matching root folder (longest match first)
+    const sorted = [...rootFolders].sort((a, b) => b.path.length - a.path.length)
+    for (const root of sorted) {
+      const rootNorm = normalizePath(root.path)
+      if (normalized === rootNorm) {
+        // Image is directly in the root folder — show root folder name
+        return rootNorm.substring(rootNorm.lastIndexOf("/") + 1)
+      }
+      if (normalized.startsWith(rootNorm + "/")) {
+        // Image is in a subfolder — show relative path including root name
+        const rootName = rootNorm.substring(rootNorm.lastIndexOf("/") + 1)
+        const relative = normalized.substring(rootNorm.length + 1)
+        return rootName + "/" + relative
+      }
+    }
+  }
+
+  // Fallback: return last segment
   const lastSlash = normalized.lastIndexOf("/")
   return lastSlash >= 0 ? normalized.substring(lastSlash + 1) : normalized
 }
 
-export function GalleryImageGrid({ images, onImageClick, onImageView, onImageOcr, onImageAi, onImageDownload, onImageDelete }: GalleryImageGridProps) {
+export function GalleryImageGrid({ images, onImageClick, onImageView, onImageOcr, onImageAi, onImageDownload, onImageDelete, rootFolders }: GalleryImageGridProps) {
   const { t } = useTranslation()
 
   const groupedByFolder = useMemo(() => {
@@ -40,13 +65,13 @@ export function GalleryImageGrid({ images, onImageClick, onImageView, onImageOcr
     for (const dir of order) {
       groups.push({
         dirPath: dir,
-        folderName: getFolderName(dir),
+        folderName: getRelativeFolderName(dir, rootFolders),
         images: map.get(dir)!,
       })
     }
 
     return groups
-  }, [images])
+  }, [images, rootFolders])
 
   return (
     <div className="space-y-5">
