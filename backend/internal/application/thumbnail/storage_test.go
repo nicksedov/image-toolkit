@@ -2,6 +2,7 @@ package thumbnail
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -46,7 +47,7 @@ func TestCacheKey_PathNormalization(t *testing.T) {
 func TestCachePath_Format(t *testing.T) {
 	path := CachePath("/var/cache", "/images/photo.jpg")
 
-	assert.Contains(t, path, "/var/cache/")
+	assert.Contains(t, filepath.ToSlash(path), "/var/cache/")
 	assert.Contains(t, path, ".webp")
 }
 
@@ -60,7 +61,7 @@ func TestCachePathRelative_Format(t *testing.T) {
 func TestCacheDirPath_Format(t *testing.T) {
 	path := CacheDirPath("/var/cache", "/images/photo.jpg")
 
-	assert.Contains(t, path, "/var/cache/")
+	assert.Contains(t, filepath.ToSlash(path), "/var/cache/")
 }
 
 func TestErrInvalidCachePath_Error(t *testing.T) {

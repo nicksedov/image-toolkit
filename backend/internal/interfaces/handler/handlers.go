@@ -2585,6 +2585,26 @@ func (s *Server) handleAiAction(c *gin.Context) {
 	// Generate unique task ID
 	taskID := uuid.New().String()
 
+	// For "tags" action, check if tags already exist in DB
+	if req.Action == dto.AiActionTags {
+		var existingTags []domain.ImageTag
+		s.db.Where("image_file_id = ?", imageFile.ID).Find(&existingTags)
+		if len(existingTags) > 0 {
+			tags := make([]string, len(existingTags))
+			for i, t := range existingTags {
+				tags[i] = t.Tag
+			}
+			s.llmOcrService.StoreCachedTagsResult(taskID, tags)
+
+			c.JSON(http.StatusAccepted, dto.AiActionStartResponse{
+				TaskID: taskID,
+				Action: req.Action,
+				Status: "processing",
+			})
+			return
+		}
+	}
+
 	// Start async processing
 	s.llmOcrService.StartAiActionAsync(taskID, imageFile.ID, string(req.Action), req.Question, req.Language, llmClient, provider)
 

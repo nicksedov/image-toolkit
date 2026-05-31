@@ -2,6 +2,7 @@ package imaging
 
 import (
 	"fmt"
+	"log"
 	"strings"
 	"sync"
 	"time"
@@ -393,6 +394,43 @@ func parseTags(input string) []string {
 	return tags
 }
 
+// StoreCachedTagsResult stores a pre-completed task with cached tags from the database.
+// No goroutine or LLM call is involved.
+func (s *LlmOcrService) StoreCachedTagsResult(taskID string, tags []string) {
+	s.aiTaskMu.Lock()
+	defer s.aiTaskMu.Unlock()
+	s.aiActionTasks[taskID] = &AiTaskStatus{
+		Status: "completed",
+		Action: "tags",
+		Result: &AiActionResult{
+			Success: true,
+			Tags:    tags,
+		},
+	}
+}
+
+// SaveImageTags persists AI-generated tags to the image_tags table.
+// Existing tags for the image are deleted before inserting new ones.
+func (s *LlmOcrService) SaveImageTags(imageFileID uint, tags []string) error {
+	if err := s.db.Where("image_file_id = ?", imageFileID).Delete(&domain.ImageTag{}).Error; err != nil {
+		return fmt.Errorf("failed to delete existing tags: %w", err)
+	}
+	if len(tags) == 0 {
+		return nil
+	}
+	records := make([]domain.ImageTag, len(tags))
+	for i, tag := range tags {
+		records[i] = domain.ImageTag{
+			ImageFileID: imageFileID,
+			Tag:         tag,
+		}
+	}
+	if err := s.db.Create(&records).Error; err != nil {
+		return fmt.Errorf("failed to insert tags: %w", err)
+	}
+	return nil
+}
+
 // StartAiActionAsync starts an AI action in a background goroutine.
 // Returns a unique task ID that can be used to poll for status.
 func (s *LlmOcrService) StartAiActionAsync(taskID string, imageFileID uint, action string, question string, language string, client llm.Client, provider domain.LlmProvider) {
@@ -409,6 +447,13 @@ func (s *LlmOcrService) StartAiActionAsync(taskID string, imageFileID uint, acti
 			defer s.coordinator.Resume()
 		}
 		result, err := s.ExecuteAiAction(imageFileID, action, question, language, client, provider)
+
+		// Persist tags to DB so future requests can skip the LLM call
+		if err == nil && action == "tags" && len(result.Tags) > 0 {
+			if saveErr := s.SaveImageTags(imageFileID, result.Tags); saveErr != nil {
+				log.Printf("AI action: failed to persist tags for image %d: %v", imageFileID, saveErr)
+			}
+		}
 
 		s.aiTaskMu.Lock()
 		defer s.aiTaskMu.Unlock()

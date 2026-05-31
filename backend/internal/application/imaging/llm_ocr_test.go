@@ -2,6 +2,7 @@ package imaging
 
 import (
 	"testing"
+	"time"
 
 	"image-toolkit/internal/domain"
 	"image-toolkit/internal/testutil"
@@ -265,6 +266,98 @@ func TestLlmOcrService_ExecuteAiAction_Tags(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, result.Success)
 	assert.Equal(t, []string{"cat", "dog", "bird"}, result.Tags)
+}
+
+func TestLlmOcrService_StoreCachedTagsResult(t *testing.T) {
+	service, cleanup := setupLlmOcrService(t)
+	defer cleanup()
+
+	tags := []string{"cat", "dog", "bird"}
+	service.StoreCachedTagsResult("task-1", tags)
+
+	status := service.GetAiActionStatus("task-1")
+	require.NotNil(t, status)
+	assert.Equal(t, "completed", status.Status)
+	assert.Equal(t, "tags", status.Action)
+	require.NotNil(t, status.Result)
+	assert.Equal(t, tags, status.Result.Tags)
+
+	// Status should be cleaned up after first read
+	assert.Nil(t, service.GetAiActionStatus("task-1"))
+}
+
+func TestLlmOcrService_SaveImageTags(t *testing.T) {
+	service, cleanup := setupLlmOcrService(t)
+	defer cleanup()
+
+	imgFile := testutil.SeedImageFileNoT(service.db, "/tmp/test.jpg", "hash123", 1000)
+
+	// Save initial tags
+	err := service.SaveImageTags(imgFile.ID, []string{"cat", "dog"})
+	require.NoError(t, err)
+
+	var tags []domain.ImageTag
+	service.db.Where("image_file_id = ?", imgFile.ID).Find(&tags)
+	assert.Len(t, tags, 2)
+
+	// Save new tags - should replace old ones
+	err = service.SaveImageTags(imgFile.ID, []string{"bird", "fish", "snake"})
+	require.NoError(t, err)
+
+	service.db.Where("image_file_id = ?", imgFile.ID).Find(&tags)
+	assert.Len(t, tags, 3)
+	tagValues := make([]string, len(tags))
+	for i, tag := range tags {
+		tagValues[i] = tag.Tag
+	}
+	assert.Equal(t, []string{"bird", "fish", "snake"}, tagValues)
+}
+
+func TestLlmOcrService_SaveImageTags_EmptyTags(t *testing.T) {
+	service, cleanup := setupLlmOcrService(t)
+	defer cleanup()
+
+	imgFile := testutil.SeedImageFileNoT(service.db, "/tmp/test.jpg", "hash123", 1000)
+
+	// Save initial tags
+	err := service.SaveImageTags(imgFile.ID, []string{"cat", "dog"})
+	require.NoError(t, err)
+
+	// Save empty tags - should delete old ones and not insert new
+	err = service.SaveImageTags(imgFile.ID, []string{})
+	require.NoError(t, err)
+
+	var tags []domain.ImageTag
+	service.db.Where("image_file_id = ?", imgFile.ID).Find(&tags)
+	assert.Empty(t, tags)
+}
+
+func TestLlmOcrService_StartAiActionAsync_SavesTagsToDB(t *testing.T) {
+	service, cleanup := setupLlmOcrService(t)
+	defer cleanup()
+
+	// Create image file
+	tmpDir := fixtures.CreateTempDir(t)
+	imgPath := fixtures.CreateMinimalJPEG(t, tmpDir, "test.jpg", 100, 100)
+	imgFile := testutil.SeedImageFileNoT(service.db, imgPath, "hash123", 1000)
+
+	mockClient := &mocks.MockLlmClient{
+		RecognizeFunc: mocks.TextResponse("cat, dog, bird"),
+	}
+	provider := domain.LlmProvider{Name: "ollama", Model: "minicpm-v"}
+
+	service.StartAiActionAsync("task-1", imgFile.ID, "tags", "", "en", mockClient, provider)
+
+	// Wait for async completion
+	require.Eventually(t, func() bool {
+		s := service.GetAiActionStatus("task-1")
+		return s != nil && s.Status != "processing"
+	}, 5*time.Second, 50*time.Millisecond)
+
+	// Verify tags were saved to DB
+	var tags []domain.ImageTag
+	service.db.Where("image_file_id = ?", imgFile.ID).Find(&tags)
+	assert.Len(t, tags, 3)
 }
 
 func setupLlmOcrService(t *testing.T) (*LlmOcrService, func()) {
