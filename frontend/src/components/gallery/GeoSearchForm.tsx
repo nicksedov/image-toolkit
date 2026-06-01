@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { MapPin, Loader2, Check } from "lucide-react"
+import { MapPin, Loader2, Check, X } from "lucide-react"
 import { useTranslation } from "@/i18n"
 import { useGeocodeSearch } from "@/hooks/useGeocodeSearch"
 import { updateImageGps, fetchLocationCandidates, fetchLocationCandidatesByDate, batchUpdateGps } from "@/api/endpoints"
@@ -156,8 +156,19 @@ export function GeoSearchForm({ imagePath, paths, date, affectedCount, onGpsSave
       {/* Selected location display */}
       {selected && (
         <div className="rounded-md border bg-accent/50 p-2">
-          <p className="text-[10px] text-muted-foreground mb-0.5">{t("geo.selectedLocation")}</p>
-          <p className="text-xs font-medium truncate" title={selected.label}>{selected.label}</p>
+          <div className="flex items-start justify-between gap-2 mb-0.5">
+            <p className="text-[10px] text-muted-foreground">{t("geo.selectedLocation")}</p>
+            <button
+              type="button"
+              className="shrink-0 inline-flex items-center gap-0.5 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+              onClick={() => setSelected(null)}
+              title={t("geo.changeSelection")}
+            >
+              <X className="h-3 w-3" />
+              {t("geo.changeSelection")}
+            </button>
+          </div>
+          <p className="text-xs font-medium break-words" title={selected.label}>{selected.label}</p>
           <p className="text-[10px] text-muted-foreground mt-0.5">
             {selected.lat.toFixed(4)}&deg;, {selected.lng.toFixed(4)}&deg;
           </p>

@@ -658,6 +658,7 @@ export const translationsRu = {
   "geo.batchSaveSuccess": "Местоположение сохранено для {count} фото",
   "geo.batchSavePartial": "Сохранено {success} из {total}. Ошибок: {failed}.",
   "geo.editLocation": "Изменить местоположение",
+  "geo.changeSelection": "Изменить",
  
   // LLM Providers
   "llm_providers.alias": "Алиас",
