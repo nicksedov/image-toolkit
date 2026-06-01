@@ -567,6 +567,7 @@ export const translationsEn = {
   "geo.photosWithoutLocation": "{count} without location",
   "geo.batchSaveSuccess": "Location saved for {count} photo(s)",
   "geo.batchSavePartial": "Saved {success} of {total}. {failed} failed.",
+  "geo.editLocation": "Edit Location",
  
   // LLM Providers
   "llm_providers.alias": "Alias",

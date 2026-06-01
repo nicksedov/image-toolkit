@@ -1,6 +1,6 @@
 import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
-import { Camera, MapPin, MapPinPlus, Info, Image as ImageIcon } from "lucide-react"
+import { Camera, MapPin, MapPinPlus, Info, Image as ImageIcon, Pencil } from "lucide-react"
 import { useTranslation } from "@/i18n"
 import { useImageMetadata } from "@/hooks/useImageMetadata"
 import { LightboxDialog } from "./lightbox/LightboxDialog"
@@ -179,16 +179,28 @@ function MetadataContent({ metadata, imagePath, showGeoForm, onShowGeoForm, onGp
         {showGeoForm ? (
           <GeoSearchForm imagePath={imagePath} onGpsSaved={onGpsSaved} />
         ) : metadata.hasGps ? (
-          <div className="space-y-1.5">
-            {locationFields.map(([label, value]) => (
-              <div key={label} className="flex justify-between items-baseline gap-2 text-xs">
-                <span className="text-muted-foreground shrink-0">{label}</span>
-                <span className="font-medium text-right truncate" title={value}>
-                  {value}
-                </span>
-              </div>
-            ))}
-          </div>
+          <>
+            <div className="space-y-1.5">
+              {locationFields.map(([label, value]) => (
+                <div key={label} className="flex justify-between items-baseline gap-2 text-xs">
+                  <span className="text-muted-foreground shrink-0">{label}</span>
+                  <span className="font-medium text-right truncate" title={value}>
+                    {value}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="w-full text-xs mt-2"
+              onClick={onShowGeoForm}
+            >
+              <Pencil className="h-3.5 w-3.5 mr-1.5" />
+              {t("geo.editLocation")}
+            </Button>
+          </>
         ) : (
           <Button
             type="button"
