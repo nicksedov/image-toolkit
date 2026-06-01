@@ -31,6 +31,7 @@ export interface UseCalendarDataResult {
   setMonthYear: (monthYear: string) => void
   jumpToDate: (date: string) => Promise<void>
   removeImage: (imageId: number) => void
+  updateGroupGpsStatus: (date: string) => void
   loadMore: () => Promise<void>
   reset: () => void
 }
@@ -163,6 +164,23 @@ export function useCalendarData({ initialMonthYear }: UseCalendarDataOptions): U
     [infiniteScroll]
   )
 
+  // Mark all images in a date group as having GPS
+  const updateGroupGpsStatus = useCallback(
+    (date: string) => {
+      infiniteScroll.setItems((prevGroups) =>
+        prevGroups.map((group) =>
+          group.date === date
+            ? {
+                ...group,
+                images: group.images.map((img) => ({ ...img, missingGps: false })),
+              }
+            : group
+        )
+      )
+    },
+    [infiniteScroll]
+  )
+
   return {
     groups: infiniteScroll.items,
     totalImages: infiniteScroll.total,
@@ -180,6 +198,7 @@ export function useCalendarData({ initialMonthYear }: UseCalendarDataOptions): U
     setMonthYear,
     jumpToDate,
     removeImage,
+    updateGroupGpsStatus,
     loadMore: infiniteScroll.loadMore,
     reset: infiniteScroll.reset,
   }

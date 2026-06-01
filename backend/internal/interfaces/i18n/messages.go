@@ -147,6 +147,7 @@ const (
 	MsgGpsUpdated            MessageKey = "geocode.gps_updated"
 	MsgGpsNotJpeg            MessageKey = "geocode.not_jpeg"
 	MsgGpsBackupFailed       MessageKey = "geocode.backup_failed"
+	MsgBatchGpsNoPaths       MessageKey = "batch_gps.no_paths"
 )
 
 // GetMessage returns the message key as string

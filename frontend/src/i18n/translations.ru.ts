@@ -650,6 +650,13 @@ export const translationsRu = {
   "geo.saveFailed": "Не удалось сохранить местоположение",
   "geo.useThisLocation": "Использовать это местоположение",
   "geo.addLocationHint": "Найдите местоположение или выберите из фото за тот же день",
+  "geo.bulkSetButton": "Установить местоположение",
+  "geo.bulkSetTitle": "Установить местоположение за {date}",
+  "geo.bulkSetDescription": "{count} фото без местоположения",
+  "geo.allHaveLocation": "У всех фото есть местоположение",
+  "geo.photosWithoutLocation": "{count} без местоположения",
+  "geo.batchSaveSuccess": "Местоположение сохранено для {count} фото",
+  "geo.batchSavePartial": "Сохранено {success} из {total}. Ошибок: {failed}.",
  
   // LLM Providers
   "llm_providers.alias": "Алиас",

@@ -3,11 +3,12 @@ import { fetchCalendarMonthInfo, fetchCalendarAllDates } from "@/api/endpoints"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Calendar as CalendarIcon, ArrowDown, ArrowUp } from "lucide-react"
 import { useTranslation } from "@/i18n"
-import type { GalleryImageDTO, CalendarMonthInfo, TimelineDateMarker } from "@/types"
+import type { GalleryImageDTO, CalendarDateGroup, CalendarMonthInfo, TimelineDateMarker } from "@/types"
 import { useCalendarData } from "@/hooks/useCalendarData"
 import { CalendarImageGrid } from "./CalendarImageGrid"
 import { CalendarWidget } from "./CalendarWidget"
 import { TimelineBar } from "./TimelineBar"
+import { BulkGeoDialog } from "./BulkGeoDialog"
 
 interface GalleryCalendarViewProps {
   onImageClick: (image: GalleryImageDTO) => void
@@ -27,6 +28,9 @@ export function GalleryCalendarView({ onImageClick, onImageView, onImageOcr, onI
   const [dayCounts, setDayCounts] = useState<Map<number, number>>(new Map())
   const [allDates, setAllDates] = useState<TimelineDateMarker[]>([])
   const [rangeSelecting, setRangeSelecting] = useState(false)
+
+  // Bulk geo dialog state
+  const [bulkGeoGroup, setBulkGeoGroup] = useState<CalendarDateGroup | null>(null)
 
   // Image preloading cache
   const preloadImageCache = useRef<Map<string, HTMLImageElement>>(new Map())
@@ -215,6 +219,13 @@ export function GalleryCalendarView({ onImageClick, onImageView, onImageOcr, onI
     calendar.toggleSortOrder()
   }
 
+  const handleBulkGeoSaved = () => {
+    if (bulkGeoGroup) {
+      calendar.updateGroupGpsStatus(bulkGeoGroup.date)
+      setBulkGeoGroup(null)
+    }
+  }
+
   return (
     <div className="space-y-4" style={{ cursor: calendar.isLoading ? "wait" : "auto" }}>
       {/* Global loading overlay */}
@@ -316,6 +327,7 @@ export function GalleryCalendarView({ onImageClick, onImageView, onImageOcr, onI
                     calendar.removeImage(image.id)
                   })
                 }}
+                onBulkGeo={setBulkGeoGroup}
               />
 
               <div ref={sentinelRef} className="h-4" />
@@ -345,6 +357,18 @@ export function GalleryCalendarView({ onImageClick, onImageView, onImageOcr, onI
           onNavigateToDate={handleNavigateToDate}
         />
       </div>
+
+      {/* Bulk geo dialog */}
+      {bulkGeoGroup && (
+        <BulkGeoDialog
+          open={bulkGeoGroup != null}
+          onOpenChange={(open) => { if (!open) setBulkGeoGroup(null) }}
+          date={bulkGeoGroup.date}
+          label={bulkGeoGroup.label}
+          imagesWithoutGps={bulkGeoGroup.images.filter((img) => img.missingGps)}
+          onSaved={handleBulkGeoSaved}
+        />
+      )}
     </div>
   )
 }

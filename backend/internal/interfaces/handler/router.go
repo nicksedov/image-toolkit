@@ -89,6 +89,7 @@ func (s *Server) SetupRouter(authMiddleware *middleware.AuthMiddleware, csrfProt
 			protected.GET("/gallery/exif-images", s.handleGetImagesMissingExif)
 			protected.GET("/geocode/search", s.handleGeocodeSearch)
 			protected.PUT("/image-metadata/gps", s.handleUpdateGps)
+			protected.PUT("/image-metadata/gps/batch", s.handleBatchUpdateGps)
 			protected.GET("/image-metadata/location-candidates", s.handleGetLocationCandidates)
 			protected.GET("/ocr-status", s.handleGetOCRStatus)
 			protected.POST("/ocr/classify", s.handleStartOcrClassification)

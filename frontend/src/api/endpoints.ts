@@ -61,6 +61,8 @@ import type {
   UpdateGpsRequest,
   UpdateGpsResponse,
   LocationCandidatesResponse,
+  BatchUpdateGpsRequest,
+  BatchUpdateGpsResponse,
 } from "@/types"
 
 export function fetchDuplicates(page: number, pageSize: number): Promise<DuplicatesResponse> {
@@ -509,4 +511,12 @@ export function updateImageGps(req: UpdateGpsRequest): Promise<UpdateGpsResponse
 
 export function fetchLocationCandidates(path: string): Promise<LocationCandidatesResponse> {
   return apiGet<LocationCandidatesResponse>("/api/image-metadata/location-candidates", { path })
+}
+
+export function fetchLocationCandidatesByDate(date: string): Promise<LocationCandidatesResponse> {
+  return apiGet<LocationCandidatesResponse>("/api/image-metadata/location-candidates", { date })
+}
+
+export function batchUpdateGps(req: BatchUpdateGpsRequest): Promise<BatchUpdateGpsResponse> {
+  return apiPut<BatchUpdateGpsResponse>("/api/image-metadata/gps/batch", req)
 }

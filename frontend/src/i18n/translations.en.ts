@@ -560,6 +560,13 @@ export const translationsEn = {
   "geo.saveFailed": "Failed to save location",
   "geo.useThisLocation": "Use this location",
   "geo.addLocationHint": "Search for a location or pick from same-day photos",
+  "geo.bulkSetButton": "Set location",
+  "geo.bulkSetTitle": "Set location for {date}",
+  "geo.bulkSetDescription": "{count} photo(s) without location",
+  "geo.allHaveLocation": "All photos have location",
+  "geo.photosWithoutLocation": "{count} without location",
+  "geo.batchSaveSuccess": "Location saved for {count} photo(s)",
+  "geo.batchSavePartial": "Saved {success} of {total}. {failed} failed.",
  
   // LLM Providers
   "llm_providers.alias": "Alias",

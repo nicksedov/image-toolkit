@@ -696,3 +696,19 @@ export interface LocationCandidate {
 export interface LocationCandidatesResponse {
   candidates: LocationCandidate[]
 }
+
+export interface BatchUpdateGpsRequest {
+  paths: string[]
+  lat: number
+  lng: number
+}
+
+export interface BatchUpdateGpsResponse {
+  success: number
+  failed: number
+  failedFiles?: string[]
+  geoCountry: string
+  geoCity: string
+  lat: number
+  lng: number
+}

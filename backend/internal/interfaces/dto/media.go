@@ -674,3 +674,21 @@ type LocationCandidate struct {
 type LocationCandidatesResponse struct {
 	Candidates []LocationCandidate `json:"candidates"`
 }
+
+// BatchUpdateGpsRequest is the JSON request for PUT /api/image-metadata/gps/batch
+type BatchUpdateGpsRequest struct {
+	Paths []string `json:"paths" binding:"required"`
+	Lat   float64  `json:"lat"`
+	Lng   float64  `json:"lng"`
+}
+
+// BatchUpdateGpsResponse is the JSON response for PUT /api/image-metadata/gps/batch
+type BatchUpdateGpsResponse struct {
+	Success     int      `json:"success"`
+	Failed      int      `json:"failed"`
+	FailedFiles []string `json:"failedFiles,omitempty"`
+	GeoCountry  string   `json:"geoCountry"`
+	GeoCity     string   `json:"geoCity"`
+	Lat         float64  `json:"lat"`
+	Lng         float64  `json:"lng"`
+}
