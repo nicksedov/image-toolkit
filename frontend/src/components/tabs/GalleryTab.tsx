@@ -82,7 +82,7 @@ export function GalleryTab({ galleryMode }: GalleryTabProps) {
   }, [deleteConfirm, trashDir])
 
   return (
-    <div className="space-y-4">
+    <div className={galleryMode === "geolocation" ? "space-y-2" : "space-y-4"}>
       {galleryMode === "folders" ? (
         <GalleryFoldersView
           onImageClick={handleImageClick}

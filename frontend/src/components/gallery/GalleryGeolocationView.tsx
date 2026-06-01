@@ -234,7 +234,7 @@ export function GalleryGeolocationView({ onImageClick, onImageView, onImageOcr, 
 
   // Map view
   return (
-    <div className="space-y-4">
+    <div className="space-y-2">
       {totalImages > 0 && (
         <div className="flex items-center gap-2">
           <MapPin className="h-5 w-5 text-muted-foreground" />
@@ -255,7 +255,7 @@ export function GalleryGeolocationView({ onImageClick, onImageView, onImageOcr, 
           </p>
         </div>
       ) : (
-        <div ref={mapContainerRef} className="h-[600px] rounded-lg border overflow-hidden">
+        <div ref={mapContainerRef} className="h-[calc(100vh-8rem)] rounded-lg border overflow-hidden">
           <MapContainer
             center={[20, 0]}
             zoom={2}
