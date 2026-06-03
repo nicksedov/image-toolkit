@@ -104,7 +104,7 @@ export function GeoSearchForm({ imagePath, paths, date, affectedCount, onGpsSave
                 <button
                   key={i}
                   type="button"
-                  className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] border bg-background hover:bg-accent transition-colors"
+                  className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] border bg-card hover:bg-accent transition-colors"
                   onClick={() => handleSelectCandidate(c)}
                   title={`${label} (${c.photoCount})`}
                 >
@@ -131,7 +131,7 @@ export function GeoSearchForm({ imagePath, paths, date, affectedCount, onGpsSave
 
         {/* Search results dropdown */}
         {results.length > 0 && !selected && (
-          <div className="absolute z-10 top-full left-0 right-0 mt-1 max-h-48 overflow-y-auto rounded-md border bg-popover shadow-md">
+          <div className="absolute z-50 top-full left-0 right-0 mt-1 max-h-48 overflow-y-auto rounded-md border bg-card shadow-lg">
             {results.map((r, i) => (
               <button
                 key={i}
@@ -147,7 +147,7 @@ export function GeoSearchForm({ imagePath, paths, date, affectedCount, onGpsSave
         )}
 
         {query.length >= 2 && results.length === 0 && !isSearching && !selected && (
-          <div className="absolute z-10 top-full left-0 right-0 mt-1 rounded-md border bg-popover shadow-md px-2.5 py-2 text-xs text-muted-foreground">
+          <div className="absolute z-50 top-full left-0 right-0 mt-1 rounded-md border bg-card shadow-lg px-2.5 py-2 text-xs text-muted-foreground">
             {t("geo.noResults")}
           </div>
         )}
