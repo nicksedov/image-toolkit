@@ -502,6 +502,7 @@ export interface LlmProviderDTO {
   apiUrl: string
   apiKey: string
   model: string
+  cachedModels: LlmModelDTO[] | null
 }
 
 export interface LlmSettingsResponse {

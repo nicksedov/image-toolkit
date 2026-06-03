@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -50,6 +50,9 @@ export function AdminAnalysisTab() {
   const [isModelsLoading, setIsModelsLoading] = useState(false)
   const [showModelInput, setShowModelInput] = useState(false)
 
+  // Frontend mirror of DB-backed model cache for instant provider switching
+  const modelCacheRef = useRef<Record<string, LlmModelDTO[]>>({})
+
   // New provider form state
   const [showNewProvider, setShowNewProvider] = useState(false)
   const [newProviderType, setNewProviderType] = useState<LlmProviderType>("ollama")
@@ -67,6 +70,39 @@ export function AdminAnalysisTab() {
       return llmSettings.providers.find((p) => p.alias === llmSettings.activeProvider)
     },
     [llmSettings.providers, llmSettings.activeProvider]
+  )
+
+  // Load models for a provider: uses frontend cache if available, otherwise fetches from backend (which uses DB cache).
+  // Pass forceRefresh=true to bypass both caches and re-fetch from the LLM provider.
+  const loadModelsForProvider = useCallback(
+    async (providerAlias: string, forceRefresh = false) => {
+      if (!providerAlias) return
+
+      // Check frontend cache first (mirrors DB cache, populated from settings response or prior fetches)
+      if (!forceRefresh && modelCacheRef.current[providerAlias]) {
+        setAvailableModels(modelCacheRef.current[providerAlias])
+        setShowModelInput(false)
+        return
+      }
+
+      setIsModelsLoading(true)
+      try {
+        const response = await fetchLlmModels(providerAlias, forceRefresh)
+        if (response.success && response.models.length > 0) {
+          modelCacheRef.current[providerAlias] = response.models
+          setAvailableModels(response.models)
+          setShowModelInput(false)
+          toast.success(t("llm_providers.modelsLoaded", { count: response.models.length }))
+        } else {
+          toast.error(response.error || t("llm_providers.modelsLoadFailed"))
+        }
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : t("llm_providers.modelsLoadFailed"))
+      } finally {
+        setIsModelsLoading(false)
+      }
+    },
+    [t]
   )
 
   // Tag Scan state
@@ -266,6 +302,11 @@ export function AdminAnalysisTab() {
   	try {
   		await updateLlmProvider(oldAlias, { alias: newAlias })
   		toast.success(t("llm_ocr.settingsSaved"))
+  		// Migrate frontend cache to new alias
+  		if (modelCacheRef.current[oldAlias]) {
+  			modelCacheRef.current[newAlias] = modelCacheRef.current[oldAlias]
+  			delete modelCacheRef.current[oldAlias]
+  		}
   		await loadLlmSettings()
   	} catch {
   		toast.error(t("llm_ocr.settingsSaveFailed"))
@@ -283,6 +324,8 @@ export function AdminAnalysisTab() {
   		await deleteLlmProvider(alias)
   		toast.success(t("llm_ocr.settingsSaved"))
   		setLlmFormDirty(false)
+  		// Clean up frontend cache for deleted provider
+  		delete modelCacheRef.current[alias]
   		await loadLlmSettings()
   	} catch {
   		toast.error(t("llm_ocr.settingsSaveFailed"))
@@ -335,7 +378,8 @@ export function AdminAnalysisTab() {
   const handleActiveProviderChange = useCallback((value: string) => {
     setLlmSettings((prev) => ({ ...prev, activeProvider: value }))
     setLlmFormDirty(true)
-  }, [])
+    loadModelsForProvider(value)
+  }, [loadModelsForProvider])
 
   // Tag Scan handlers
   const loadTagScanStatus = useCallback(async () => {
@@ -439,22 +483,8 @@ export function AdminAnalysisTab() {
   const handleLoadModels = useCallback(async () => {
     const currentProvider = getCurrentProvider()
     if (!currentProvider) return
-
-    setIsModelsLoading(true)
-    try {
-    	const response = await fetchLlmModels(currentProvider.alias)
-    	if (response.success && response.models.length > 0) {
-    		setAvailableModels(response.models)
-    		toast.success(t("llm_providers.modelsLoaded", { count: response.models.length }))
-    	} else {
-    		toast.error(response.error || t("llm_providers.modelsLoadFailed"))
-    	}
-    } catch (err) {
-    	toast.error(err instanceof Error ? err.message : t("llm_providers.modelsLoadFailed"))
-    } finally {
-      setIsModelsLoading(false)
-    }
-  }, [getCurrentProvider, t])
+    await loadModelsForProvider(currentProvider.alias, true)
+  }, [getCurrentProvider, loadModelsForProvider])
 
   useEffect(() => {
     const init = async () => {
@@ -485,6 +515,17 @@ export function AdminAnalysisTab() {
         setTagScanStartMinute(settings.tagScanStartMinute ?? 0)
         setTagScanEndHour(settings.tagScanEndHour ?? 7)
         setTagScanEndMinute(settings.tagScanEndMinute ?? 0)
+
+        // Seed frontend cache from DB-backed cachedModels included in settings response
+        for (const p of settings.providers) {
+          if (p.cachedModels && p.cachedModels.length > 0) {
+            modelCacheRef.current[p.alias] = p.cachedModels
+          }
+        }
+        // Auto-populate models for active provider (instant from cache, or auto-fetch)
+        if (settings.activeProvider) {
+          loadModelsForProvider(settings.activeProvider)
+        }
       } catch {
         setLlmSettings(EMPTY_SETTINGS)
       } finally {
@@ -504,7 +545,8 @@ export function AdminAnalysisTab() {
     }
 
     init()
-  }, [])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadModelsForProvider])
 
   // Load app settings to sync ocrConcurrentWorkers
   useEffect(() => {

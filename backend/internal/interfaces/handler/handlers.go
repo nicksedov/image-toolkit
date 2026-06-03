@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"math"
@@ -2021,6 +2022,17 @@ func (s *Server) handleGetLlmSettings(c *gin.Context) {
 	settings := s.settingsLoader.LlmSettings()
 	providers := s.settingsLoader.AllLlmProviders()
 
+	// Load all cached model lists in a single query
+	var cacheRows []domain.LlmProviderModelCache
+	s.db.Find(&cacheRows)
+	cacheMap := make(map[string][]dto.LlmModelDTO, len(cacheRows))
+	for _, row := range cacheRows {
+		var models []dto.LlmModelDTO
+		if err := json.Unmarshal([]byte(row.ModelsJSON), &models); err == nil {
+			cacheMap[row.ProviderAlias] = models
+		}
+	}
+
 	// Build provider DTOs with masked API keys
 	providerDTOs := make([]dto.LlmProviderDTO, len(providers))
 	for i, p := range providers {
@@ -2029,12 +2041,13 @@ func (s *Server) handleGetLlmSettings(c *gin.Context) {
 			apiKey = apiKey[:4] + "..." + apiKey[len(apiKey)-4:]
 		}
 		providerDTOs[i] = dto.LlmProviderDTO{
-			ID:     p.ID,
-			Alias:  p.Alias,
-			Name:   p.Name,
-			ApiUrl: p.ApiUrl,
-			ApiKey: apiKey,
-			Model:  p.Model,
+			ID:           p.ID,
+			Alias:        p.Alias,
+			Name:         p.Name,
+			ApiUrl:       p.ApiUrl,
+			ApiKey:       apiKey,
+			Model:        p.Model,
+			CachedModels: cacheMap[p.Alias],
 		}
 	}
 
@@ -2230,6 +2243,18 @@ func (s *Server) handleUpdateLlmProvider(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, i18n.ErrorResponse(i18n.MsgLlmOcrSettingsSaveFailed))
 			return
 		}
+
+		// Invalidate model cache when connection config changes (URL or key)
+		if req.ApiUrl != nil || req.ApiKey != nil {
+			s.db.Where("provider_alias = ?", alias).Delete(&domain.LlmProviderModelCache{})
+		}
+
+		// Migrate model cache row when alias is renamed
+		if req.Alias != nil && *req.Alias != alias {
+			s.db.Model(&domain.LlmProviderModelCache{}).
+				Where("provider_alias = ?", alias).
+				Update("provider_alias", *req.Alias)
+		}
 	}
 
 	c.JSON(http.StatusOK, map[string]string{"message": string(i18n.MsgLlmOcrSettingsSaved)})
@@ -2258,6 +2283,9 @@ func (s *Server) handleDeleteLlmProvider(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, i18n.ErrorResponse(i18n.MsgLlmOcrSettingsSaveFailed))
 		return
 	}
+
+	// Clean up model cache for deleted provider
+	s.db.Where("provider_alias = ?", alias).Delete(&domain.LlmProviderModelCache{})
 
 	c.JSON(http.StatusOK, map[string]string{"message": string(i18n.MsgLlmOcrSettingsSaved)})
 }
@@ -2468,10 +2496,12 @@ func (s *Server) handleGetLlmRecognition(c *gin.Context) {
 	})
 }
 
-// handleGetLlmModels returns a list of available LLM models from the configured server
+// handleGetLlmModels returns a list of available LLM models from the configured server.
+// Supports DB-backed caching: returns cached models unless force=true or no cache exists.
 func (s *Server) handleGetLlmModels(c *gin.Context) {
 	// Check for optional provider query parameter
 	providerName := c.Query("provider")
+	forceRefresh := c.Query("force") == "true"
 
 	var provider domain.LlmProvider
 	var found bool
@@ -2502,6 +2532,22 @@ func (s *Server) handleGetLlmModels(c *gin.Context) {
 		return
 	}
 
+	// Check DB cache unless force-refresh requested
+	if !forceRefresh {
+		var cacheRow domain.LlmProviderModelCache
+		if err := s.db.Where("provider_alias = ?", provider.Alias).First(&cacheRow).Error; err == nil {
+			var models []dto.LlmModelDTO
+			if err := json.Unmarshal([]byte(cacheRow.ModelsJSON), &models); err == nil && len(models) > 0 {
+				c.JSON(http.StatusOK, dto.LlmModelsResponse{
+					Success:  true,
+					Models:   models,
+					Provider: provider.Name,
+				})
+				return
+			}
+		}
+	}
+
 	// Create LLM client
 	llmClient, err := llm.NewClient(provider.Name, provider.ApiUrl, provider.ApiKey, provider.Model, s.config.LlmMaxImageMegapixels)
 	if err != nil {
@@ -2513,7 +2559,7 @@ func (s *Server) handleGetLlmModels(c *gin.Context) {
 		return
 	}
 
-	// Fetch models
+	// Fetch models from provider
 	models, err := llmClient.ListModels()
 	if err != nil {
 		c.JSON(http.StatusOK, dto.LlmModelsResponse{
@@ -2531,6 +2577,24 @@ func (s *Server) handleGetLlmModels(c *gin.Context) {
 			ID:   m.ID,
 			Name: m.Name,
 			Size: m.Size,
+		}
+	}
+
+	// Upsert cache row (only on successful fetch; stale cache is better than no cache on failure)
+	if len(modelDTOs) > 0 {
+		modelsJSON, _ := json.Marshal(modelDTOs)
+		var existing domain.LlmProviderModelCache
+		if s.db.Where("provider_alias = ?", provider.Alias).First(&existing).Error == nil {
+			s.db.Model(&existing).Updates(map[string]interface{}{
+				"models_json": string(modelsJSON),
+				"fetched_at":  time.Now(),
+			})
+		} else {
+			s.db.Create(&domain.LlmProviderModelCache{
+				ProviderAlias: provider.Alias,
+				ModelsJSON:    string(modelsJSON),
+				FetchedAt:     time.Now(),
+			})
 		}
 	}
 

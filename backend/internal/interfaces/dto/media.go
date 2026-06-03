@@ -456,12 +456,13 @@ type OcrDataResponse struct {
 
 // LlmProviderDTO for per-provider LLM settings responses
 type LlmProviderDTO struct {
-	ID     uint   `json:"id"`
-	Alias  string `json:"alias"`
-	Name   string `json:"name"` // "ollama", "ollama_cloud", "openai"
-	ApiUrl string `json:"apiUrl"`
-	ApiKey string `json:"apiKey"` // Masked in responses
-	Model  string `json:"model"`
+	ID           uint          `json:"id"`
+	Alias        string        `json:"alias"`
+	Name         string        `json:"name"` // "ollama", "ollama_cloud", "openai"
+	ApiUrl       string        `json:"apiUrl"`
+	ApiKey       string        `json:"apiKey"` // Masked in responses
+	Model        string        `json:"model"`
+	CachedModels []LlmModelDTO `json:"cachedModels"`
 }
 
 // LlmSettingsResponse for GET /api/llm/settings

@@ -133,6 +133,15 @@ type LlmProvider struct {
 	UpdatedAt time.Time `json:"updatedAt"`
 }
 
+// LlmProviderModelCache stores cached model lists per provider.
+// One row per provider alias. Persisted in DB to survive restarts and browser sessions.
+type LlmProviderModelCache struct {
+	ID            uint      `gorm:"primaryKey" json:"id"`
+	ProviderAlias string    `gorm:"uniqueIndex;not null" json:"providerAlias"`
+	ModelsJSON    string    `gorm:"type:text;not null" json:"modelsJson"` // JSON array of {id, name, size?}
+	FetchedAt     time.Time `json:"fetchedAt"`
+}
+
 // LlmSettings stores global LLM settings (singleton, ID=1)
 type LlmSettings struct {
 	ID                    uint      `gorm:"primaryKey" json:"id"`

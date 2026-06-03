@@ -445,10 +445,13 @@ export function fetchLlmRecognition(path: string): Promise<LlmOcrDataResponse> {
   return apiGet<LlmOcrDataResponse>("/api/llm/recognition", { path })
 }
 
-export function fetchLlmModels(provider?: string): Promise<LlmModelsResponse> {
+export function fetchLlmModels(provider?: string, force?: boolean): Promise<LlmModelsResponse> {
   const params: Record<string, string> = {}
   if (provider) {
     params.provider = provider
+  }
+  if (force) {
+    params.force = "true"
   }
   return apiGet<LlmModelsResponse>("/api/llm/models", params)
 }
