@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -19,8 +20,11 @@ type OpenAIClient struct {
 	MaxImageMegapixels float64
 }
 
-// NewOpenAIClient creates a new OpenAI client
+// NewOpenAIClient creates a new OpenAI client.
+// The baseURL is normalized by stripping any trailing /v1 or /v1/ suffix
+// so that endpoint paths like /v1/models are not duplicated.
 func NewOpenAIClient(baseURL, apiKey, model string, maxImageMegapixels float64) *OpenAIClient {
+	baseURL = normalizeOpenAIBaseURL(baseURL)
 	return &OpenAIClient{
 		BaseURL:            baseURL,
 		APIKey:             apiKey,
@@ -28,6 +32,18 @@ func NewOpenAIClient(baseURL, apiKey, model string, maxImageMegapixels float64) 
 		Timeout:            5 * time.Minute,
 		MaxImageMegapixels: maxImageMegapixels,
 	}
+}
+
+// normalizeOpenAIBaseURL strips trailing slashes and an optional /v1 suffix
+// from the base URL. OpenAI-compatible providers may supply a base URL that
+// already includes /v1 (e.g. https://host/compatible-mode/v1). Without
+// normalization the client would build paths like /v1/v1/models → 404.
+func normalizeOpenAIBaseURL(baseURL string) string {
+	baseURL = strings.TrimRight(baseURL, "/")
+	if strings.HasSuffix(baseURL, "/v1") {
+		baseURL = strings.TrimSuffix(baseURL, "/v1")
+	}
+	return baseURL
 }
 
 // openAIRequest represents OpenAI chat completion request
