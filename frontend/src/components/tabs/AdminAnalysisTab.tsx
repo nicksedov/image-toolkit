@@ -54,6 +54,7 @@ export function AdminAnalysisTab() {
   const [showNewProvider, setShowNewProvider] = useState(false)
   const [newProviderType, setNewProviderType] = useState<LlmProviderType>("ollama")
   const [newProviderAlias, setNewProviderAlias] = useState("")
+  const [newProviderApiUrl, setNewProviderApiUrl] = useState("")
   const [newProviderApiKey, setNewProviderApiKey] = useState("")
   const [newProviderModel, setNewProviderModel] = useState("minicpm-v")
  
@@ -179,6 +180,7 @@ export function AdminAnalysisTab() {
       setLlmFormDirty(false)
       setShowNewProvider(false)
       setNewProviderAlias("")
+      setNewProviderApiUrl("")
       // Sync alias editing state with current provider
       const active = settings.providers.find((p) => p.alias === settings.activeProvider)
       setEditingAlias(active?.alias ?? "")
@@ -295,25 +297,30 @@ export function AdminAnalysisTab() {
   		toast.error("Alias is required")
   		return
   	}
- 
+
   	// Check uniqueness
   	if (llmSettings.providers.some((p) => p.alias === newProviderAlias.trim())) {
   		toast.error(t("llm_providers.aliasMustBeUnique"))
   		return
   	}
- 
+
+  	// Resolve API URL: ollama_cloud uses predefined URL, others use user input with defaults
+  	const defaultApiUrl = newProviderType === "ollama" ? "http://localhost:11434" : newProviderType === "ollama_cloud" ? "https://ollama.com" : "https://api.openai.com"
+  	const apiUrl = newProviderType === "ollama_cloud" ? defaultApiUrl : (newProviderApiUrl.trim() || defaultApiUrl)
+
   	setIsLlmSaving(true)
   	try {
   		await createLlmProvider({
   			alias: newProviderAlias.trim(),
   			name: newProviderType,
-  			apiUrl: newProviderType === "ollama" ? "http://localhost:11434" : newProviderType === "ollama_cloud" ? "https://ollama.com" : "https://api.openai.com",
+  			apiUrl,
   			apiKey: (newProviderType === "ollama_cloud" || newProviderType === "openai") ? newProviderApiKey : undefined,
   			model: newProviderModel || "minicpm-v",
   		})
   		toast.success(t("llm_ocr.settingsSaved"))
   		setShowNewProvider(false)
   		setNewProviderAlias("")
+  		setNewProviderApiUrl("")
   		setNewProviderApiKey("")
   		setNewProviderModel("minicpm-v")
   		setLlmFormDirty(false)
@@ -323,7 +330,7 @@ export function AdminAnalysisTab() {
   	} finally {
   		setIsLlmSaving(false)
   	}
-  }, [newProviderAlias, newProviderType, newProviderApiKey, newProviderModel, llmSettings.providers, loadLlmSettings, t])
+  }, [newProviderAlias, newProviderType, newProviderApiUrl, newProviderApiKey, newProviderModel, llmSettings.providers, loadLlmSettings, t])
 
   const handleActiveProviderChange = useCallback((value: string) => {
     setLlmSettings((prev) => ({ ...prev, activeProvider: value }))
@@ -470,6 +477,7 @@ export function AdminAnalysisTab() {
         setLlmFormDirty(false)
         setShowNewProvider(false)
         setNewProviderAlias("")
+        setNewProviderApiUrl("")
         const active = settings.providers.find((p) => p.alias === settings.activeProvider)
         setEditingAlias(active?.alias ?? "")
         setTagScanEnabled(settings.tagScanEnabled ?? false)
@@ -870,6 +878,19 @@ export function AdminAnalysisTab() {
                       />
                     </div>
 
+                    {/* API URL (hidden for ollama_cloud — predefined) */}
+                    {newProviderType !== "ollama_cloud" && (
+                      <div className="space-y-2">
+                        <Label htmlFor="new-apiurl">API URL</Label>
+                        <Input
+                          id="new-apiurl"
+                          placeholder={newProviderType === "ollama" ? "http://localhost:11434" : "https://api.openai.com"}
+                          value={newProviderApiUrl}
+                          onChange={(e) => setNewProviderApiUrl(e.target.value)}
+                        />
+                      </div>
+                    )}
+
                     {/* API Key (only for Ollama Cloud and OpenAI) */}
                     {(newProviderType === "ollama_cloud" || newProviderType === "openai") && (
                       <div className="space-y-2">
@@ -961,6 +982,7 @@ export function AdminAnalysisTab() {
                         onClick={() => {
                           setShowNewProvider(false)
                           setNewProviderAlias("")
+                          setNewProviderApiUrl("")
                           setNewProviderApiKey("")
                         }}
                       >
