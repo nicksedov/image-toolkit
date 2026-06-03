@@ -14,7 +14,7 @@ import type { OCRStatus, OcrClassificationStatusResponse, LlmSettingsResponse, L
 const PROVIDER_LABELS: Record<LlmProviderType, string> = {
   ollama: "Ollama",
   ollama_cloud: "Ollama Cloud",
-  openai: "OpenAI API",
+  openai: "OpenAI API compatible",
 }
 
 // Allowed provider types for new providers
@@ -722,7 +722,7 @@ export function AdminAnalysisTab() {
                     </div>
                   </div>
 
-                  {/* API URL */}
+                  {/* API URL (hidden for ollama_cloud — predefined) */}
                   {currentProvider.name !== "ollama_cloud" && (
                     <div className="space-y-2">
                       <Label htmlFor="llm-apiurl">API URL</Label>
