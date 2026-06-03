@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
 import { fetchOCRStatus, startOcrClassification, startOcrClassificationChanges, stopOcrClassification, fetchOcrClassificationStatus, fetchLlmSettings, updateLlmSettings, createLlmProvider, updateLlmProvider, deleteLlmProvider, fetchLlmModels, fetchTagScanStatus, pauseTagScan, resumeTagScan, updateSettings, fetchSettings } from "@/api/endpoints"
-import { Shield, Loader2, Zap, Wand2, Play, Square, RefreshCw, Plus, Trash2 } from "lucide-react"
+import { Shield, Loader2, Zap, Wand2, Play, Square, RefreshCw, Plus, Trash2, Pencil, X } from "lucide-react"
 import { useTranslation } from "@/i18n"
 import type { OCRStatus, OcrClassificationStatusResponse, LlmSettingsResponse, LlmProviderDTO, LlmModelDTO, TagScanStatusResponse, LlmProviderType } from "@/types"
 // Provider type display labels
@@ -63,6 +63,7 @@ export function AdminAnalysisTab() {
  
   // Alias editing state — separate from provider data to avoid collapsing the form on keystroke
   const [editingAlias, setEditingAlias] = useState("")
+  const [isEditingAlias, setIsEditingAlias] = useState(false)
  
   // Helper to get current active provider
   const getCurrentProvider = useCallback(
@@ -220,6 +221,7 @@ export function AdminAnalysisTab() {
       // Sync alias editing state with current provider
       const active = settings.providers.find((p) => p.alias === settings.activeProvider)
       setEditingAlias(active?.alias ?? "")
+      setIsEditingAlias(false)
       // Update tag scan state from LLM settings
       setTagScanEnabled(settings.tagScanEnabled ?? false)
       setTagScanStartHour(settings.tagScanStartHour ?? 23)
@@ -377,9 +379,12 @@ export function AdminAnalysisTab() {
 
   const handleActiveProviderChange = useCallback((value: string) => {
     setLlmSettings((prev) => ({ ...prev, activeProvider: value }))
+    const provider = llmSettings.providers.find((p) => p.alias === value)
+    setEditingAlias(provider?.alias ?? value)
+    setIsEditingAlias(false)
     setLlmFormDirty(true)
     loadModelsForProvider(value)
-  }, [loadModelsForProvider])
+  }, [loadModelsForProvider, llmSettings.providers])
 
   // Tag Scan handlers
   const loadTagScanStatus = useCallback(async () => {
@@ -558,11 +563,6 @@ export function AdminAnalysisTab() {
   }, [])
 
   const currentProvider = getCurrentProvider()
-
-  // Keep editingAlias in sync when active provider changes (render-phase update avoids cascading renders)
-  if (currentProvider && editingAlias !== currentProvider.alias) {
-    setEditingAlias(currentProvider.alias)
-  }
 
   // Provider type display name lookup
   const getProviderLabel = (name: LlmProviderType): string => {
@@ -751,25 +751,62 @@ export function AdminAnalysisTab() {
                   {/* Alias field */}
                   <div className="space-y-2">
                     <Label htmlFor="llm-alias">{t("llm_providers.alias")}</Label>
-                    <div className="flex gap-2">
-                      <Input
-                        id="llm-alias"
-                        value={editingAlias}
-                        onChange={(e) => setEditingAlias(e.target.value)}
-                      />
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          if (editingAlias !== currentProvider.alias) {
-                            handleAliasUpdate(currentProvider.alias, editingAlias)
-                          }
-                        }}
-                        disabled={isLlmSaving || editingAlias === currentProvider.alias || !editingAlias.trim()}
-                      >
-                        {isLlmSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : t("llm_providers.rename")}
-                      </Button>
-                    </div>
+                    {isEditingAlias ? (
+                      <div className="flex gap-2">
+                        <Input
+                          id="llm-alias"
+                          value={editingAlias}
+                          onChange={(e) => setEditingAlias(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && editingAlias !== currentProvider.alias && editingAlias.trim()) {
+                              handleAliasUpdate(currentProvider.alias, editingAlias).then(() => setIsEditingAlias(false))
+                            } else if (e.key === "Escape") {
+                              setEditingAlias(currentProvider.alias)
+                              setIsEditingAlias(false)
+                            }
+                          }}
+                          disabled={isLlmSaving}
+                          autoFocus
+                        />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            if (editingAlias !== currentProvider.alias) {
+                              handleAliasUpdate(currentProvider.alias, editingAlias).then(() => setIsEditingAlias(false))
+                            }
+                          }}
+                          disabled={isLlmSaving || editingAlias === currentProvider.alias || !editingAlias.trim()}
+                        >
+                          {isLlmSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : t("common.save")}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0"
+                          onClick={() => {
+                            setEditingAlias(currentProvider.alias)
+                            setIsEditingAlias(false)
+                          }}
+                          disabled={isLlmSaving}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium">{currentProvider.alias}</span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0"
+                          onClick={() => setIsEditingAlias(true)}
+                          disabled={isLlmSaving}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
                   </div>
 
                   {/* API URL (hidden for ollama_cloud — predefined) */}
