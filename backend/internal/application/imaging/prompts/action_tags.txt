@@ -10,4 +10,4 @@ Return tags in BOTH English and Russian. First list English tags, then Russian t
 Use the format:
 english tag 1, english tag 2, english tag 3, русский тег 1, русский тег 2, русский тег 3
 
-Use single words or short phrases. Do NOT include explanations, headers or labels, just the tags as a single comma-separated list.
+Use single words or short phrases. Do NOT include explanations, headers or labels, just the tags as a single comma-separated list. Do NOT exceed twenty tags per language.
