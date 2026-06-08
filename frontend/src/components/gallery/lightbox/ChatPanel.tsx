@@ -82,7 +82,7 @@ function ToolCallItem({ toolCall, isStreaming }: { toolCall: ChatToolCallInfo; i
   )
 }
 
-function MessageBubble({ message, isStreaming }: { message: ChatMessage; isStreaming: boolean }) {
+function MessageBubble({ message, isStreaming, imagePaths }: { message: ChatMessage; isStreaming: boolean; imagePaths: string[] }) {
   const isUser = message.role === "user"
   const isAssistant = message.role === "assistant"
 
@@ -116,6 +116,9 @@ function MessageBubble({ message, isStreaming }: { message: ChatMessage; isStrea
             )}
           </div>
         )}
+
+        {/* Image thumbnails inline with the response */}
+        {imagePaths.length > 0 && <ImageThumbnails paths={imagePaths} />}
 
         {/* Streaming indicator for empty assistant message */}
         {isAssistant && !message.content && isStreaming && (
@@ -159,7 +162,7 @@ function ImageThumbnails({ paths }: { paths: string[] }) {
   const display = paths.slice(0, 8)
 
   return (
-    <div className="flex flex-wrap gap-1.5 mt-1.5 mb-3">
+    <div className="flex flex-wrap gap-1.5 mt-2">
       {display.map((path, i) => (
         <div
           key={i}
@@ -324,10 +327,12 @@ export function ChatPanel({
         {messages.map((msg, idx) => {
           const imagePaths = extractImagePaths(msg)
           return (
-            <div key={msg.id || idx}>
-              <MessageBubble message={msg} isStreaming={isStreaming && idx === messages.length - 1} />
-              {imagePaths.length > 0 && <ImageThumbnails paths={imagePaths} />}
-            </div>
+            <MessageBubble
+              key={msg.id || idx}
+              message={msg}
+              isStreaming={isStreaming && idx === messages.length - 1}
+              imagePaths={imagePaths}
+            />
           )
         })}
 
