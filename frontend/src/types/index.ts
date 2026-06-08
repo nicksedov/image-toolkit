@@ -713,3 +713,79 @@ export interface BatchUpdateGpsResponse {
   lat: number
   lng: number
 }
+
+// --- Chat / Agent Types ---
+
+export interface Conversation {
+  id: number
+  imagePath?: string
+  title: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ChatMessage {
+  id: number
+  role: "user" | "assistant" | "system" | "tool"
+  content: string
+  toolCalls?: ChatToolCallInfo[]
+  createdAt: string
+}
+
+export interface ChatToolCallInfo {
+  name: string
+  arguments: string
+  result: string
+}
+
+export interface CreateConversationRequest {
+  imagePath?: string
+}
+
+export interface SendMessageRequest {
+  content: string
+}
+
+// SSE event types from the agent
+export interface SSEToolCallEvent {
+  type: "tool_call"
+  name: string
+  status: "running" | "completed"
+}
+
+export interface SSEToolResultEvent {
+  type: "tool_result"
+  name: string
+  status: string
+  result: string
+}
+
+export interface SSEMessageEvent {
+  type: "message"
+  content: string
+}
+
+export interface SSEErrorEvent {
+  type: "error"
+  error: string
+}
+
+export interface SSEDoneEvent {
+  type: "done"
+}
+
+export type SSEEvent = SSEToolCallEvent | SSEToolResultEvent | SSEMessageEvent | SSEErrorEvent | SSEDoneEvent
+
+// --- Tag Search Types ---
+
+export interface TagSearchResult {
+  id: number
+  path: string
+  fileName: string
+  modTime?: string
+}
+
+export interface TagSearchResponse {
+  images: TagSearchResult[]
+  total: number
+}

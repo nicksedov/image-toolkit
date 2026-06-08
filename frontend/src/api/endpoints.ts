@@ -63,6 +63,11 @@ import type {
   LocationCandidatesResponse,
   BatchUpdateGpsRequest,
   BatchUpdateGpsResponse,
+  Conversation,
+  ChatMessage,
+  CreateConversationRequest,
+  SSEEvent,
+  TagSearchResponse,
 } from "@/types"
 
 export function fetchDuplicates(page: number, pageSize: number): Promise<DuplicatesResponse> {
@@ -522,4 +527,105 @@ export function fetchLocationCandidatesByDate(date: string): Promise<LocationCan
 
 export function batchUpdateGps(req: BatchUpdateGpsRequest): Promise<BatchUpdateGpsResponse> {
   return apiPut<BatchUpdateGpsResponse>("/api/image-metadata/gps/batch", req)
+}
+
+// --- Chat / Agent ---
+
+export function createConversation(req: CreateConversationRequest): Promise<Conversation> {
+  return apiPost<Conversation>("/api/chat/conversations", req)
+}
+
+export function fetchConversations(): Promise<Conversation[]> {
+  return apiGet<Conversation[]>("/api/chat/conversations")
+}
+
+export function deleteConversation(id: number): Promise<{ message: string }> {
+  return apiDelete<{ message: string }>(`/api/chat/conversations/${id}`)
+}
+
+export function fetchConversationMessages(convId: number): Promise<ChatMessage[]> {
+  return apiGet<ChatMessage[]>(`/api/chat/conversations/${convId}/messages`)
+}
+
+/**
+ * Send a message to a conversation with SSE streaming.
+ * Uses fetch + ReadableStream since EventSource only supports GET.
+ */
+export function sendMessageStream(
+  convId: number,
+  content: string,
+  onEvent: (event: SSEEvent) => void,
+  signal?: AbortSignal,
+): void {
+  const baseUrl = import.meta.env.VITE_API_URL || ""
+  const url = `${baseUrl}/api/chat/conversations/${convId}/messages`
+
+  fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Accept": "text/event-stream",
+    },
+    body: JSON.stringify({ content }),
+    credentials: "include",
+    signal,
+  }).then(async (response) => {
+    if (!response.ok) {
+      const errBody = await response.text()
+      onEvent({ type: "error", error: `HTTP ${response.status}: ${errBody}` })
+      return
+    }
+
+    const reader = response.body?.getReader()
+    if (!reader) {
+      onEvent({ type: "error", error: "No response stream" })
+      return
+    }
+
+    const decoder = new TextDecoder()
+    let buffer = ""
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split("\n")
+      buffer = lines.pop() || ""
+
+      for (const line of lines) {
+        if (line.startsWith("data: ")) {
+          try {
+            const event: SSEEvent = JSON.parse(line.slice(6))
+            onEvent(event)
+          } catch {
+            // Skip malformed SSE data
+          }
+        }
+      }
+    }
+
+    // Process remaining buffer
+    if (buffer.startsWith("data: ")) {
+      try {
+        const event: SSEEvent = JSON.parse(buffer.slice(6))
+        onEvent(event)
+      } catch {
+        // Skip malformed SSE data
+      }
+    }
+  }).catch((err) => {
+    if (err.name !== "AbortError") {
+      onEvent({ type: "error", error: err.message })
+    }
+  })
+}
+
+// --- Tag Search ---
+
+export function searchByTags(tags: string[], matchAll = false): Promise<TagSearchResponse> {
+  return apiGet<TagSearchResponse>("/api/gallery/tag-search", {
+    tags: tags.join(","),
+    matchAll: matchAll ? "true" : "false",
+  })
 }

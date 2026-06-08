@@ -40,6 +40,8 @@ func NewTestDB(t *testing.T) (*gorm.DB, func()) {
 		&domain.LlmSettings{},
 		&domain.OcrLlmRecognition{},
 		&domain.ImageTag{},
+		&domain.Conversation{},
+		&domain.ConversationMessage{},
 	); err != nil {
 		t.Fatalf("failed to migrate test database: %v", err)
 	}

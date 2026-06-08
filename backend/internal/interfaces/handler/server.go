@@ -6,11 +6,13 @@ import (
 	"slices"
 	"strings"
 
+	"image-toolkit/internal/application/agent"
 	"image-toolkit/internal/application/geo"
 	"image-toolkit/internal/application/imaging"
 	"image-toolkit/internal/application/thumbnail"
 	"image-toolkit/internal/infrastructure/config"
 	"image-toolkit/internal/infrastructure/geocoder"
+	"image-toolkit/internal/infrastructure/mcpserver"
 	"image-toolkit/internal/infrastructure/ocr"
 	"image-toolkit/internal/interfaces/dto"
 	"image-toolkit/internal/interfaces/handler/helpers"
@@ -23,29 +25,32 @@ import (
 
 // Server holds the application state
 type Server struct {
-	db               *gorm.DB
-	thumbnailCache   *imaging.ThumbnailCache
-	thumbnailService *thumbnail.Service
-	thumbnailBatch   *helpers.ThumbnailBatch
-	scanManager      *imaging.ScanManager
-	ocrManager       *imaging.OcrManager
-	llmOcrService    *imaging.LlmOcrService
-	backgroundSync   *imaging.BackgroundSyncManager
-	tagScanManager   *imaging.TagScanManager
-	config           *config.AppConfig
-	ocrClient        ocr.Client
-	clusterStorage   *geo.ClusterStorage
-	galleryAccess    *helpers.GalleryAccess
-	settingsLoader   *helpers.SettingsLoader
-	llmFactory       *helpers.LLMFactory
-	fileMover        *helpers.FileMover
-	i18n             *i18n.Service
-	geocoder         *geocoder.Geocoder
-	nominatim        *geocoder.NominatimClient
+	db                  *gorm.DB
+	thumbnailCache      *imaging.ThumbnailCache
+	thumbnailService    *thumbnail.Service
+	thumbnailBatch      *helpers.ThumbnailBatch
+	scanManager         *imaging.ScanManager
+	ocrManager          *imaging.OcrManager
+	llmOcrService       *imaging.LlmOcrService
+	backgroundSync      *imaging.BackgroundSyncManager
+	tagScanManager      *imaging.TagScanManager
+	config              *config.AppConfig
+	ocrClient           ocr.Client
+	clusterStorage      *geo.ClusterStorage
+	galleryAccess       *helpers.GalleryAccess
+	settingsLoader      *helpers.SettingsLoader
+	llmFactory          *helpers.LLMFactory
+	fileMover           *helpers.FileMover
+	i18n                *i18n.Service
+	geocoder            *geocoder.Geocoder
+	nominatim           *geocoder.NominatimClient
+	mcpServer           *mcpserver.ImageToolkitMCPServer
+	agent               *agent.Agent
+	conversationService *agent.ConversationService
 }
 
 // NewServer creates a new server instance
-func NewServer(db *gorm.DB, scanManager *imaging.ScanManager, ocrManager *imaging.OcrManager, llmOcrService *imaging.LlmOcrService, backgroundSync *imaging.BackgroundSyncManager, tagScanManager *imaging.TagScanManager, thumbnailService *thumbnail.Service, cfg *config.AppConfig, rgeo *geocoder.Geocoder, nominatimClient *geocoder.NominatimClient) *Server {
+func NewServer(db *gorm.DB, scanManager *imaging.ScanManager, ocrManager *imaging.OcrManager, llmOcrService *imaging.LlmOcrService, backgroundSync *imaging.BackgroundSyncManager, tagScanManager *imaging.TagScanManager, thumbnailService *thumbnail.Service, cfg *config.AppConfig, rgeo *geocoder.Geocoder, nominatimClient *geocoder.NominatimClient, mcpSrv *mcpserver.ImageToolkitMCPServer, ag *agent.Agent, convService *agent.ConversationService) *Server {
 	var ocrClient ocr.Client
 	if cfg.OCREnabled {
 		ocrClient = ocr.NewClient(cfg.OCRHost, cfg.OCRPort)
@@ -58,20 +63,23 @@ func NewServer(db *gorm.DB, scanManager *imaging.ScanManager, ocrManager *imagin
 	}
 
 	s := &Server{
-		db:               db,
-		thumbnailCache:   imaging.NewThumbnailCache(),
-		thumbnailService: thumbnailService,
-		scanManager:      scanManager,
-		ocrManager:       ocrManager,
-		llmOcrService:    llmOcrService,
-		backgroundSync:   backgroundSync,
-		tagScanManager:   tagScanManager,
-		config:           cfg,
-		ocrClient:        ocrClient,
-		clusterStorage:   geo.NewClusterStorage(),
-		i18n:             i18nSvc,
-		geocoder:         rgeo,
-		nominatim:        nominatimClient,
+		db:                  db,
+		thumbnailCache:      imaging.NewThumbnailCache(),
+		thumbnailService:    thumbnailService,
+		scanManager:         scanManager,
+		ocrManager:          ocrManager,
+		llmOcrService:       llmOcrService,
+		backgroundSync:      backgroundSync,
+		tagScanManager:      tagScanManager,
+		config:              cfg,
+		ocrClient:           ocrClient,
+		clusterStorage:      geo.NewClusterStorage(),
+		i18n:                i18nSvc,
+		geocoder:            rgeo,
+		nominatim:           nominatimClient,
+		mcpServer:           mcpSrv,
+		agent:               ag,
+		conversationService: convService,
 	}
 	s.thumbnailBatch = helpers.NewThumbnailBatch(thumbnailService, s.thumbnailCache)
 	s.galleryAccess = helpers.NewGalleryAccess(db)

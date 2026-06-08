@@ -1,0 +1,331 @@
+package mcpserver
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"strings"
+	"time"
+
+	"image-toolkit/internal/domain"
+	"image-toolkit/internal/infrastructure/llm"
+
+	"github.com/modelcontextprotocol/go-sdk/mcp"
+)
+
+// --- Tool input/output types ---
+
+type DescribeImageInput struct {
+	ImagePath string `json:"image_path" jsonschema:"Path to the image file"`
+	Language  string `json:"language,omitempty" jsonschema:"Response language code (en, ru). Defaults to en"`
+}
+
+type RecognizeTextInput struct {
+	ImagePath string `json:"image_path" jsonschema:"Path to the image file"`
+}
+
+type GenerateTagsInput struct {
+	ImagePath string `json:"image_path" jsonschema:"Path to the image file"`
+}
+
+type AskAboutImageInput struct {
+	ImagePath string `json:"image_path" jsonschema:"Path to the image file"`
+	Question  string `json:"question" jsonschema:"The question to ask about the image"`
+	Language  string `json:"language,omitempty" jsonschema:"Response language code (en, ru). Defaults to en"`
+}
+
+type ImageAnalysisOutput struct {
+	Content          string   `json:"content,omitempty"`
+	Tags             []string `json:"tags,omitempty"`
+	Provider         string   `json:"provider"`
+	Model            string   `json:"model"`
+	ProcessingTimeMs int      `json:"processingTimeMs"`
+}
+
+// --- Tool definitions for the agent ---
+
+func describeImageToolDef() llm.ToolDefinition {
+	return llm.ToolDefinition{
+		Name:        "describe_image",
+		Description: "Generate a detailed text description of what is shown in the image",
+		Parameters: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"image_path": map[string]any{"type": "string", "description": "Path to the image file"},
+				"language":   map[string]any{"type": "string", "description": "Response language code (en, ru). Defaults to en"},
+			},
+			"required": []string{"image_path"},
+		},
+	}
+}
+
+func recognizeTextToolDef() llm.ToolDefinition {
+	return llm.ToolDefinition{
+		Name:        "recognize_text",
+		Description: "Extract and recognize all text from an image (OCR)",
+		Parameters: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"image_path": map[string]any{"type": "string", "description": "Path to the image file"},
+			},
+			"required": []string{"image_path"},
+		},
+	}
+}
+
+func generateTagsToolDef() llm.ToolDefinition {
+	return llm.ToolDefinition{
+		Name:        "generate_tags",
+		Description: "Generate descriptive tags for an image",
+		Parameters: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"image_path": map[string]any{"type": "string", "description": "Path to the image file"},
+			},
+			"required": []string{"image_path"},
+		},
+	}
+}
+
+func askAboutImageToolDef() llm.ToolDefinition {
+	return llm.ToolDefinition{
+		Name:        "ask_about_image",
+		Description: "Answer a specific question about an image",
+		Parameters: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"image_path": map[string]any{"type": "string", "description": "Path to the image file"},
+				"question":   map[string]any{"type": "string", "description": "The question to ask about the image"},
+				"language":   map[string]any{"type": "string", "description": "Response language code (en, ru). Defaults to en"},
+			},
+			"required": []string{"image_path", "question"},
+		},
+	}
+}
+
+// --- Registration ---
+
+func (s *ImageToolkitMCPServer) registerImageTools() {
+	mcp.AddTool(s.server, &mcp.Tool{
+		Name:        "describe_image",
+		Description: "Generate a detailed text description of what is shown in the image",
+	}, s.handleDescribeImage)
+
+	mcp.AddTool(s.server, &mcp.Tool{
+		Name:        "recognize_text",
+		Description: "Extract and recognize all text from an image (OCR)",
+	}, s.handleRecognizeText)
+
+	mcp.AddTool(s.server, &mcp.Tool{
+		Name:        "generate_tags",
+		Description: "Generate descriptive tags for an image",
+	}, s.handleGenerateTags)
+
+	mcp.AddTool(s.server, &mcp.Tool{
+		Name:        "ask_about_image",
+		Description: "Answer a specific question about an image",
+	}, s.handleAskAboutImage)
+}
+
+// --- MCP SDK handlers ---
+
+func (s *ImageToolkitMCPServer) handleDescribeImage(ctx context.Context, req *mcp.CallToolRequest, input DescribeImageInput) (*mcp.CallToolResult, ImageAnalysisOutput, error) {
+	result, err := s.runImageAction(input.ImagePath, "describe", "", input.Language)
+	if err != nil {
+		return nil, ImageAnalysisOutput{}, err
+	}
+	output := ImageAnalysisOutput{
+		Content:          result.Result,
+		Provider:         result.Provider,
+		Model:            result.Model,
+		ProcessingTimeMs: result.ProcessingTimeMs,
+	}
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{&mcp.TextContent{Text: result.Result}},
+	}, output, nil
+}
+
+func (s *ImageToolkitMCPServer) handleRecognizeText(ctx context.Context, req *mcp.CallToolRequest, input RecognizeTextInput) (*mcp.CallToolResult, ImageAnalysisOutput, error) {
+	result, err := s.runImageAction(input.ImagePath, "recognizeText", "", "en")
+	if err != nil {
+		return nil, ImageAnalysisOutput{}, err
+	}
+	output := ImageAnalysisOutput{
+		Content:          result.Result,
+		Provider:         result.Provider,
+		Model:            result.Model,
+		ProcessingTimeMs: result.ProcessingTimeMs,
+	}
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{&mcp.TextContent{Text: result.Result}},
+	}, output, nil
+}
+
+func (s *ImageToolkitMCPServer) handleGenerateTags(ctx context.Context, req *mcp.CallToolRequest, input GenerateTagsInput) (*mcp.CallToolResult, ImageAnalysisOutput, error) {
+	result, err := s.runImageAction(input.ImagePath, "tags", "", "en")
+	if err != nil {
+		return nil, ImageAnalysisOutput{}, err
+	}
+	output := ImageAnalysisOutput{
+		Tags:             result.Tags,
+		Content:          result.Result,
+		Provider:         result.Provider,
+		Model:            result.Model,
+		ProcessingTimeMs: result.ProcessingTimeMs,
+	}
+	tagsText := strings.Join(result.Tags, ", ")
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{&mcp.TextContent{Text: tagsText}},
+	}, output, nil
+}
+
+func (s *ImageToolkitMCPServer) handleAskAboutImage(ctx context.Context, req *mcp.CallToolRequest, input AskAboutImageInput) (*mcp.CallToolResult, ImageAnalysisOutput, error) {
+	lang := input.Language
+	if lang == "" {
+		lang = "en"
+	}
+	result, err := s.runImageAction(input.ImagePath, "askQuestion", input.Question, lang)
+	if err != nil {
+		return nil, ImageAnalysisOutput{}, err
+	}
+	output := ImageAnalysisOutput{
+		Content:          result.Result,
+		Provider:         result.Provider,
+		Model:            result.Model,
+		ProcessingTimeMs: result.ProcessingTimeMs,
+	}
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{&mcp.TextContent{Text: result.Result}},
+	}, output, nil
+}
+
+// --- Direct execution methods (for agent) ---
+
+func (s *ImageToolkitMCPServer) executeDescribeImage(ctx context.Context, args json.RawMessage) (string, error) {
+	var input DescribeImageInput
+	if err := json.Unmarshal(args, &input); err != nil {
+		return "", fmt.Errorf("invalid arguments: %w", err)
+	}
+	result, err := s.runImageAction(input.ImagePath, "describe", "", input.Language)
+	if err != nil {
+		return "", err
+	}
+	return result.Result, nil
+}
+
+func (s *ImageToolkitMCPServer) executeRecognizeText(ctx context.Context, args json.RawMessage) (string, error) {
+	var input RecognizeTextInput
+	if err := json.Unmarshal(args, &input); err != nil {
+		return "", fmt.Errorf("invalid arguments: %w", err)
+	}
+	result, err := s.runImageAction(input.ImagePath, "recognizeText", "", "en")
+	if err != nil {
+		return "", err
+	}
+	return result.Result, nil
+}
+
+func (s *ImageToolkitMCPServer) executeGenerateTags(ctx context.Context, args json.RawMessage) (string, error) {
+	var input GenerateTagsInput
+	if err := json.Unmarshal(args, &input); err != nil {
+		return "", fmt.Errorf("invalid arguments: %w", err)
+	}
+	result, err := s.runImageAction(input.ImagePath, "tags", "", "en")
+	if err != nil {
+		return "", err
+	}
+	return strings.Join(result.Tags, ", "), nil
+}
+
+func (s *ImageToolkitMCPServer) executeAskAboutImage(ctx context.Context, args json.RawMessage) (string, error) {
+	var input AskAboutImageInput
+	if err := json.Unmarshal(args, &input); err != nil {
+		return "", fmt.Errorf("invalid arguments: %w", err)
+	}
+	lang := input.Language
+	if lang == "" {
+		lang = "en"
+	}
+	result, err := s.runImageAction(input.ImagePath, "askQuestion", input.Question, lang)
+	if err != nil {
+		return "", err
+	}
+	return result.Result, nil
+}
+
+// --- Shared logic ---
+
+type imageActionResult struct {
+	Result           string
+	Tags             []string
+	Provider         string
+	Model            string
+	ProcessingTimeMs int
+}
+
+// runImageAction executes an AI action on an image identified by its path.
+// Logic mirrors LlmOcrService.ExecuteAiAction without modifications.
+func (s *ImageToolkitMCPServer) runImageAction(imagePath, action, question, language string) (*imageActionResult, error) {
+	if language == "" {
+		language = "en"
+	}
+
+	// Resolve image file from DB
+	var imageFile domain.ImageFile
+	if err := s.db.Where("path = ?", imagePath).First(&imageFile).Error; err != nil {
+		return nil, fmt.Errorf("image not found: %s", imagePath)
+	}
+
+	// Create LLM client
+	client, providerName, modelName, err := s.createLLMClient()
+	if err != nil {
+		return nil, err
+	}
+
+	// Build prompts (same logic as imaging.buildAiActionPrompt)
+	systemPrompt := buildActionPrompt(action, question, language)
+	userMessage := buildActionUserMessage(action)
+
+	// Call LLM
+	startTime := time.Now()
+	response, err := client.Recognize(imageFile.Path, systemPrompt, userMessage)
+	processingTime := int(time.Since(startTime).Milliseconds())
+
+	if err != nil {
+		return nil, fmt.Errorf("LLM call failed: %w", err)
+	}
+
+	result := &imageActionResult{
+		Provider:         providerName,
+		Model:            modelName,
+		ProcessingTimeMs: processingTime,
+	}
+
+	if action == "tags" {
+		tags := parseTags(response)
+		result.Tags = tags
+		result.Result = response
+	} else {
+		result.Result = response
+	}
+
+	return result, nil
+}
+
+// parseTags parses a comma-separated or newline-separated list of tags.
+func parseTags(input string) []string {
+	parts := strings.Split(input, ",")
+	if len(parts) == 1 {
+		parts = strings.Split(input, "\n")
+	}
+
+	var tags []string
+	for _, part := range parts {
+		tag := strings.TrimSpace(part)
+		tag = strings.Trim(tag, `"'`)
+		if tag != "" {
+			tags = append(tags, tag)
+		}
+	}
+	return tags
+}

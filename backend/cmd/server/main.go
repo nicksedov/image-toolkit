@@ -12,12 +12,15 @@ import (
 	"image-toolkit/internal/application/auth"
 	"image-toolkit/internal/application/imaging"
 	"image-toolkit/internal/application/thumbnail"
+	agentpkg "image-toolkit/internal/application/agent"
 	"image-toolkit/internal/domain"
 	"image-toolkit/internal/infrastructure/config"
 	"image-toolkit/internal/infrastructure/database"
 	"image-toolkit/internal/infrastructure/geocoder"
+	"image-toolkit/internal/infrastructure/mcpserver"
 	"image-toolkit/internal/infrastructure/ocr"
 	"image-toolkit/internal/interfaces/handler"
+	"image-toolkit/internal/interfaces/handler/helpers"
 	"image-toolkit/internal/interfaces/i18n"
 	"image-toolkit/internal/interfaces/middleware"
 )
@@ -238,8 +241,18 @@ func main() {
 
 	fmt.Printf("Tag scan: window %02d:%02d - %02d:%02d, tzOffset=%d, enabled=%v\n", tagScanStartHour, tagScanStartMinute, tagScanEndHour, tagScanEndMinute, tagScanTimezoneOffset, tagScanEnabled)
 
+	// Create MCP server
+	llmFactory := helpers.NewLLMFactory(db, cfg.LlmMaxImageMegapixels)
+	mcpSrv := mcpserver.NewImageToolkitMCPServer(db, llmFactory, llmOcrService, cfg.LlmMaxImageMegapixels)
+	fmt.Println("MCP server initialized with image analysis and search tools")
+
+	// Create conversation service and agent
+	convService := agentpkg.NewConversationService(db)
+	ag := agentpkg.NewAgent(convService, mcpSrv, agentpkg.DefaultAgentConfig())
+	fmt.Println("AI agent initialized")
+
 	// Start web server
-	server := handler.NewServer(db, scanManager, ocrManager, llmOcrService, backgroundSync, tagScanManager, thumbnailService, cfg, geo, nominatimClient)
+	server := handler.NewServer(db, scanManager, ocrManager, llmOcrService, backgroundSync, tagScanManager, thumbnailService, cfg, geo, nominatimClient, mcpSrv, ag, convService)
 	router := server.SetupRouter(authMiddleware, csrfProtection, authHandlers)
 
 	// Start OCR health check if enabled

@@ -37,6 +37,7 @@ export const translationsEn = {
   "common.save": "Save",
   "common.saving": "Saving...",
   "common.actions": "Actions",
+  "common.delete": "Delete",
 
   // Settings tab
   "settings.title": "Gallery",
@@ -589,4 +590,19 @@ export const translationsEn = {
   "llm_providers.modelsLoaded": "Loaded {count} models",
   "llm_providers.modelsLoadFailed": "Failed to load model list",
   "llm_providers.providerLabel": "Provider: {alias}",
+
+  // Chat / Agent
+  "chat.title": "AI Assistant",
+  "chat.placeholder": "Ask anything about this image...",
+  "chat.start_button": "Start Conversation",
+  "chat.new_conversation": "New Conversation",
+  "chat.welcome_title": "AI Image Assistant",
+  "chat.welcome_description": "Start a conversation to analyze and explore this image",
+  "chat.start_hint": "Ask a question or pick a suggestion below",
+  "chat.suggest_describe": "Describe this image",
+  "chat.suggest_text": "What text is here?",
+  "chat.suggest_similar": "Find similar images",
+  "chat.suggest_date": "When was this taken?",
+  "chat.tool_running": "Running...",
+  "chat.error_send": "Failed to send message",
  } as const

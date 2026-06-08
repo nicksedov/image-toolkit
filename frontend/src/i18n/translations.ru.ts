@@ -37,6 +37,7 @@ export const translationsRu = {
   "common.save": "Сохранить",
   "common.saving": "Сохранение...",
   "common.actions": "Действия",
+  "common.delete": "Удалить",
 
   // Settings tab
   "settings.title": "Галерея",
@@ -679,4 +680,19 @@ export const translationsRu = {
   "llm_providers.modelsLoaded": "Загружено {count} моделей",
   "llm_providers.modelsLoadFailed": "Не удалось загрузить список моделей",
   "llm_providers.providerLabel": "Провайдер: {alias}",
+
+  // Чат / Агент
+  "chat.title": "ИИ-помощник",
+  "chat.placeholder": "Спросите что-нибудь об этом изображении...",
+  "chat.start_button": "Начать диалог",
+  "chat.new_conversation": "Новый диалог",
+  "chat.welcome_title": "ИИ-ассистент для изображений",
+  "chat.welcome_description": "Начните диалог для анализа и исследования этого изображения",
+  "chat.start_hint": "Задайте вопрос или выберите подсказку ниже",
+  "chat.suggest_describe": "Описать изображение",
+  "chat.suggest_text": "Какой текст здесь?",
+  "chat.suggest_similar": "Найти похожие",
+  "chat.suggest_date": "Когда это снято?",
+  "chat.tool_running": "Выполняется...",
+  "chat.error_send": "Не удалось отправить сообщение",
  } as const

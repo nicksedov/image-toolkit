@@ -114,10 +114,25 @@ func (s *Server) SetupRouter(authMiddleware *middleware.AuthMiddleware, csrfProt
 			protected.POST("/ai/action", s.handleAiAction)
 			protected.GET("/ai/status/:taskId", s.handleAiActionStatus)
 
+			// Tag Search endpoint
+			protected.GET("/gallery/tag-search", s.handleSearchByTags)
+
 			// Tag Scan endpoints
 			protected.GET("/tag-scan/status", s.handleTagScanStatus)
 			protected.POST("/tag-scan/pause", s.handleTagScanPause)
 			protected.POST("/tag-scan/resume", s.handleTagScanResume)
+
+			// Chat / Agent endpoints
+			protected.POST("/chat/conversations", s.handleCreateConversation)
+			protected.GET("/chat/conversations", s.handleListConversations)
+			protected.DELETE("/chat/conversations/:id", s.handleDeleteConversation)
+			protected.POST("/chat/conversations/:id/messages", s.handleSendMessage)
+			protected.GET("/chat/conversations/:id/messages", s.handleGetMessages)
+
+			// MCP endpoint
+			if s.mcpServer != nil {
+				protected.Any("/mcp", gin.WrapH(s.mcpServer.HTTPHandler()))
+			}
 
 			// Admin routes
 			admin := protected.Group("/admin")
