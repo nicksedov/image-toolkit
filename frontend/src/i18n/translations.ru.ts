@@ -693,6 +693,10 @@ export const translationsRu = {
   "chat.suggest_text": "Какой текст здесь?",
   "chat.suggest_similar": "Найти похожие",
   "chat.suggest_date": "Когда это снято?",
+  "chat.suggest_describe_msg": "Опиши это изображение подробно",
+  "chat.suggest_text_msg": "Какой текст на этом изображении?",
+  "chat.suggest_similar_msg": "Найди похожие изображения по тегам",
+  "chat.suggest_date_msg": "Когда было сделано это фото?",
   "chat.tool_running": "Выполняется...",
   "chat.error_send": "Не удалось отправить сообщение",
  } as const

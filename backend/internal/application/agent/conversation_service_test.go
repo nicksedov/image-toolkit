@@ -15,7 +15,7 @@ func TestCreateConversation(t *testing.T) {
 
 	svc := NewConversationService(db)
 
-	conv, err := svc.CreateConversation(1, "/photos/test.jpg")
+	conv, err := svc.CreateConversation(1, "/photos/test.jpg", "en")
 	if err != nil {
 		t.Fatalf("CreateConversation failed: %v", err)
 	}
@@ -31,6 +31,9 @@ func TestCreateConversation(t *testing.T) {
 	if conv.Title != "New Chat" {
 		t.Errorf("expected Title='New Chat', got %q", conv.Title)
 	}
+	if conv.Language != "en" {
+		t.Errorf("expected Language='en', got %q", conv.Language)
+	}
 }
 
 func TestGetConversation(t *testing.T) {
@@ -38,7 +41,7 @@ func TestGetConversation(t *testing.T) {
 	defer cleanup()
 
 	svc := NewConversationService(db)
-	conv, _ := svc.CreateConversation(1, "/img.jpg")
+	conv, _ := svc.CreateConversation(1, "/img.jpg", "en")
 
 	// Correct user
 	got, err := svc.GetConversation(conv.ID, 1)
@@ -61,7 +64,7 @@ func TestGetConversationByID(t *testing.T) {
 	defer cleanup()
 
 	svc := NewConversationService(db)
-	conv, _ := svc.CreateConversation(1, "/img.jpg")
+	conv, _ := svc.CreateConversation(1, "/img.jpg", "en")
 
 	got, err := svc.GetConversationByID(conv.ID)
 	if err != nil {
@@ -83,9 +86,9 @@ func TestListConversations(t *testing.T) {
 	defer cleanup()
 
 	svc := NewConversationService(db)
-	svc.CreateConversation(1, "/img1.jpg")
-	svc.CreateConversation(1, "/img2.jpg")
-	svc.CreateConversation(2, "/other.jpg")
+	svc.CreateConversation(1, "/img1.jpg", "en")
+	svc.CreateConversation(1, "/img2.jpg", "ru")
+	svc.CreateConversation(2, "/other.jpg", "en")
 
 	list, err := svc.ListConversations(1)
 	if err != nil {
@@ -106,7 +109,7 @@ func TestDeleteConversation(t *testing.T) {
 	defer cleanup()
 
 	svc := NewConversationService(db)
-	conv, _ := svc.CreateConversation(1, "/img.jpg")
+	conv, _ := svc.CreateConversation(1, "/img.jpg", "en")
 
 	// Add some messages
 	svc.AddMessage(conv.ID, domain.ConversationMessage{Role: "user", Content: "hello"})
@@ -142,7 +145,7 @@ func TestAddAndGetMessages(t *testing.T) {
 	defer cleanup()
 
 	svc := NewConversationService(db)
-	conv, _ := svc.CreateConversation(1, "")
+	conv, _ := svc.CreateConversation(1, "", "en")
 
 	err := svc.AddMessage(conv.ID, domain.ConversationMessage{Role: "user", Content: "Hello"})
 	if err != nil {
@@ -173,7 +176,7 @@ func TestAutoTitleFromFirstUserMessage(t *testing.T) {
 	defer cleanup()
 
 	svc := NewConversationService(db)
-	conv, _ := svc.CreateConversation(1, "")
+	conv, _ := svc.CreateConversation(1, "", "en")
 
 	svc.AddMessage(conv.ID, domain.ConversationMessage{Role: "user", Content: "What is in this photo?"})
 
@@ -188,7 +191,7 @@ func TestAutoTitleTruncated(t *testing.T) {
 	defer cleanup()
 
 	svc := NewConversationService(db)
-	conv, _ := svc.CreateConversation(1, "")
+	conv, _ := svc.CreateConversation(1, "", "en")
 
 	longMsg := "This is a very long message that exceeds fifty characters and should be truncated"
 	svc.AddMessage(conv.ID, domain.ConversationMessage{Role: "user", Content: longMsg})
@@ -204,7 +207,7 @@ func TestCountTokens(t *testing.T) {
 	defer cleanup()
 
 	svc := NewConversationService(db)
-	conv, _ := svc.CreateConversation(1, "")
+	conv, _ := svc.CreateConversation(1, "", "en")
 
 	// Add known-length messages
 	svc.AddMessage(conv.ID, domain.ConversationMessage{Role: "user", Content: "hello world"})        // ~3 tokens
@@ -324,7 +327,7 @@ func TestSummarizeOlderMessages(t *testing.T) {
 	defer cleanup()
 
 	svc := NewConversationService(db)
-	conv, _ := svc.CreateConversation(1, "")
+	conv, _ := svc.CreateConversation(1, "", "en")
 
 	// Add 8 messages
 	for i := 0; i < 8; i++ {
@@ -366,7 +369,7 @@ func TestSummarizeOlderMessages_NothingToSummarize(t *testing.T) {
 	defer cleanup()
 
 	svc := NewConversationService(db)
-	conv, _ := svc.CreateConversation(1, "")
+	conv, _ := svc.CreateConversation(1, "", "en")
 
 	svc.AddMessage(conv.ID, domain.ConversationMessage{Role: "user", Content: "only one"})
 

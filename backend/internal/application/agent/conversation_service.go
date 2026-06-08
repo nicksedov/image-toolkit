@@ -22,11 +22,15 @@ func NewConversationService(db *gorm.DB) *ConversationService {
 }
 
 // CreateConversation creates a new conversation for a user.
-func (s *ConversationService) CreateConversation(userID uint, imagePath string) (*domain.Conversation, error) {
+func (s *ConversationService) CreateConversation(userID uint, imagePath, language string) (*domain.Conversation, error) {
+	if language == "" {
+		language = "en"
+	}
 	conv := &domain.Conversation{
 		UserID:    userID,
 		ImagePath: imagePath,
 		Title:     "New Chat",
+		Language:  language,
 	}
 	if err := s.db.Create(conv).Error; err != nil {
 		return nil, fmt.Errorf("failed to create conversation: %w", err)

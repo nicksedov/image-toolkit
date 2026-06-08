@@ -720,6 +720,7 @@ export interface Conversation {
   id: number
   imagePath?: string
   title: string
+  language: string
   createdAt: string
   updatedAt: string
 }
@@ -740,6 +741,7 @@ export interface ChatToolCallInfo {
 
 export interface CreateConversationRequest {
   imagePath?: string
+  language?: string
 }
 
 export interface SendMessageRequest {

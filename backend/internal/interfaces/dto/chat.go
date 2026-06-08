@@ -5,6 +5,7 @@ package dto
 // CreateConversationRequest for POST /api/chat/conversations
 type CreateConversationRequest struct {
 	ImagePath string `json:"imagePath,omitempty"`
+	Language  string `json:"language,omitempty"` // UI language code (en, ru)
 }
 
 // ConversationDTO represents a conversation in API responses.
@@ -12,6 +13,7 @@ type ConversationDTO struct {
 	ID        uint   `json:"id"`
 	ImagePath string `json:"imagePath,omitempty"`
 	Title     string `json:"title"`
+	Language  string `json:"language"`
 	CreatedAt string `json:"createdAt"`
 	UpdatedAt string `json:"updatedAt"`
 }

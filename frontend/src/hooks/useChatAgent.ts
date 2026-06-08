@@ -22,7 +22,7 @@ interface UseChatAgentReturn {
   abortStream: () => void
 }
 
-export function useChatAgent(): UseChatAgentReturn {
+export function useChatAgent(language: string = "en"): UseChatAgentReturn {
   const [conversation, setConversation] = useState<Conversation | null>(null)
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -32,14 +32,14 @@ export function useChatAgent(): UseChatAgentReturn {
 
   const createNewConversation = useCallback(async (imagePath?: string) => {
     try {
-      const conv = await createConversation({ imagePath })
+      const conv = await createConversation({ imagePath, language })
       setConversation(conv)
       setMessages([])
       setError(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create conversation")
     }
-  }, [])
+  }, [language])
 
   const loadConversations = useCallback(async () => {
     try {

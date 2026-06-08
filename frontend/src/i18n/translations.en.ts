@@ -603,6 +603,10 @@ export const translationsEn = {
   "chat.suggest_text": "What text is here?",
   "chat.suggest_similar": "Find similar images",
   "chat.suggest_date": "When was this taken?",
+  "chat.suggest_describe_msg": "Describe this image in detail",
+  "chat.suggest_text_msg": "What text is in this image?",
+  "chat.suggest_similar_msg": "Find similar images by tags",
+  "chat.suggest_date_msg": "When was this photo taken?",
   "chat.tool_running": "Running...",
   "chat.error_send": "Failed to send message",
  } as const

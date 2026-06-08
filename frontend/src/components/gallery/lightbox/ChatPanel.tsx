@@ -37,7 +37,7 @@ interface ChatPanelProps {
 interface Suggestion {
   icon: React.ReactNode
   labelKey: TranslationKey
-  message: string
+  messageKey: TranslationKey
 }
 
 function ToolCallItem({ toolCall, isStreaming }: { toolCall: ChatToolCallInfo; isStreaming: boolean }) {
@@ -203,22 +203,22 @@ export function ChatPanel({
     {
       icon: <FileText className="h-3.5 w-3.5" />,
       labelKey: "chat.suggest_describe",
-      message: "Describe this image in detail",
+      messageKey: "chat.suggest_describe_msg",
     },
     {
       icon: <ScanText className="h-3.5 w-3.5" />,
       labelKey: "chat.suggest_text",
-      message: "What text is in this image?",
+      messageKey: "chat.suggest_text_msg",
     },
     {
       icon: <Search className="h-3.5 w-3.5" />,
       labelKey: "chat.suggest_similar",
-      message: "Find similar images by tags",
+      messageKey: "chat.suggest_similar_msg",
     },
     {
       icon: <Calendar className="h-3.5 w-3.5" />,
       labelKey: "chat.suggest_date",
-      message: "When was this photo taken?",
+      messageKey: "chat.suggest_date_msg",
     },
   ]
 
@@ -256,9 +256,9 @@ export function ChatPanel({
   const handleSuggestionClick = useCallback(
     (suggestion: Suggestion) => {
       if (isStreaming) return
-      onSendMessage(suggestion.message)
+      onSendMessage(t(suggestion.messageKey))
     },
-    [isStreaming, onSendMessage],
+    [isStreaming, onSendMessage, t],
   )
 
   // Auto-resize textarea

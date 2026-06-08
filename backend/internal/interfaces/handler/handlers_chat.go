@@ -24,7 +24,7 @@ func (s *Server) handleCreateConversation(c *gin.Context) {
 	}
 
 	userID := middleware.GetUserID(c)
-	conv, err := s.conversationService.CreateConversation(userID, req.ImagePath)
+	conv, err := s.conversationService.CreateConversation(userID, req.ImagePath, req.Language)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -34,6 +34,7 @@ func (s *Server) handleCreateConversation(c *gin.Context) {
 		ID:        conv.ID,
 		ImagePath: conv.ImagePath,
 		Title:     conv.Title,
+		Language:  conv.Language,
 		CreatedAt: conv.CreatedAt.Format("2006-01-02T15:04:05Z"),
 		UpdatedAt: conv.UpdatedAt.Format("2006-01-02T15:04:05Z"),
 	})
@@ -54,6 +55,7 @@ func (s *Server) handleListConversations(c *gin.Context) {
 			ID:        conv.ID,
 			ImagePath: conv.ImagePath,
 			Title:     conv.Title,
+			Language:  conv.Language,
 			CreatedAt: conv.CreatedAt.Format("2006-01-02T15:04:05Z"),
 			UpdatedAt: conv.UpdatedAt.Format("2006-01-02T15:04:05Z"),
 		}

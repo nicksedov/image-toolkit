@@ -248,8 +248,15 @@ You have access to the following tools:
 Guidelines:
 - Use tools when you need information. Don't guess.
 - Be helpful, specific, and accurate.
-- Respond in the same language as the user's message.
 - When presenting search results, list images with their paths and key metadata.`
+
+	// Add language instruction based on conversation language
+	switch conv.Language {
+	case "ru":
+		prompt += "\n- ВАЖНО: Всегда отвечайте исключительно на русском языке. Все описания, ответы и пояснения должны быть на русском."
+	default:
+		prompt += "\n- Always respond in English unless the user explicitly writes in another language."
+	}
 
 	if conv.ImagePath != "" {
 		prompt += fmt.Sprintf("\n\nWhen the user refers to \"this image\" or \"the image\", they mean: %s", conv.ImagePath)

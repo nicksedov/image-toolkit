@@ -32,7 +32,7 @@ func TestAgent_NoToolCalls(t *testing.T) {
 	defer cleanup()
 
 	convSvc := NewConversationService(db)
-	conv, _ := convSvc.CreateConversation(1, "/test.jpg")
+	conv, _ := convSvc.CreateConversation(1, "/test.jpg", "en")
 
 	mockLLM := &mockChatClient{
 		responses: []*llm.ChatResponse{
@@ -84,7 +84,7 @@ func TestAgent_SingleToolCall(t *testing.T) {
 	defer cleanup()
 
 	convSvc := NewConversationService(db)
-	conv, _ := convSvc.CreateConversation(1, "/test.jpg")
+	conv, _ := convSvc.CreateConversation(1, "/test.jpg", "en")
 
 	mockLLM := &mockChatClient{
 		responses: []*llm.ChatResponse{
@@ -167,7 +167,7 @@ func TestAgent_MultipleToolCalls(t *testing.T) {
 	defer cleanup()
 
 	convSvc := NewConversationService(db)
-	conv, _ := convSvc.CreateConversation(1, "/test.jpg")
+	conv, _ := convSvc.CreateConversation(1, "/test.jpg", "en")
 
 	mockLLM := &mockChatClient{
 		responses: []*llm.ChatResponse{
@@ -233,7 +233,7 @@ func TestAgent_MaxToolRounds(t *testing.T) {
 	defer cleanup()
 
 	convSvc := NewConversationService(db)
-	conv, _ := convSvc.CreateConversation(1, "")
+	conv, _ := convSvc.CreateConversation(1, "", "en")
 
 	// LLM always returns tool_use, never end_turn
 	toolResp := &llm.ChatResponse{
@@ -279,7 +279,7 @@ func TestAgent_ToolError(t *testing.T) {
 	defer cleanup()
 
 	convSvc := NewConversationService(db)
-	conv, _ := convSvc.CreateConversation(1, "/test.jpg")
+	conv, _ := convSvc.CreateConversation(1, "/test.jpg", "en")
 
 	mockLLM := &mockChatClient{
 		responses: []*llm.ChatResponse{
@@ -327,7 +327,7 @@ func TestAgent_NilEventHandler(t *testing.T) {
 	defer cleanup()
 
 	convSvc := NewConversationService(db)
-	conv, _ := convSvc.CreateConversation(1, "")
+	conv, _ := convSvc.CreateConversation(1, "", "en")
 
 	mockLLM := &mockChatClient{
 		responses: []*llm.ChatResponse{

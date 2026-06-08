@@ -8,6 +8,7 @@ type Conversation struct {
 	UserID    uint      `gorm:"index;not null" json:"userId"`
 	ImagePath string    `json:"imagePath,omitempty"`
 	Title     string    `json:"title"`
+	Language  string    `gorm:"default:en" json:"language"` // UI language code (en, ru)
 	CreatedAt time.Time `json:"createdAt"`
 	UpdatedAt time.Time `json:"updatedAt"`
 }

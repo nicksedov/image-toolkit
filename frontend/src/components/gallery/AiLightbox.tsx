@@ -1,4 +1,5 @@
 import { useCallback, useEffect } from "react"
+import { useTranslation } from "@/i18n"
 import { LightboxDialog } from "./lightbox/LightboxDialog"
 import { buildImageUrl } from "@/utils/buildImageUrl"
 import { AiImagePanel } from "./lightbox/AiImagePanel"
@@ -11,6 +12,7 @@ interface AiLightboxProps {
 }
 
 export function AiLightbox({ imagePath, onClose }: AiLightboxProps) {
+  const { language } = useTranslation()
   const {
     conversation,
     messages,
@@ -20,7 +22,7 @@ export function AiLightbox({ imagePath, onClose }: AiLightboxProps) {
     removeConversation,
     sendMessage,
     abortStream,
-  } = useChatAgent()
+  } = useChatAgent(language)
 
   const imageUrl = imagePath
     ? buildImageUrl(imagePath, "/api/image")
