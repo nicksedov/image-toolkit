@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -264,7 +265,8 @@ type imageActionResult struct {
 }
 
 // runImageAction executes an AI action on an image identified by its path.
-// Logic mirrors LlmOcrService.ExecuteAiAction without modifications.
+// For the "tags" action, it checks the image_tags cache first and saves
+// newly generated tags back to the cache.
 func (s *ImageToolkitMCPServer) runImageAction(imagePath, action, question, language string) (*imageActionResult, error) {
 	if language == "" {
 		language = "en"
@@ -274,6 +276,21 @@ func (s *ImageToolkitMCPServer) runImageAction(imagePath, action, question, lang
 	var imageFile domain.ImageFile
 	if err := s.db.Where("path = ?", imagePath).First(&imageFile).Error; err != nil {
 		return nil, fmt.Errorf("image not found: %s", imagePath)
+	}
+
+	// For "tags" action: check DB cache first
+	if action == "tags" {
+		var tags []domain.ImageTag
+		if err := s.db.Where("image_file_id = ?", imageFile.ID).Find(&tags).Error; err == nil && len(tags) > 0 {
+			tagStrings := make([]string, len(tags))
+			for i, t := range tags {
+				tagStrings[i] = t.Tag
+			}
+			return &imageActionResult{
+				Tags:   tagStrings,
+				Result: strings.Join(tagStrings, ", "),
+			}, nil
+		}
 	}
 
 	// Create LLM client
@@ -305,6 +322,14 @@ func (s *ImageToolkitMCPServer) runImageAction(imagePath, action, question, lang
 		tags := parseTags(response)
 		result.Tags = tags
 		result.Result = response
+
+		// Save generated tags to DB cache for future requests
+		if len(tags) > 0 {
+			if err := s.llmService.SaveImageTags(imageFile.ID, tags); err != nil {
+				// Log but don't fail — tags were generated successfully
+				log.Printf("generate_tags: failed to save tags for image %d: %v", imageFile.ID, err)
+			}
+		}
 	} else {
 		result.Result = response
 	}

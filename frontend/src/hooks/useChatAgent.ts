@@ -204,12 +204,10 @@ export function useChatAgent(language: string = "en"): UseChatAgentReturn {
 
           case "done":
             setIsStreaming(false)
-            // Reload messages from server to get proper IDs
-            fetchConversationMessages(conversation.id).then(msgs => {
-              setMessages(msgs)
-            }).catch(() => {
-              // Keep current messages if reload fails
-            })
+            // Note: We intentionally do NOT reload messages from the server here.
+            // The server stores tool call info (name/args) and tool results (role "tool")
+            // as separate messages, losing the merged toolCalls[].result data that was
+            // built during streaming. Reloading would make thumbnails disappear.
             break
         }
       },
