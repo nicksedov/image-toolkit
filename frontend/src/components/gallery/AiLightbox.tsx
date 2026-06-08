@@ -1,5 +1,4 @@
 import { useCallback, useEffect } from "react"
-import { useTranslation } from "@/i18n"
 import { LightboxDialog } from "./lightbox/LightboxDialog"
 import { buildImageUrl } from "@/utils/buildImageUrl"
 import { AiImagePanel } from "./lightbox/AiImagePanel"
@@ -12,7 +11,6 @@ interface AiLightboxProps {
 }
 
 export function AiLightbox({ imagePath, onClose }: AiLightboxProps) {
-  const { t } = useTranslation()
   const {
     conversation,
     messages,
