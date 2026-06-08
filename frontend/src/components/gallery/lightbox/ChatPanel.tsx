@@ -20,7 +20,7 @@ import {
 import type { ChatMessage, ChatToolCallInfo } from "@/types"
 import type { TranslationKey } from "@/i18n"
 import { OcrMarkdownRenderer } from "./OcrMarkdownRenderer"
-import { buildImageUrl } from "@/utils/buildImageUrl"
+import { fetchThumbnail } from "@/api/endpoints"
 
 interface ChatPanelProps {
   messages: ChatMessage[]
@@ -157,6 +157,38 @@ function extractImagePaths(message: ChatMessage): string[] {
   return paths
 }
 
+function ThumbnailItem({ path }: { path: string }) {
+  const [src, setSrc] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    fetchThumbnail(path)
+      .then((res) => {
+        if (!cancelled) setSrc(res.thumbnail)
+      })
+      .catch(() => {
+        // leave empty on failure
+      })
+    return () => { cancelled = true }
+  }, [path])
+
+  if (!src) {
+    return (
+      <div className="w-full h-full flex items-center justify-center">
+        <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  return (
+    <img
+      src={src}
+      alt={path.split("/").pop() || path}
+      className="w-full h-full object-cover"
+    />
+  )
+}
+
 function ImageThumbnails({ paths }: { paths: string[] }) {
   if (paths.length === 0) return null
   const display = paths.slice(0, 8)
@@ -168,12 +200,7 @@ function ImageThumbnails({ paths }: { paths: string[] }) {
           key={i}
           className="w-14 h-14 rounded overflow-hidden border border-border/50 bg-muted/30 shrink-0"
         >
-          <img
-            src={buildImageUrl(path, "/api/thumbnail")}
-            alt={path.split("/").pop() || path}
-            className="w-full h-full object-cover"
-            loading="lazy"
-          />
+          <ThumbnailItem path={path} />
         </div>
       ))}
       {paths.length > 8 && (
