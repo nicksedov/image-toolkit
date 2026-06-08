@@ -273,30 +273,32 @@ export function ChatPanel({
     <div className="w-full md:w-[400px] lg:w-[450px] md:min-w-[350px] border-l bg-card h-full shrink-0 flex flex-col">
       {/* Header */}
       <div className="flex items-center gap-2 px-4 py-3 border-b shrink-0">
-        <Sparkles className="h-4 w-4 text-primary" />
-        <span className="text-sm font-semibold flex-1">{t("chat.title")}</span>
-        {hasConversation && (
-          <div className="flex gap-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 w-7 p-0"
-              onClick={onNewConversation}
-              title={t("chat.new_conversation")}
-            >
-              <Plus className="h-3.5 w-3.5" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 w-7 p-0 text-destructive hover:text-destructive"
-              onClick={onDeleteConversation}
-              title={t("common.delete")}
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </Button>
-          </div>
-        )}
+        <div className="flex items-center gap-2">
+          <Sparkles className="h-4 w-4 text-primary shrink-0" />
+          <span className="text-sm font-semibold">{t("chat.title")}</span>
+          {hasConversation && (
+            <div className="flex gap-1 ml-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 w-7 p-0"
+                onClick={onNewConversation}
+                title={t("chat.new_conversation")}
+              >
+                <Plus className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                onClick={onDeleteConversation}
+                title={t("common.delete")}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Messages area */}
@@ -341,8 +343,8 @@ export function ChatPanel({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Suggestions */}
-      {hasConversation && messages.length === 0 && !isStreaming && imagePath && (
+      {/* Suggestions — shown whenever user input is expected */}
+      {hasConversation && !isStreaming && imagePath && (
         <div className="px-4 pb-2 flex flex-wrap gap-1.5 shrink-0">
           {suggestions.map((s, i) => (
             <button
