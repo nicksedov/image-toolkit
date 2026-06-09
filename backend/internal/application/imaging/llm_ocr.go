@@ -90,25 +90,28 @@ type RecognizeResult struct {
 
 // RecognizeWithLlm performs OCR using VL LLM
 func (s *LlmOcrService) RecognizeWithLlm(imageFileID uint, client llm.Client, provider domain.LlmProvider) (*RecognizeResult, error) {
-	// Step 1: Get OCR classification to detect language
+	// Step 1: Try to get OCR classification for language detection (optional)
+	var classificationID uint
+	language := "en" // Default to English when no classification exists
+
 	var classification domain.OcrClassification
-	if err := s.db.Where("image_file_id = ?", imageFileID).First(&classification).Error; err != nil {
+	if err := s.db.Where("image_file_id = ?", imageFileID).First(&classification).Error; err == nil {
+		classificationID = classification.ID
+		language = s.detectLanguage(classification)
+	} else if err != gorm.ErrRecordNotFound {
 		return nil, fmt.Errorf("failed to get OCR classification: %w", err)
 	}
 
-	// Step 2: Detect language from classification data
-	language := s.detectLanguage(classification)
-
-	// Step 3: Build system prompt
+	// Step 2: Build system prompt
 	systemPrompt := buildOcrSystemPrompt(language)
 
-	// Step 4: Get image path
+	// Step 3: Get image path
 	var imageFile domain.ImageFile
 	if err := s.db.First(&imageFile, imageFileID).Error; err != nil {
 		return nil, fmt.Errorf("failed to get image file: %w", err)
 	}
 
-	// Step 5: Call LLM
+	// Step 4: Call LLM
 	startTime := time.Now()
 	markdownContent, err := client.Recognize(imageFile.Path, systemPrompt, "Perform OCR on this image and return markdown content.")
 	processingTime := int(time.Since(startTime).Milliseconds())
@@ -117,7 +120,7 @@ func (s *LlmOcrService) RecognizeWithLlm(imageFileID uint, client llm.Client, pr
 		// Save failed result using UPSERT
 		recognition := domain.OcrLlmRecognition{
 			ImageFileID:         imageFileID,
-			OcrClassificationID: classification.ID,
+			OcrClassificationID: classificationID,
 			Language:            language,
 			MarkdownContent:     "",
 			Provider:            provider.Name,
@@ -133,10 +136,10 @@ func (s *LlmOcrService) RecognizeWithLlm(imageFileID uint, client llm.Client, pr
 		return nil, err
 	}
 
-	// Step 6: Save successful result using UPSERT
+	// Step 5: Save successful result using UPSERT
 	recognition := domain.OcrLlmRecognition{
 		ImageFileID:         imageFileID,
-		OcrClassificationID: classification.ID,
+		OcrClassificationID: classificationID,
 		Language:            language,
 		MarkdownContent:     markdownContent,
 		Provider:            provider.Name,

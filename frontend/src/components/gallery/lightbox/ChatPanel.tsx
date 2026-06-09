@@ -40,16 +40,27 @@ interface Suggestion {
   messageKey: TranslationKey
 }
 
+const TOOL_NAME_KEYS: Record<string, TranslationKey> = {
+  describe_image: "chat.tool_describe_image",
+  search_by_tags: "chat.tool_search_by_tags",
+  search_by_date: "chat.tool_search_by_date",
+  search_by_location: "chat.tool_search_by_location",
+  search_by_path: "chat.tool_search_by_path",
+  get_image_metadata: "chat.tool_get_image_metadata",
+}
+
 function ToolCallItem({ toolCall, isStreaming }: { toolCall: ChatToolCallInfo; isStreaming: boolean }) {
+  const { t } = useTranslation()
   const [expanded, setExpanded] = useState(false)
   const isRunning = isStreaming && !toolCall.result
 
-  const toolDisplayName = toolCall.name
-    .replace(/_/g, " ")
-    .replace(/\b\w/g, (c) => c.toUpperCase())
+  const translationKey = TOOL_NAME_KEYS[toolCall.name]
+  const toolDisplayName = translationKey
+    ? t(translationKey)
+    : toolCall.name.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
 
   return (
-    <div className="border border-border/50 rounded-md text-xs overflow-hidden">
+    <div className="w-full border border-border/50 rounded-md text-xs overflow-hidden">
       <button
         type="button"
         className="flex items-center gap-1.5 w-full px-2 py-1.5 hover:bg-muted/50 transition-colors text-left"
@@ -83,6 +94,7 @@ function ToolCallItem({ toolCall, isStreaming }: { toolCall: ChatToolCallInfo; i
 }
 
 function MessageBubble({ message, isStreaming, imagePaths }: { message: ChatMessage; isStreaming: boolean; imagePaths: string[] }) {
+  const { t } = useTranslation()
   const isUser = message.role === "user"
   const isAssistant = message.role === "assistant"
 
@@ -124,7 +136,7 @@ function MessageBubble({ message, isStreaming, imagePaths }: { message: ChatMess
         {isAssistant && !message.content && isStreaming && (
           <div className="flex items-center gap-1.5 text-muted-foreground text-sm">
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            <span className="italic text-xs">Thinking...</span>
+            <span className="italic text-xs">{t("chat.thinking")}</span>
           </div>
         )}
       </div>

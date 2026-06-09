@@ -698,5 +698,12 @@ export const translationsRu = {
   "chat.suggest_similar_msg": "Найди похожие изображения по тегам",
   "chat.suggest_date_msg": "Когда было сделано это фото?",
   "chat.tool_running": "Выполняется...",
+  "chat.thinking": "Думаю...",
+  "chat.tool_describe_image": "Описание изображения",
+  "chat.tool_search_by_tags": "Поиск по тегам",
+  "chat.tool_search_by_date": "Поиск по дате",
+  "chat.tool_search_by_location": "Поиск по местоположению",
+  "chat.tool_search_by_path": "Поиск по пути",
+  "chat.tool_get_image_metadata": "Метаданные изображения",
   "chat.error_send": "Не удалось отправить сообщение",
  } as const

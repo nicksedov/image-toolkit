@@ -608,5 +608,12 @@ export const translationsEn = {
   "chat.suggest_similar_msg": "Find similar images by tags",
   "chat.suggest_date_msg": "When was this photo taken?",
   "chat.tool_running": "Running...",
+  "chat.thinking": "Thinking...",
+  "chat.tool_describe_image": "Image description",
+  "chat.tool_search_by_tags": "Search by tags",
+  "chat.tool_search_by_date": "Search by date",
+  "chat.tool_search_by_location": "Search by location",
+  "chat.tool_search_by_path": "Search by path",
+  "chat.tool_get_image_metadata": "Image metadata",
   "chat.error_send": "Failed to send message",
  } as const

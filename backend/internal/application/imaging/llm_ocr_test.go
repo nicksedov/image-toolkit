@@ -159,10 +159,30 @@ func TestLlmOcrService_Recognize_MissingClassification(t *testing.T) {
 	service, cleanup := setupLlmOcrService(t)
 	defer cleanup()
 
-	// Try to recognize without classification - should return error from DB query
-	_, err := service.RecognizeWithLlm(1, nil, domain.LlmProvider{})
+	// Create image file without any OCR classification
+	tmpDir := fixtures.CreateTempDir(t)
+	imgPath := fixtures.CreateMinimalJPEG(t, tmpDir, "test.jpg", 100, 100)
+	imgFile := testutil.SeedImageFileNoT(service.db, imgPath, "hash123", 1000)
 
-	assert.Error(t, err, "should error when classification is missing")
+	// Mock LLM to return markdown
+	mockClient := &mocks.MockLlmClient{
+		RecognizeFunc: mocks.TextResponse("# Recognized without classification"),
+	}
+	provider := domain.LlmProvider{Name: "ollama", Model: "minicpm-v"}
+
+	result, err := service.RecognizeWithLlm(imgFile.ID, mockClient, provider)
+
+	require.NoError(t, err, "should succeed even without OCR classification")
+	require.NotNil(t, result)
+	assert.True(t, result.Success)
+	assert.Equal(t, "en", result.Language, "should default to English")
+	assert.Contains(t, result.MarkdownContent, "Recognized without classification")
+
+	// Verify recognition saved to DB with OcrClassificationID = 0
+	saved, dbErr := service.GetRecognition(imgFile.ID)
+	require.NoError(t, dbErr)
+	require.NotNil(t, saved)
+	assert.Equal(t, uint(0), saved.OcrClassificationID)
 }
 
 func TestLlmOcrService_GetRecognition_HasData(t *testing.T) {
