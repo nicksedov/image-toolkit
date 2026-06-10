@@ -8,15 +8,12 @@ import { ImageTile } from "./ImageTile"
 interface CalendarImageGridProps {
   groups: CalendarDateGroup[]
   onImageClick: (image: GalleryImageDTO) => void
-  onImageView?: (image: GalleryImageDTO) => void
-  onImageOcr?: (image: GalleryImageDTO) => void
-  onImageAi?: (image: GalleryImageDTO) => void
   onImageDownload?: (image: GalleryImageDTO) => void
   onImageDelete?: (image: GalleryImageDTO, removeThumbnail: () => void) => void
   onBulkGeo?: (group: CalendarDateGroup) => void
 }
 
-export function CalendarImageGrid({ groups, onImageClick, onImageView, onImageOcr, onImageAi, onImageDownload, onImageDelete, onBulkGeo }: CalendarImageGridProps) {
+export function CalendarImageGrid({ groups, onImageClick, onImageDownload, onImageDelete, onBulkGeo }: CalendarImageGridProps) {
   const { t } = useTranslation()
 
   const handleDelete = (image: GalleryImageDTO) => {
@@ -70,9 +67,6 @@ export function CalendarImageGrid({ groups, onImageClick, onImageView, onImageOc
                   key={image.id}
                   image={image}
                   onClick={onImageClick}
-                  onImageView={onImageView}
-                  onImageOcr={onImageOcr}
-                  onImageAi={onImageAi}
                   onImageDownload={onImageDownload}
                   onImageDelete={handleDelete}
                 />

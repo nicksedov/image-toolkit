@@ -11,6 +11,7 @@ interface OcrImagePanelProps {
   displayDimensions: { width: number; height: number } | null
   imageLoaded: boolean
   handleImageLoad: () => void
+  className?: string
 }
 
 export function OcrImagePanel({
@@ -22,6 +23,7 @@ export function OcrImagePanel({
   displayDimensions,
   imageLoaded,
   handleImageLoad,
+  className,
 }: OcrImagePanelProps) {
   const { t } = useTranslation()
 
@@ -33,7 +35,7 @@ export function OcrImagePanel({
     : 1
 
   return (
-    <div className="w-[50%] flex items-center justify-center p-8 relative h-full">
+    <div className={className ?? "w-[50%] flex items-center justify-center p-8 relative h-full"}>
       {loading && (
         <div className="absolute inset-0 flex items-center justify-center">
           <Loader2 className="h-8 w-8 animate-spin text-white" />

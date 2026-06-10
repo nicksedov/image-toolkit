@@ -12,14 +12,11 @@ import type { GalleryImageDTO } from "@/types"
 
 interface GalleryFoldersViewProps {
   onImageClick: (image: GalleryImageDTO) => void
-  onImageView?: (image: GalleryImageDTO) => void
-  onImageOcr?: (image: GalleryImageDTO) => void
-  onImageAi?: (image: GalleryImageDTO) => void
   onImageDownload?: (image: GalleryImageDTO) => void
   onImageDelete?: (image: GalleryImageDTO, removeThumbnail: () => void) => void
 }
 
-export function GalleryFoldersView({ onImageClick, onImageView, onImageOcr, onImageAi, onImageDownload, onImageDelete }: GalleryFoldersViewProps) {
+export function GalleryFoldersView({ onImageClick, onImageDownload, onImageDelete }: GalleryFoldersViewProps) {
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest")
   const [searchInput, setSearchInput] = useState("")
   const [searchQuery, setSearchQuery] = useState("")
@@ -153,9 +150,6 @@ export function GalleryFoldersView({ onImageClick, onImageView, onImageOcr, onIm
               <GalleryImageGrid
                 images={images}
                 onImageClick={onImageClick}
-                onImageView={onImageView}
-                onImageOcr={onImageOcr}
-                onImageAi={onImageAi}
                 onImageDownload={onImageDownload}
                 onImageDelete={(image) => onImageDelete?.(image, () => removeImage(image.id))}
                 rootFolders={rootFolders}

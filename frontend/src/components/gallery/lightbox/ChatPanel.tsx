@@ -32,6 +32,7 @@ interface ChatPanelProps {
   onAbortStream: () => void
   onNewConversation: () => void
   onDeleteConversation: () => void
+  className?: string
 }
 
 interface Suggestion {
@@ -234,6 +235,7 @@ export function ChatPanel({
   onAbortStream,
   onNewConversation,
   onDeleteConversation,
+  className,
 }: ChatPanelProps) {
   const { t } = useTranslation()
   const [input, setInput] = useState("")
@@ -312,7 +314,7 @@ export function ChatPanel({
   }, [])
 
   return (
-    <div className="w-full md:w-[400px] lg:w-[450px] md:min-w-[350px] border-l bg-card h-full shrink-0 flex flex-col">
+    <div className={className ?? "w-full md:w-[400px] lg:w-[450px] md:min-w-[350px] border-l bg-card h-full shrink-0 flex flex-col"}>
       {/* Header */}
       <div className="flex items-center gap-2 px-4 py-3 border-b shrink-0">
         <div className="flex items-center gap-2">

@@ -11,15 +11,12 @@ import { ExifImageGrid } from "./ExifImageGrid"
 
 interface ExifFoldersViewProps {
   onImageClick: (image: GalleryImageDTO) => void
-  onImageView?: (image: GalleryImageDTO) => void
-  onImageOcr?: (image: GalleryImageDTO) => void
-  onImageAi?: (image: GalleryImageDTO) => void
   onImageDownload?: (image: GalleryImageDTO) => void
   onImageDelete?: (image: GalleryImageDTO, removeThumbnail: () => void) => void
   onAddGeo?: (image: GalleryImageDTO) => void
 }
 
-export function ExifFoldersView({ onImageClick, onImageView, onImageOcr, onImageAi, onImageDownload, onImageDelete, onAddGeo }: ExifFoldersViewProps) {
+export function ExifFoldersView({ onImageClick, onImageDownload, onImageDelete, onAddGeo }: ExifFoldersViewProps) {
   const { images, totalImages, hasMore, isLoading, error, initialized, loadMore, removeImage } = useExifImages()
   const { t } = useTranslation()
 
@@ -72,9 +69,6 @@ export function ExifFoldersView({ onImageClick, onImageView, onImageOcr, onImage
           <ExifImageGrid
             images={images}
             onImageClick={onImageClick}
-            onImageView={onImageView}
-            onImageOcr={onImageOcr}
-            onImageAi={onImageAi}
             onImageDownload={onImageDownload}
             onImageDelete={(image) => onImageDelete?.(image, () => removeImage(image.id))}
             onAddGeo={onAddGeo}

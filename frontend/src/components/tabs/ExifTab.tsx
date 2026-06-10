@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { ImageLightbox } from "@/components/gallery/ImageLightbox"
+import { UnifiedLightbox } from "@/components/gallery/UnifiedLightbox"
 import { ExifFoldersView } from "@/components/gallery/ExifFoldersView"
 import type { GalleryImageDTO } from "@/types"
 
@@ -20,15 +20,6 @@ export function ExifTab() {
     <>
       <ExifFoldersView
         onImageClick={handleImageClick}
-        onImageView={(image) => {
-          setSelectedImagePath(image.path)
-        }}
-        onImageOcr={(image) => {
-          window.dispatchEvent(new CustomEvent("open-ocr", { detail: { image } }))
-        }}
-        onImageAi={(image) => {
-          window.dispatchEvent(new CustomEvent("open-ai", { detail: { image } }))
-        }}
         onImageDownload={(image) => {
           const link = document.createElement("a")
           link.href = `/api/image?path=${encodeURIComponent(image.path)}`
@@ -45,8 +36,9 @@ export function ExifTab() {
         onAddGeo={handleAddGeo}
       />
 
-      <ImageLightbox
+      <UnifiedLightbox
         imagePath={selectedImagePath}
+        initialMode="exif"
         onClose={() => {
           setSelectedImagePath(null)
           setShowGeoForm(false)

@@ -1,13 +1,10 @@
-import { Download, Image as ImageIcon, ScanText, Trash2, Sparkles, CalendarX2, MapPinX } from "lucide-react"
+import { Download, Trash2, CalendarX2, MapPinX } from "lucide-react"
 import { useTranslation } from "@/i18n"
 import type { GalleryImageDTO } from "@/types"
 
 interface ExifImageTileProps {
   image: GalleryImageDTO
   onClick: (image: GalleryImageDTO) => void
-  onImageView?: (image: GalleryImageDTO) => void
-  onImageOcr?: (image: GalleryImageDTO) => void
-  onImageAi?: (image: GalleryImageDTO) => void
   onImageDownload?: (image: GalleryImageDTO) => void
   onImageDelete?: (image: GalleryImageDTO) => void
   onAddGeo?: (image: GalleryImageDTO) => void
@@ -16,9 +13,6 @@ interface ExifImageTileProps {
 export function ExifImageTile({
   image,
   onClick,
-  onImageView,
-  onImageOcr,
-  onImageAi,
   onImageDownload,
   onImageDelete,
   onAddGeo,
@@ -80,7 +74,7 @@ export function ExifImageTile({
 
         {/* Overlay with action buttons */}
         <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-2 opacity-0 group-hover:opacity-100 transition-opacity">
-          <div className="grid grid-cols-3 gap-1 justify-items-center">
+          <div className="flex gap-1 justify-center">
             {onImageDownload && (
               <button
                 type="button"
@@ -92,45 +86,6 @@ export function ExifImageTile({
                 title={t("gallery.overlay.download")}
               >
                 <Download className="h-5 w-5" />
-              </button>
-            )}
-            {onImageView && (
-              <button
-                type="button"
-                className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onImageView(image)
-                }}
-                title={t("gallery.overlay.view")}
-              >
-                <ImageIcon className="h-5 w-5" />
-              </button>
-            )}
-            {onImageOcr && (
-              <button
-                type="button"
-                className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onImageOcr(image)
-                }}
-                title={t("gallery.overlay.ocr")}
-              >
-                <ScanText className="h-5 w-5" />
-              </button>
-            )}
-            {onImageAi && (
-              <button
-                type="button"
-                className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onImageAi(image)
-                }}
-                title={t("gallery.overlay.ai")}
-              >
-                <Sparkles className="h-5 w-5" />
               </button>
             )}
             {onImageDelete && (

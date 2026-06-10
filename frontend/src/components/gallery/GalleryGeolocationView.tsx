@@ -14,9 +14,6 @@ import "@/lib/leaflet-icon-fix"
 
 interface GalleryGeolocationViewProps {
   onImageClick: (image: GalleryImageDTO) => void
-  onImageView?: (image: GalleryImageDTO) => void
-  onImageOcr?: (image: GalleryImageDTO) => void
-  onImageAi?: (image: GalleryImageDTO) => void
   onImageDownload?: (image: GalleryImageDTO) => void
   onImageDelete?: (image: GalleryImageDTO, removeThumbnail: () => void) => void
 }
@@ -93,7 +90,7 @@ function MapEventHandler({ onBoundsChange }: { onBoundsChange: (bounds: GeoBound
   return null
 }
 
-export function GalleryGeolocationView({ onImageClick, onImageView, onImageOcr, onImageAi, onImageDownload, onImageDelete }: GalleryGeolocationViewProps) {
+export function GalleryGeolocationView({ onImageClick, onImageDownload, onImageDelete }: GalleryGeolocationViewProps) {
   const { t } = useTranslation()
   const [viewMode, setViewMode] = useState<GeoViewMode>("map")
   const [selectedClusterId, setSelectedClusterId] = useState<string | null>(null)
@@ -214,9 +211,6 @@ export function GalleryGeolocationView({ onImageClick, onImageView, onImageOcr, 
             <GalleryImageGrid
               images={images}
               onImageClick={onImageClick}
-              onImageView={onImageView}
-              onImageOcr={onImageOcr}
-              onImageAi={onImageAi}
               onImageDownload={onImageDownload}
               onImageDelete={(image) => onImageDelete?.(image, () => removeGeoImage(image.id))}
             />

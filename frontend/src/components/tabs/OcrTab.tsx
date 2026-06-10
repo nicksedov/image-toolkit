@@ -2,7 +2,7 @@ import { useEffect, useRef, useCallback, useState } from "react"
 import { FileText, Loader2 } from "lucide-react"
 import { useTranslation } from "@/i18n"
 import type { OcrDocumentDTO } from "@/types"
-import { OcrLightbox } from "@/components/gallery/OcrLightbox"
+import { UnifiedLightbox } from "@/components/gallery/UnifiedLightbox"
 import { useOcrDocuments } from "@/hooks/useOcrDocuments"
 
 export function OcrTab() {
@@ -147,8 +147,9 @@ export function OcrTab() {
       )}
 
       {/* Lightbox */}
-      <OcrLightbox
+      <UnifiedLightbox
         imagePath={selectedImage}
+        initialMode="ocr"
         onClose={() => setSelectedImage(null)}
       />
     </div>

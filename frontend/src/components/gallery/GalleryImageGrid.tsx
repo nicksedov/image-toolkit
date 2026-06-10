@@ -7,9 +7,6 @@ import { ImageTile } from "./ImageTile"
 interface GalleryImageGridProps {
   images: GalleryImageDTO[]
   onImageClick: (image: GalleryImageDTO) => void
-  onImageView?: (image: GalleryImageDTO) => void
-  onImageOcr?: (image: GalleryImageDTO) => void
-  onImageAi?: (image: GalleryImageDTO) => void
   onImageDownload?: (image: GalleryImageDTO) => void
   onImageDelete?: (image: GalleryImageDTO) => void
   rootFolders?: GalleryFolderDTO[]
@@ -45,7 +42,7 @@ function getRelativeFolderName(dirPath: string, rootFolders?: GalleryFolderDTO[]
   return lastSlash >= 0 ? normalized.substring(lastSlash + 1) : normalized
 }
 
-export function GalleryImageGrid({ images, onImageClick, onImageView, onImageOcr, onImageAi, onImageDownload, onImageDelete, rootFolders }: GalleryImageGridProps) {
+export function GalleryImageGrid({ images, onImageClick, onImageDownload, onImageDelete, rootFolders }: GalleryImageGridProps) {
   const { t } = useTranslation()
 
   const groupedByFolder = useMemo(() => {
@@ -92,9 +89,6 @@ export function GalleryImageGrid({ images, onImageClick, onImageView, onImageOcr
                 key={image.id}
                 image={image}
                 onClick={onImageClick}
-                onImageView={onImageView}
-                onImageOcr={onImageOcr}
-                onImageAi={onImageAi}
                 onImageDownload={onImageDownload}
                 onImageDelete={onImageDelete}
               />

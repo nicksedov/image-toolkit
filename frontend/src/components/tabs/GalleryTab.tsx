@@ -2,9 +2,8 @@ import { useCallback, useState } from "react"
 import { GalleryFoldersView } from "@/components/gallery/GalleryFoldersView"
 import { GalleryCalendarView } from "@/components/gallery/GalleryCalendarView"
 import { GalleryGeolocationView } from "@/components/gallery/GalleryGeolocationView"
-import { ImageLightbox } from "@/components/gallery/ImageLightbox"
-import { OcrLightbox } from "@/components/gallery/OcrLightbox"
-import { AiLightbox } from "@/components/gallery/AiLightbox"
+import { UnifiedLightbox } from "@/components/gallery/UnifiedLightbox"
+import type { LightboxMode } from "@/components/gallery/UnifiedLightbox"
 import {
   Dialog,
   DialogContent,
@@ -28,27 +27,15 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || ""
 export function GalleryTab({ galleryMode }: GalleryTabProps) {
   const { trashDir } = useSettings()
   const { t } = useTranslation()
-  const [selectedImage, setSelectedImage] = useState<string | null>(null)
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null)
+  const [lightboxMode, setLightboxMode] = useState<LightboxMode>("ai")
   const [showGeoForm, setShowGeoForm] = useState(false)
-  const [ocrImage, setOcrImage] = useState<string | null>(null)
-  const [aiImage, setAiImage] = useState<string | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<{ image: GalleryImageDTO; removeThumbnail: () => void } | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
 
   const handleImageClick = useCallback((image: GalleryImageDTO) => {
-    setSelectedImage(image.path)
-  }, [])
-
-  const handleImageView = useCallback((image: GalleryImageDTO) => {
-    setSelectedImage(image.path)
-  }, [])
-
-  const handleImageOcr = useCallback((image: GalleryImageDTO) => {
-    setOcrImage(image.path)
-  }, [])
-
-  const handleImageAi = useCallback((image: GalleryImageDTO) => {
-    setAiImage(image.path)
+    setLightboxImage(image.path)
+    setLightboxMode("ai")
   }, [])
 
   const handleImageDownload = useCallback((image: GalleryImageDTO) => {
@@ -86,50 +73,32 @@ export function GalleryTab({ galleryMode }: GalleryTabProps) {
       {galleryMode === "folders" ? (
         <GalleryFoldersView
           onImageClick={handleImageClick}
-          onImageView={handleImageView}
-          onImageOcr={handleImageOcr}
-          onImageAi={handleImageAi}
           onImageDownload={handleImageDownload}
           onImageDelete={handleImageDelete}
         />
       ) : galleryMode === "calendar" ? (
         <GalleryCalendarView
           onImageClick={handleImageClick}
-          onImageView={handleImageView}
-          onImageOcr={handleImageOcr}
-          onImageAi={handleImageAi}
           onImageDownload={handleImageDownload}
           onImageDelete={handleImageDelete}
         />
       ) : (
         <GalleryGeolocationView
           onImageClick={handleImageClick}
-          onImageView={handleImageView}
-          onImageOcr={handleImageOcr}
-          onImageAi={handleImageAi}
           onImageDownload={handleImageDownload}
           onImageDelete={handleImageDelete}
         />
       )}
 
-      <ImageLightbox
-        imagePath={selectedImage}
+      <UnifiedLightbox
+        imagePath={lightboxImage}
+        initialMode={lightboxMode}
         onClose={() => {
-          setSelectedImage(null)
+          setLightboxImage(null)
           setShowGeoForm(false)
         }}
         showGeoForm={showGeoForm}
         onShowGeoFormChange={setShowGeoForm}
-      />
-
-      <OcrLightbox
-        imagePath={ocrImage}
-        onClose={() => setOcrImage(null)}
-      />
-
-      <AiLightbox
-        imagePath={aiImage}
-        onClose={() => setAiImage(null)}
       />
 
       <Dialog open={!!deleteConfirm} onOpenChange={(open) => !open && setDeleteConfirm(null)}>

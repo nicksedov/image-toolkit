@@ -12,6 +12,7 @@ interface OcrResultPanelProps {
   onSaveMd: () => void
   onSaveHtml: () => void
   formatProcessingTime: (ms?: number) => string
+  className?: string
 }
 
 function detectLanguageFromOcr(ocrData: OcrDataResponse): string {
@@ -35,12 +36,14 @@ export function OcrResultPanel({
   onSaveMd,
   onSaveHtml,
   formatProcessingTime,
+  className,
 }: OcrResultPanelProps) {
   const { t } = useTranslation()
+  const panelClass = className ?? "w-[50%] bg-card border-l p-4 h-full flex flex-col"
 
   if (recognizing) {
     return (
-      <div className="w-[50%] bg-card border-l p-4 h-full flex flex-col">
+      <div className={panelClass}>
         <div className="flex flex-col items-center justify-center h-full">
           <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
           <p className="text-lg font-medium">{t("llm_ocr.recognizing")}</p>
@@ -51,7 +54,7 @@ export function OcrResultPanel({
 
   if (llmData?.found && llmData.success && llmData.markdownContent) {
     return (
-      <div className="w-[50%] bg-card border-l p-4 h-full flex flex-col">
+      <div className={panelClass}>
         <div className="flex-shrink-0 space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold">{t("llm_ocr.title")}</h3>
@@ -118,7 +121,7 @@ export function OcrResultPanel({
 
   if (llmData?.error) {
     return (
-      <div className="w-[50%] bg-card border-l p-4 h-full flex flex-col">
+      <div className={panelClass}>
         <div className="space-y-4">
           <h3 className="text-lg font-semibold text-destructive">{t("llm_ocr.failed")}</h3>
           <p className="text-sm text-muted-foreground">{llmData.error}</p>
@@ -135,7 +138,7 @@ export function OcrResultPanel({
   }
 
   return (
-    <div className="w-[50%] bg-card border-l p-4 h-full flex flex-col">
+    <div className={panelClass}>
       <div className="space-y-4">
         <h3 className="text-lg font-semibold">{t("llm_ocr.title")}</h3>
 

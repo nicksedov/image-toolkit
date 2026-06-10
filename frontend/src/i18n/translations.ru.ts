@@ -186,6 +186,9 @@ export const translationsRu = {
   "lightbox.title": "Просмотр изображения",
   "lightbox.description": "Просмотр изображения с метаданными",
   "lightbox.alt": "Полноразмерный просмотр",
+  "lightbox.tab.ai": "ИИ-помощник",
+  "lightbox.tab.exif": "Детали",
+  "lightbox.tab.ocr": "OCR",
 
   // Metadata panel
   "metadata.title": "Информация об изображении",

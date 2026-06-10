@@ -186,6 +186,9 @@ export const translationsEn = {
   "lightbox.title": "Image preview",
   "lightbox.description": "View image with metadata",
   "lightbox.alt": "Full size preview",
+  "lightbox.tab.ai": "AI Assistant",
+  "lightbox.tab.exif": "Details",
+  "lightbox.tab.ocr": "OCR",
 
   // Metadata panel
   "metadata.title": "Image Details",
