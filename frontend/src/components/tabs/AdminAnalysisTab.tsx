@@ -409,6 +409,15 @@ export function AdminAnalysisTab() {
       })
       toast.success(t("tagScan.saved"))
       setTagScanFormDirty(false)
+      // Sync tag scan state into llmSettings so subsequent LLM saves don't overwrite the schedule
+      setLlmSettings((prev) => ({
+        ...prev,
+        tagScanEnabled,
+        tagScanStartHour,
+        tagScanStartMinute,
+        tagScanEndHour,
+        tagScanEndMinute,
+      }))
       await loadTagScanStatus()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t("tagScan.saveFailed"))
