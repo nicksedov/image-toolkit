@@ -380,6 +380,7 @@ export const translationsEn = {
   "adminPanel.loginFailed": "Invalid login or password",
   "adminPanel.wrongFields": "Fill in all fields",
   "adminPanel.logout": "Logout",
+  "adminPanel.backendOffline": "Server is unavailable. Retrying...",
 
   "adminPanel.administration": "Administration",
   "adminPanel.adminSettings": "Settings",

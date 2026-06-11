@@ -380,6 +380,7 @@ export const translationsRu = {
   "adminPanel.loginFailed": "Неверный логин или пароль",
   "adminPanel.wrongFields": "Заполните все поля",
   "adminPanel.logout": "Выход",
+  "adminPanel.backendOffline": "Сервер недоступен. Повторная попытка...",
 
   "adminPanel.administration": "Администрирование",
   "adminPanel.adminSettings": "Настройки",

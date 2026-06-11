@@ -1,13 +1,15 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useAuth } from "@/providers/AuthProvider"
-import { login as apiLogin } from "@/api/endpoints"
+import { login as apiLogin, fetchAuthStatus } from "@/api/endpoints"
 import { toast } from "sonner"
-import { Loader2, ShieldAlert } from "lucide-react"
+import { Loader2, ShieldAlert, WifiOff } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useTranslation } from "@/i18n"
+
+const HEALTH_CHECK_INTERVAL_MS = 5000
 
 export function LoginScreen() {
   const { login, isBootstrapMode, setBootstrapVerified } = useAuth()
@@ -16,6 +18,39 @@ export function LoginScreen() {
   const [password, setPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
+  const [backendOnline, setBackendOnline] = useState<boolean | null>(null)
+  const healthTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  // Periodic backend health check
+  useEffect(() => {
+    let cancelled = false
+
+    async function checkHealth() {
+      try {
+        await fetchAuthStatus()
+        if (!cancelled) setBackendOnline(true)
+      } catch {
+        if (!cancelled) setBackendOnline(false)
+      }
+    }
+
+    // Immediate first check
+    checkHealth()
+
+    // Poll every interval
+    healthTimerRef.current = setInterval(checkHealth, HEALTH_CHECK_INTERVAL_MS)
+
+    return () => {
+      cancelled = true
+      if (healthTimerRef.current) {
+        clearInterval(healthTimerRef.current)
+        healthTimerRef.current = null
+      }
+    }
+  }, [])
+
+  const isBackendOffline = backendOnline === false
+  const isFormDisabled = isLoading || isBackendOffline
 
   useEffect(() => {
     const handleNavigateToProfile = () => {
@@ -85,7 +120,7 @@ export function LoginScreen() {
                 placeholder={t("adminPanel.loginPlaceholder")}
                 value={loginInput}
                 onChange={(e) => setLoginInput(e.target.value)}
-                disabled={isLoading}
+                disabled={isFormDisabled}
               />
             </div>
             <div className="space-y-2">
@@ -97,15 +132,21 @@ export function LoginScreen() {
                 placeholder={t("adminPanel.passwordPlaceholder")}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                disabled={isLoading}
+                disabled={isFormDisabled}
               />
             </div>
-            {error && (
+            {isBackendOffline && (
+              <div className="flex items-center gap-2 rounded-md bg-amber-500/10 p-3 text-sm text-amber-600 dark:text-amber-400">
+                <WifiOff className="h-4 w-4 shrink-0" />
+                <span>{t("adminPanel.backendOffline")}</span>
+              </div>
+            )}
+            {error && !isBackendOffline && (
               <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
                 {error}
               </div>
             )}
-            <Button type="submit" className="w-full" disabled={isLoading}>
+            <Button type="submit" className="w-full" disabled={isFormDisabled}>
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {isLoading ? t("adminPanel.setup") : t("adminPanel.signIn")}
             </Button>
