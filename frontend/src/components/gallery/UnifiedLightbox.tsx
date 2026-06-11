@@ -152,12 +152,12 @@ export function UnifiedLightbox({
         {/* Right: Panel with mode tabs */}
         <div className="w-full md:w-[400px] lg:w-[450px] md:min-w-[320px] border-t md:border-t-0 md:border-l bg-card h-full shrink-0 flex flex-col">
           {/* Tab bar */}
-          <div className="flex border-b shrink-0">
+          <div className="flex pt-2 shrink-0">
             {TAB_CONFIG.map(({ mode, labelKey, icon: Icon }) => (
               <button
                 key={mode}
                 type="button"
-                className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 text-xs font-medium transition-colors ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors ${
                   activeMode === mode
                     ? "text-primary border-b-2 border-primary"
                     : "text-muted-foreground hover:text-foreground"
