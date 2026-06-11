@@ -96,6 +96,21 @@ export function useCalendarData({ initialMonthYear }: UseCalendarDataOptions): U
     transform: (response) => response.groups,
     responseNextCursor: (response) => response.nextCursor ?? null,
     responseTotal: (response) => response.totalImages,
+    mergeFn: (existing, incoming) => {
+      if (existing.length === 0) return incoming
+      const lastExisting = existing[existing.length - 1]
+      const firstIncoming = incoming[0]
+      // Merge if the boundary groups share the same date
+      if (lastExisting.date === firstIncoming.date) {
+        const merged: CalendarDateGroup = {
+          ...lastExisting,
+          images: [...lastExisting.images, ...firstIncoming.images],
+          imageCount: lastExisting.imageCount + firstIncoming.imageCount,
+        }
+        return [...existing.slice(0, -1), merged, ...incoming.slice(1)]
+      }
+      return [...existing, ...incoming]
+    },
   })
 
   // Reset pagination when filters change and reload data

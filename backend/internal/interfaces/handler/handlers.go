@@ -1183,11 +1183,35 @@ func (s *Server) handleGetGalleryCalendar(c *gin.Context) {
 
 		// If we got more than pageSize, the last item is used for next cursor
 		if len(results) > pageSize {
-			lastItem := results[pageSize]
-			// Encode with full timestamp for precise cursor positioning
-			cursorStr := helpers.EncodeCursor(lastItem.DateTaken.Format(helpers.DateTimeFormat), lastItem.ID)
-			nextCursor = &cursorStr
-			results = results[:pageSize] // Drop the extra item
+			overflowItem := results[pageSize]
+			lastKept := results[pageSize-1]
+
+			if overflowItem.DateTaken.Format(helpers.DateOnlyFormat) == lastKept.DateTaken.Format(helpers.DateOnlyFormat) {
+				// Date group is split across pages - fetch all remaining images
+				// for this date to keep the group intact
+				var extra []imageWithDate
+				if sortOrder == "newest" {
+					cursorQuery.Where(
+						"image_metadata.date_taken::date = ? AND image_files.id < ?",
+						lastKept.DateTaken.Format(helpers.DateOnlyFormat), lastKept.ID,
+					).Order(orderClause).Find(&extra)
+				} else {
+					cursorQuery.Where(
+						"image_metadata.date_taken::date = ? AND image_files.id > ?",
+						lastKept.DateTaken.Format(helpers.DateOnlyFormat), lastKept.ID,
+					).Order(orderClause).Find(&extra)
+				}
+				results = append(results[:pageSize], extra...)
+				// Cursor at the end of the completed date group
+				lastResult := results[len(results)-1]
+				cursorStr := helpers.EncodeCursor(lastResult.DateTaken.Format(helpers.DateTimeFormat), lastResult.ID)
+				nextCursor = &cursorStr
+			} else {
+				// Clean date boundary - use overflow item as cursor
+				cursorStr := helpers.EncodeCursor(overflowItem.DateTaken.Format(helpers.DateTimeFormat), overflowItem.ID)
+				nextCursor = &cursorStr
+				results = results[:pageSize]
+			}
 		}
 	} else {
 		// Legacy offset-based pagination (first page or when no cursor provided)
@@ -1205,11 +1229,52 @@ func (s *Server) handleGetGalleryCalendar(c *gin.Context) {
 
 		// If we got more than pageSize, generate a next cursor from the last item
 		if len(results) > pageSize {
-			lastItem := results[pageSize]
-			// Encode with full timestamp for precise cursor positioning
-			cursorStr := helpers.EncodeCursor(lastItem.DateTaken.Format(helpers.DateTimeFormat), lastItem.ID)
-			nextCursor = &cursorStr
-			results = results[:pageSize] // Drop the extra item
+			overflowItem := results[pageSize]
+			lastKept := results[pageSize-1]
+
+			if overflowItem.DateTaken.Format(helpers.DateOnlyFormat) == lastKept.DateTaken.Format(helpers.DateOnlyFormat) {
+				// Date group is split across pages - fetch all remaining images
+				// for this date to keep the group intact
+				legacyQuery := s.db.Table("image_files").
+					Select("image_files.*, image_metadata.date_taken, image_metadata.gps_latitude, image_metadata.gps_longitude").
+					Joins("INNER JOIN image_metadata ON image_metadata.image_file_id = image_files.id").
+					Where("image_metadata.date_taken IS NOT NULL")
+
+				if startDate != "" {
+					if t, err := time.Parse(helpers.DateOnlyFormat, startDate); err == nil {
+						legacyQuery = legacyQuery.Where("image_metadata.date_taken >= ?", t)
+					}
+				}
+				if endDate != "" {
+					if t, err := time.Parse(helpers.DateOnlyFormat, endDate); err == nil {
+						endOfDay := t.Add(24*time.Hour - time.Second)
+						legacyQuery = legacyQuery.Where("image_metadata.date_taken <= ?", endOfDay)
+					}
+				}
+
+				var extra []imageWithDate
+				if sortOrder == "newest" {
+					legacyQuery.Where(
+						"image_metadata.date_taken::date = ? AND image_files.id < ?",
+						lastKept.DateTaken.Format(helpers.DateOnlyFormat), lastKept.ID,
+					).Order(orderClause).Find(&extra)
+				} else {
+					legacyQuery.Where(
+						"image_metadata.date_taken::date = ? AND image_files.id > ?",
+						lastKept.DateTaken.Format(helpers.DateOnlyFormat), lastKept.ID,
+					).Order(orderClause).Find(&extra)
+				}
+				results = append(results[:pageSize], extra...)
+				// Cursor at the end of the completed date group
+				lastResult := results[len(results)-1]
+				cursorStr := helpers.EncodeCursor(lastResult.DateTaken.Format(helpers.DateTimeFormat), lastResult.ID)
+				nextCursor = &cursorStr
+			} else {
+				// Clean date boundary - use overflow item as cursor
+				cursorStr := helpers.EncodeCursor(overflowItem.DateTaken.Format(helpers.DateTimeFormat), overflowItem.ID)
+				nextCursor = &cursorStr
+				results = results[:pageSize]
+			}
 		}
 	}
 

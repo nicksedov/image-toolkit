@@ -9,6 +9,8 @@ export interface UseCursorInfiniteScrollOptions<T, R> {
   responseNextCursor: (response: R) => string | null
   /** Extract total count from response */
   responseTotal?: (response: R) => number
+  /** Optional merge function to combine new items with existing ones (e.g. merge same-date groups) */
+  mergeFn?: (existing: T[], incoming: T[]) => T[]
 }
 
 export interface UseCursorInfiniteScrollResult<T> {
@@ -51,6 +53,7 @@ export function useCursorInfiniteScroll<T, R>(
     transform,
     responseNextCursor,
     responseTotal,
+    mergeFn,
   } = options
 
   const [items, setItems] = useState<T[]>([])
@@ -73,11 +76,13 @@ export function useCursorInfiniteScroll<T, R>(
   const transformRef = useRef(transform)
   const responseNextCursorRef = useRef(responseNextCursor)
   const responseTotalRef = useRef(responseTotal)
+  const mergeFnRef = useRef(mergeFn)
   useEffect(() => {
     fetchFnRef.current = fetchFn
     transformRef.current = transform
     responseNextCursorRef.current = responseNextCursor
     responseTotalRef.current = responseTotal
+    mergeFnRef.current = mergeFn
   })
 
   const loadMore = useCallback(async () => {
@@ -93,7 +98,12 @@ export function useCursorInfiniteScroll<T, R>(
       // Discard response if reset() was called during the fetch
       if (generationRef.current !== gen) return
 
-      setItems((prev) => [...prev, ...transformRef.current(result)])
+      const newItems = transformRef.current(result)
+      if (mergeFnRef.current) {
+        setItems((prev) => mergeFnRef.current!(prev, newItems))
+      } else {
+        setItems((prev) => [...prev, ...newItems])
+      }
 
       const cursor = responseNextCursorRef.current(result)
       nextCursorRef.current = cursor
