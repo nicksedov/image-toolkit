@@ -46,6 +46,77 @@ func NewNominatimClient(httpClient *http.Client, baseURL string) *NominatimClien
 	}
 }
 
+// ReverseGeocodeResult holds the bilingual location names from a reverse geocode call.
+type ReverseGeocodeResult struct {
+	NameLocal string // Local-language place name (city/town/state from address details)
+	NameEng   string // English display name (from display_name field)
+}
+
+// nominatimReverseJSON is the raw JSON structure returned by Nominatim /reverse.
+type nominatimReverseJSON struct {
+	DisplayName string `json:"display_name"`
+	Address     struct {
+		City     string `json:"city"`
+		Town     string `json:"town"`
+		Village  string `json:"village"`
+		State    string `json:"state"`
+		Country  string `json:"country"`
+		Hamlet   string `json:"hamlet"`
+		Municipality string `json:"municipality"`
+	} `json:"address"`
+}
+
+// ReverseGeocode performs reverse geocoding for the given coordinates.
+// Returns a ReverseGeocodeResult with local and English location names.
+func (n *NominatimClient) ReverseGeocode(lat, lng float64) (*ReverseGeocodeResult, error) {
+	reverseURL := fmt.Sprintf("%s/reverse?lat=%f&lon=%f&format=json&zoom=10&addressdetails=1&accept-language=en",
+		n.baseURL, lat, lng)
+
+	req, err := http.NewRequest(http.MethodGet, reverseURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create reverse request: %w", err)
+	}
+	req.Header.Set("User-Agent", "ImageToolkit/1.0 (https://github.com/nicksedov/image-toolkit)")
+
+	resp, err := n.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("nominatim reverse request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("nominatim reverse returned status %d", resp.StatusCode)
+	}
+
+	var raw nominatimReverseJSON
+	if err := json.NewDecoder(resp.Body).Decode(&raw); err != nil {
+		return nil, fmt.Errorf("failed to decode nominatim reverse response: %w", err)
+	}
+
+	// Build local name from address details (city > town > village > hamlet > municipality > state)
+	nameLocal := raw.Address.City
+	if nameLocal == "" {
+		nameLocal = raw.Address.Town
+	}
+	if nameLocal == "" {
+		nameLocal = raw.Address.Village
+	}
+	if nameLocal == "" {
+		nameLocal = raw.Address.Hamlet
+	}
+	if nameLocal == "" {
+		nameLocal = raw.Address.Municipality
+	}
+	if nameLocal == "" {
+		nameLocal = raw.Address.State
+	}
+
+	return &ReverseGeocodeResult{
+		NameLocal: nameLocal,
+		NameEng:   raw.DisplayName,
+	}, nil
+}
+
 // Search performs a forward geocoding search and returns up to 10 results.
 func (n *NominatimClient) Search(query string) ([]NominatimResult, error) {
 	searchURL := fmt.Sprintf("%s/search?q=%s&format=json&limit=10",

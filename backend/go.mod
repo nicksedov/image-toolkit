@@ -13,9 +13,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/joho/godotenv v1.5.1
 	github.com/modelcontextprotocol/go-sdk v1.6.1
-	github.com/sams96/rgeo v1.3.0
 	github.com/stretchr/testify v1.11.1
-	github.com/twpayne/go-geom v1.6.0
 	golang.org/x/crypto v0.50.0
 	golang.org/x/image v0.39.0
 	gorm.io/driver/postgres v1.5.4
@@ -38,7 +36,6 @@ require (
 	github.com/go-playground/validator/v10 v10.30.1 // indirect
 	github.com/goccy/go-json v0.10.5 // indirect
 	github.com/goccy/go-yaml v1.19.2 // indirect
-	github.com/golang/geo v0.0.0-20230421003525-6adc56603217 // indirect
 	github.com/google/jsonschema-go v0.4.3 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20221227161230-091c0ba34f0a // indirect

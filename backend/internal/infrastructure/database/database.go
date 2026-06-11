@@ -33,6 +33,7 @@ func InitDatabase(cfg *config.AppConfig) (*gorm.DB, error) {
 		&domain.ImageFile{},
 		&domain.GalleryFolder{},
 		&domain.AppSettings{},
+		&domain.GeolocationCache{},
 		&domain.ImageMetadata{},
 		&domain.User{},
 		&domain.UserSettings{},

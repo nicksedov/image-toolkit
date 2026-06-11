@@ -97,3 +97,105 @@ func TestNominatimSearch_InvalidJSON(t *testing.T) {
 		t.Fatal("expected error for invalid JSON, got nil")
 	}
 }
+
+func TestNominatimReverseGeocode_Success(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Verify request path
+		if r.URL.Path != "/reverse" {
+			t.Errorf("expected path /reverse, got %q", r.URL.Path)
+		}
+		// Verify query parameters
+		if lat := r.URL.Query().Get("lat"); lat == "" {
+			t.Error("expected lat parameter")
+		}
+		if format := r.URL.Query().Get("format"); format != "json" {
+			t.Errorf("expected format 'json', got %q", format)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{
+			"display_name": "Moscow, Russia",
+			"address": {
+				"city": "Moscow",
+				"state": "Moscow",
+				"country": "Russia"
+			}
+		}`))
+	}))
+	defer server.Close()
+
+	client := NewNominatimClient(server.Client(), server.URL)
+	result, err := client.ReverseGeocode(55.7558, 37.6173)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if result.NameLocal != "Moscow" {
+		t.Errorf("expected NameLocal 'Moscow', got %q", result.NameLocal)
+	}
+	if result.NameEng != "Moscow, Russia" {
+		t.Errorf("expected NameEng 'Moscow, Russia', got %q", result.NameEng)
+	}
+}
+
+func TestNominatimReverseGeocode_NoAddress(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{
+			"display_name": "Middle of Nowhere",
+			"address": {}
+		}`))
+	}))
+	defer server.Close()
+
+	client := NewNominatimClient(server.Client(), server.URL)
+	result, err := client.ReverseGeocode(0, 0)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if result.NameLocal != "" {
+		t.Errorf("expected empty NameLocal, got %q", result.NameLocal)
+	}
+	if result.NameEng != "Middle of Nowhere" {
+		t.Errorf("expected NameEng 'Middle of Nowhere', got %q", result.NameEng)
+	}
+}
+
+func TestNominatimReverseGeocode_HTTPError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusServiceUnavailable)
+	}))
+	defer server.Close()
+
+	client := NewNominatimClient(server.Client(), server.URL)
+	_, err := client.ReverseGeocode(55.7558, 37.6173)
+	if err == nil {
+		t.Fatal("expected error for HTTP 503, got nil")
+	}
+}
+
+func TestNominatimReverseGeocode_FallbackToTown(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{
+			"display_name": "Small Town, Province, Country",
+			"address": {
+				"town": "Small Town",
+				"state": "Province",
+				"country": "Country"
+			}
+		}`))
+	}))
+	defer server.Close()
+
+	client := NewNominatimClient(server.Client(), server.URL)
+	result, err := client.ReverseGeocode(45.0, 10.0)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if result.NameLocal != "Small Town" {
+		t.Errorf("expected NameLocal 'Small Town', got %q", result.NameLocal)
+	}
+}

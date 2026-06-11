@@ -339,7 +339,7 @@ function MetadataContent({ metadata, imagePath, showGeoForm, onShowGeoForm, onGp
     [t("metadata.orientation"), metadata.orientation ? String(metadata.orientation) : ""],
   ])
 
-  const locationLabel = [metadata.geoCity, metadata.geoCountry].filter(Boolean).join(", ")
+  const locationLabel = [metadata.nameLocal, metadata.nameEng].filter(Boolean).join(", ")
   const coordsLabel =
     metadata.hasGps && metadata.gpsLatitude != null && metadata.gpsLongitude != null
       ? `${metadata.gpsLatitude.toFixed(4)}\u00b0, ${metadata.gpsLongitude.toFixed(4)}\u00b0`

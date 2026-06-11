@@ -255,8 +255,8 @@ type ImageMetadataDTO struct {
 	Software     string   `json:"software"`
 	GPSLatitude  *float64 `json:"gpsLatitude"`
 	GPSLongitude *float64 `json:"gpsLongitude"`
-	GeoCountry   string   `json:"geoCountry"`
-	GeoCity      string   `json:"geoCity"`
+	NameLocal    string   `json:"nameLocal"`
+	NameEng      string   `json:"nameEng"`
 	HasGPS       bool     `json:"hasGps"`
 	HasExif      bool     `json:"hasExif"`
 }
@@ -636,19 +636,19 @@ type UpdateGpsRequest struct {
 
 // UpdateGpsResponse is the JSON response for PUT /api/image-metadata/gps
 type UpdateGpsResponse struct {
-	Success    bool    `json:"success"`
-	Lat        float64 `json:"lat"`
-	Lng        float64 `json:"lng"`
-	GeoCountry string  `json:"geoCountry"`
-	GeoCity    string  `json:"geoCity"`
+	Success   bool    `json:"success"`
+	Lat       float64 `json:"lat"`
+	Lng       float64 `json:"lng"`
+	NameLocal string  `json:"nameLocal"`
+	NameEng   string  `json:"nameEng"`
 }
 
 // LocationCandidate represents a suggested location from same-day photos.
 type LocationCandidate struct {
 	Lat        float64 `json:"lat"`
 	Lng        float64 `json:"lng"`
-	GeoCountry string  `json:"geoCountry"`
-	GeoCity    string  `json:"geoCity"`
+	NameLocal  string  `json:"nameLocal"`
+	NameEng    string  `json:"nameEng"`
 	PhotoCount int     `json:"photoCount"`
 	Thumbnail  string  `json:"thumbnail,omitempty"`
 }
@@ -670,8 +670,8 @@ type BatchUpdateGpsResponse struct {
 	Success     int      `json:"success"`
 	Failed      int      `json:"failed"`
 	FailedFiles []string `json:"failedFiles,omitempty"`
-	GeoCountry  string   `json:"geoCountry"`
-	GeoCity     string   `json:"geoCity"`
+	NameLocal   string   `json:"nameLocal"`
+	NameEng     string   `json:"nameEng"`
 	Lat         float64  `json:"lat"`
 	Lng         float64  `json:"lng"`
 }
