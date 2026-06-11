@@ -1,7 +1,6 @@
 package imaging
 
 import (
-	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -76,13 +75,6 @@ func (bsm *BackgroundSyncManager) Stop() {
 	bsm.mu.Unlock()
 
 	log.Println("Background gallery sync stopped")
-}
-
-// IsRunning returns whether the background sync is currently running
-func (bsm *BackgroundSyncManager) IsRunning() bool {
-	bsm.mu.Lock()
-	defer bsm.mu.Unlock()
-	return bsm.running
 }
 
 // UpdateSchedule updates the schedule at runtime and restarts the loop
@@ -441,22 +433,3 @@ func (bsm *BackgroundSyncManager) invalidateOCRClassification(imageFileID uint) 
 	}
 }
 
-// SyncStatus returns the current status of background sync
-type SyncStatus struct {
-	Running  bool   `json:"running"`
-	Schedule string `json:"schedule"`
-}
-
-// GetStatus returns the current sync status
-func (bsm *BackgroundSyncManager) GetStatus() SyncStatus {
-	bsm.mu.Lock()
-	defer bsm.mu.Unlock()
-	schedule := "disabled"
-	if bsm.enabled {
-		schedule = fmt.Sprintf("daily at %02d:%02d", bsm.hour, bsm.minute)
-	}
-	return SyncStatus{
-		Running:  bsm.running,
-		Schedule: schedule,
-	}
-}

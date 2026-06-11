@@ -19,9 +19,7 @@ type AppConfig struct {
 	ServerPort  string
 	CORSOrigins []string
 
-	ScanWorkers         int
-	MetadataWorkers     int
-	MetadataIntervalMin int
+	ScanWorkers int
 
 	// OCR classifier configuration
 	OCREnabled            bool
@@ -44,8 +42,7 @@ type AppConfig struct {
 	ThumbnailCachePreloadOnScan bool
 
 	// Background sync configuration
-	BackgroundSyncEnabled     bool
-	BackgroundSyncIntervalMin int
+	BackgroundSyncEnabled bool
 
 	// VL LLM configuration
 	LlmMaxImageMegapixels float64
@@ -66,23 +63,6 @@ func LoadConfig() *AppConfig {
 		}
 	}
 
-	metadataWorkers := runtime.NumCPU() / 2
-	if metadataWorkers < 1 {
-		metadataWorkers = 1
-	}
-	if v := getEnv("METADATA_WORKERS", ""); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n > 0 {
-			metadataWorkers = n
-		}
-	}
-
-	metadataInterval := 30
-	if v := getEnv("METADATA_INTERVAL_MINUTES", ""); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n > 0 {
-			metadataInterval = n
-		}
-	}
-
 	return &AppConfig{
 		DBHost:                      getEnv("DB_HOST", "localhost"),
 		DBPort:                      getEnv("DB_PORT", "5432"),
@@ -93,8 +73,6 @@ func LoadConfig() *AppConfig {
 		ServerPort:                  getEnv("SERVER_PORT", "5170"),
 		CORSOrigins:                 origins,
 		ScanWorkers:                 scanWorkers,
-		MetadataWorkers:             metadataWorkers,
-		MetadataIntervalMin:         metadataInterval,
 		OCREnabled:                  getEnv("OCR_ENABLED", "true") == "true",
 		OCRHost:                     getEnv("OCR_HOST", "localhost"),
 		OCRPort:                     getEnv("OCR_PORT", "8080"),
@@ -110,7 +88,6 @@ func LoadConfig() *AppConfig {
 		ThumbnailCacheQuality:       getEnvInt("THUMBNAIL_CACHE_QUALITY", 80),
 		ThumbnailCachePreloadOnScan: getEnv("THUMBNAIL_CACHE_PRELOAD_ON_SCAN", "true") == "true",
 		BackgroundSyncEnabled:       getEnv("BACKGROUND_SYNC_ENABLED", "true") == "true",
-		BackgroundSyncIntervalMin:   getEnvInt("BACKGROUND_SYNC_INTERVAL_MIN", 60*12), // 12 hours
 		LlmMaxImageMegapixels:       getEnvFloat("LLM_MAX_IMAGE_MEGAPIXELS", 3.6),
 	}
 }

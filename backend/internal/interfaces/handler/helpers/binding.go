@@ -17,13 +17,3 @@ func BindJSON(c *gin.Context, target any) bool {
 	}
 	return true
 }
-
-// ValidatePassword checks if a password meets length requirements.
-func ValidatePassword(password string) bool {
-	return len(password) >= PasswordMinLength && len(password) <= PasswordMaxLength
-}
-
-// WritePasswordError writes a password validation error response.
-func WritePasswordError(c *gin.Context) {
-	c.JSON(http.StatusBadRequest, i18n.ErrorResponse(i18n.MsgAuthPasswordLength))
-}

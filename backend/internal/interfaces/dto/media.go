@@ -114,15 +114,6 @@ type ThumbnailResponse struct {
 	Thumbnail string `json:"thumbnail"`
 }
 
-// ThumbnailCacheStatsResponse статистика кэша миниатюр
-type ThumbnailCacheStatsResponse struct {
-	TotalSize   int64  `json:"totalSize"`
-	TotalFiles  int    `json:"totalFiles"`
-	CacheDir    string `json:"cacheDir"`
-	Enabled     bool   `json:"enabled"`
-	Initialized bool   `json:"initialized"`
-}
-
 // InvalidateThumbnailRequest запрос на удаление миниатюры
 type InvalidateThumbnailRequest struct {
 	FilePath string `json:"filePath" binding:"required"`
@@ -131,15 +122,6 @@ type InvalidateThumbnailRequest struct {
 // WarmupThumbnailsRequest запрос на предварительную генерацию миниатюр
 type WarmupThumbnailsRequest struct {
 	FilePaths []string `json:"filePaths" binding:"required"`
-}
-
-// ThumbnailCacheStatusResponse статус кэша миниатюр
-type ThumbnailCacheStatusResponse struct {
-	Enabled        bool   `json:"enabled"`
-	CacheDir       string `json:"cacheDir"`
-	FilesCount     int    `json:"filesCount"`
-	TotalSize      int64  `json:"totalSize"`
-	TotalSizeHuman string `json:"totalSizeHuman"`
 }
 
 // --- Gallery Folders API ---

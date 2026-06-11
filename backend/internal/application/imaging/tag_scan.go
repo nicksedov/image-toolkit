@@ -423,17 +423,6 @@ func (tsm *TagScanManager) scanWindow() {
 	log.Printf("Tag scan: window scan complete, %d images scanned in this pass", tsm.progress.Scanned)
 }
 
-// isWithinWindowNow checks if the current time is within the scanning window.
-// Only for external use (e.g. GetStatus). Must NOT be called while holding tsm.mu.
-func (tsm *TagScanManager) isWithinWindowNow() bool {
-	tsm.mu.Lock()
-	startH, startM, endH, endM := tsm.startHour, tsm.startMinute, tsm.endHour, tsm.endMinute
-	tzOffset := tsm.timezoneOffset
-	tsm.mu.Unlock()
-
-	return isWithinWindow(startH, startM, endH, endM, tzOffset)
-}
-
 // isWithinWindow checks if the current time is within the scanning window.
 // tzOffset is the user's timezone offset in minutes (JS getTimezoneOffset convention: UTC+3 = -180).
 // The schedule hours/minutes are in the user's local time, so we convert the current

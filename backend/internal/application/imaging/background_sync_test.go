@@ -25,7 +25,7 @@ func TestBackgroundSyncManager_Start(t *testing.T) {
 	bsm.Start(true, 14, 0)
 
 	time.Sleep(50 * time.Millisecond)
-	assert.True(t, bsm.IsRunning(), "sync should be running")
+	assert.True(t, bsm.isRunning(), "sync should be running")
 
 	bsm.Stop()
 }
@@ -37,19 +37,19 @@ func TestBackgroundSyncManager_Stop(t *testing.T) {
 	bsm.Stop()
 
 	time.Sleep(50 * time.Millisecond)
-	assert.False(t, bsm.IsRunning(), "sync should not be running")
+	assert.False(t, bsm.isRunning(), "sync should not be running")
 }
 
-func TestBackgroundSyncManager_IsRunning(t *testing.T) {
+func TestBackgroundSyncManager_isRunning(t *testing.T) {
 	bsm, _ := setupBackgroundSyncManager(t)
 
-	assert.False(t, bsm.IsRunning(), "should not be running initially")
+	assert.False(t, bsm.isRunning(), "should not be running initially")
 
 	bsm.Start(true, 14, 0)
-	assert.True(t, bsm.IsRunning(), "should be running after start")
+	assert.True(t, bsm.isRunning(), "should be running after start")
 
 	bsm.Stop()
-	assert.False(t, bsm.IsRunning(), "should not be running after stop")
+	assert.False(t, bsm.isRunning(), "should not be running after stop")
 }
 
 func TestBackgroundSyncManager_CalculateNextRunTime_Future(t *testing.T) {

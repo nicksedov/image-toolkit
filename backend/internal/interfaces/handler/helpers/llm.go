@@ -46,19 +46,3 @@ func (f *LLMFactory) CreateClient(c *gin.Context) (llm.Client, domain.LlmProvide
 	return client, provider, true
 }
 
-// GetEnabledSettings returns LLM settings and active provider only if enabled, otherwise writes error and returns false.
-func (f *LLMFactory) GetEnabledSettings(c *gin.Context) (domain.LlmSettings, domain.LlmProvider, bool) {
-	var settings domain.LlmSettings
-	if err := f.db.First(&settings).Error; err != nil {
-		c.JSON(http.StatusNotFound, i18n.ErrorResponse(i18n.MsgLlmOcrSettingsNotFound))
-		return domain.LlmSettings{}, domain.LlmProvider{}, false
-	}
-
-	var provider domain.LlmProvider
-	if err := f.db.Where("alias = ?", settings.ActiveProvider).First(&provider).Error; err != nil {
-		c.JSON(http.StatusNotFound, i18n.ErrorResponse(i18n.MsgLlmOcrSettingsNotFound))
-		return domain.LlmSettings{}, domain.LlmProvider{}, false
-	}
-
-	return settings, provider, true
-}

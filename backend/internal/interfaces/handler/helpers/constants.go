@@ -20,11 +20,5 @@ const (
 	MaxPageSizeFlexible = 200
 )
 
-// Password validation constants
-const (
-	PasswordMinLength = 8
-	PasswordMaxLength = 128
-)
-
 // Fixed page sizes for handlers that require specific values
 var FixedPageSizes = []int{50, 100, 250, 500}

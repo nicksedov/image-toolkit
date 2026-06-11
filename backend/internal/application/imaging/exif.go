@@ -50,15 +50,6 @@ func InitExifTool() error {
 	return nil
 }
 
-// CloseExifTool closes the global exiftool instance and releases resources.
-func CloseExifTool() {
-	if exifTool != nil {
-		exifTool.Close()
-		exifTool = nil
-		log.Printf("EXIF: go-exiftool closed")
-	}
-}
-
 // extractMetadata reads EXIF metadata and image dimensions from a file.
 // It always attempts to get dimensions; EXIF fields are best-effort.
 func extractMetadata(filePath string) (*domain.ImageMetadata, error) {

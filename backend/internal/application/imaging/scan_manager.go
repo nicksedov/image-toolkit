@@ -25,10 +25,6 @@ type FastScanResult struct {
 	TotalChecked int `json:"totalChecked"` // Total files checked (modified + created)
 }
 
-// ScanStatistics is an alias for FastScanResult for backward compatibility
-// Deprecated: use FastScanResult instead
-type ScanStatistics = FastScanResult
-
 // ScanManager manages asynchronous directory scanning
 type ScanManager struct {
 	mu             sync.RWMutex
