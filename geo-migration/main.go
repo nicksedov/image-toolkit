@@ -429,7 +429,7 @@ type dbConfig struct {
 }
 
 func loadConfig() (*dbConfig, error) {
-	envPath := filepath.Join("..", "backend", ".env")
+	envPath := filepath.Join(".", ".env")
 	if err := godotenv.Load(envPath); err != nil {
 		return nil, fmt.Errorf("failed to load %s: %w", envPath, err)
 	}
