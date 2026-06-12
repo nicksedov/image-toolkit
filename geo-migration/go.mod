@@ -3,7 +3,6 @@ module geo-migration
 go 1.25.0
 
 require (
-	github.com/barasher/go-exiftool v1.3.0
 	github.com/joho/godotenv v1.5.1
 	gorm.io/driver/postgres v1.5.4
 	gorm.io/gorm v1.30.0
