@@ -204,6 +204,8 @@ export const translationsRu = {
   "metadata.colorSpace": "Цветовое пространство",
   "metadata.software": "Программа",
   "metadata.location": "Местоположение",
+  "metadata.nameLocal": "Местное название",
+  "metadata.nameEng": "Английское название",
   "metadata.coordinates": "Координаты",
   "metadata.noData": "Метаданные недоступны",
   "metadata.loading": "Загрузка метаданных...",

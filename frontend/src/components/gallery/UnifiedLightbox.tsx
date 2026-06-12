@@ -351,13 +351,13 @@ function MetadataContent({ metadata, imagePath, showGeoForm, onShowGeoForm, onGp
     [t("metadata.orientation"), metadata.orientation ? String(metadata.orientation) : ""],
   ])
 
-  const locationLabel = [metadata.nameLocal, metadata.nameEng].filter(Boolean).join(", ")
   const coordsLabel =
     metadata.hasGps && metadata.gpsLatitude != null && metadata.gpsLongitude != null
       ? `${metadata.gpsLatitude.toFixed(4)}\u00b0, ${metadata.gpsLongitude.toFixed(4)}\u00b0`
       : ""
   const locationFields = buildFields([
-    [t("metadata.location"), locationLabel],
+    [t("metadata.nameLocal"), metadata.nameLocal],
+    [t("metadata.nameEng"), metadata.nameEng],
     [t("metadata.coordinates"), coordsLabel],
   ])
 
