@@ -91,9 +91,9 @@ func ComputeClusters(db *gorm.DB, params ClusterParams) ([]dto.GeoCluster, int, 
 
 	var images []imageWithGPS
 	query := db.Table("image_files").
-		Select("image_files.path, geolocation_cache.gps_latitude, geolocation_cache.gps_longitude").
+		Select("image_files.path, geolocation_caches.gps_latitude, geolocation_caches.gps_longitude").
 		Joins("INNER JOIN image_metadata ON image_metadata.image_file_id = image_files.id").
-		Joins("INNER JOIN geolocation_cache ON geolocation_cache.id = image_metadata.geolocation_ref")
+		Joins("INNER JOIN geolocation_caches ON geolocation_caches.id = image_metadata.geolocation_ref")
 
 	if hasBounds {
 		minLat, maxLat := params.MinLat, params.MaxLat
@@ -105,8 +105,8 @@ func ComputeClusters(db *gorm.DB, params ClusterParams) ([]dto.GeoCluster, int, 
 			minLng, maxLng = maxLng, minLng
 		}
 
-		query = query.Where("geolocation_cache.gps_latitude BETWEEN ? AND ?", minLat, maxLat).
-			Where("geolocation_cache.gps_longitude BETWEEN ? AND ?", minLng, maxLng)
+		query = query.Where("geolocation_caches.gps_latitude BETWEEN ? AND ?", minLat, maxLat).
+			Where("geolocation_caches.gps_longitude BETWEEN ? AND ?", minLng, maxLng)
 
 		log.Printf("[geo] Bounds: lat=[%.4f, %.4f], lng=[%.4f, %.4f]", minLat, maxLat, minLng, maxLng)
 	} else {
@@ -187,9 +187,9 @@ func ComputeClusters(db *gorm.DB, params ClusterParams) ([]dto.GeoCluster, int, 
 			db.Table("image_files").
 				Select("image_files.path").
 				Joins("INNER JOIN image_metadata ON image_metadata.image_file_id = image_files.id").
-				Joins("INNER JOIN geolocation_cache ON geolocation_cache.id = image_metadata.geolocation_ref").
-				Where("geolocation_cache.gps_latitude BETWEEN ? AND ?", lat-radius, lat+radius).
-				Where("geolocation_cache.gps_longitude BETWEEN ? AND ?", lng-radius, lng+radius).
+				Joins("INNER JOIN geolocation_caches ON geolocation_caches.id = image_metadata.geolocation_ref").
+				Where("geolocation_caches.gps_latitude BETWEEN ? AND ?", lat-radius, lat+radius).
+				Where("geolocation_caches.gps_longitude BETWEEN ? AND ?", lng-radius, lng+radius).
 				Limit(500).
 				Pluck("path", &paths)
 			imagePaths = paths

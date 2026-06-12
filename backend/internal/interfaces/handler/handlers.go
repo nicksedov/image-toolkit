@@ -1815,9 +1815,9 @@ func (s *Server) handleGetGeoImagesByBounds(c *gin.Context, page, pageSize int) 
 	var totalImages int64
 	s.db.Table("image_files").
 		Joins("INNER JOIN image_metadata ON image_metadata.image_file_id = image_files.id").
-		Joins("INNER JOIN geolocation_cache ON geolocation_cache.id = image_metadata.geolocation_ref").
-		Where("geolocation_cache.gps_latitude BETWEEN ? AND ?", minLat, maxLat).
-		Where("geolocation_cache.gps_longitude BETWEEN ? AND ?", minLng, maxLng).
+		Joins("INNER JOIN geolocation_caches ON geolocation_caches.id = image_metadata.geolocation_ref").
+		Where("geolocation_caches.gps_latitude BETWEEN ? AND ?", minLat, maxLat).
+		Where("geolocation_caches.gps_longitude BETWEEN ? AND ?", minLng, maxLng).
 		Count(&totalImages)
 
 	pag := helpers.CalcPagination(page, pageSize, totalImages)
@@ -1827,9 +1827,9 @@ func (s *Server) handleGetGeoImagesByBounds(c *gin.Context, page, pageSize int) 
 	s.db.Table("image_files").
 		Select("image_files.*").
 		Joins("INNER JOIN image_metadata ON image_metadata.image_file_id = image_files.id").
-		Joins("INNER JOIN geolocation_cache ON geolocation_cache.id = image_metadata.geolocation_ref").
-		Where("geolocation_cache.gps_latitude BETWEEN ? AND ?", minLat, maxLat).
-		Where("geolocation_cache.gps_longitude BETWEEN ? AND ?", minLng, maxLng).
+		Joins("INNER JOIN geolocation_caches ON geolocation_caches.id = image_metadata.geolocation_ref").
+		Where("geolocation_caches.gps_latitude BETWEEN ? AND ?", minLat, maxLat).
+		Where("geolocation_caches.gps_longitude BETWEEN ? AND ?", minLng, maxLng).
 		Order("image_files.path").
 		Offset(offset).
 		Limit(pageSize).
@@ -3072,7 +3072,7 @@ func (s *Server) handleGetLocationCandidates(c *gin.Context) {
 		dateStr = dateParam
 	}
 
-	// Query same-day photos with geolocation data via JOIN through geolocation_cache
+	// Query same-day photos with geolocation data via JOIN through geolocation_caches
 	type gpsRow struct {
 		GPSLatitude  float64
 		GPSLongitude float64
@@ -3083,9 +3083,9 @@ func (s *Server) handleGetLocationCandidates(c *gin.Context) {
 
 	var rows []gpsRow
 	query := s.db.Table("image_metadata").
-		Select("geolocation_cache.gps_latitude, geolocation_cache.gps_longitude, geolocation_cache.name_local, geolocation_cache.name_eng, image_files.path as file_path").
+		Select("geolocation_caches.gps_latitude, geolocation_caches.gps_longitude, geolocation_caches.name_local, geolocation_caches.name_eng, image_files.path as file_path").
 		Joins("JOIN image_files ON image_files.id = image_metadata.image_file_id").
-		Joins("JOIN geolocation_cache ON geolocation_cache.id = image_metadata.geolocation_ref").
+		Joins("JOIN geolocation_caches ON geolocation_caches.id = image_metadata.geolocation_ref").
 		Where("DATE(image_metadata.date_taken) = ?", dateStr)
 
 	if excludePath != "" {

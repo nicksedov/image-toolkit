@@ -14,7 +14,7 @@ import (
 )
 
 // GeolocationService resolves GPS coordinates to location names via Nominatim,
-// with a database-backed cache (geolocation_cache table).
+// with a database-backed cache (geolocation_caches table).
 // It rate-limits Nominatim calls to at most 1 request per second.
 type GeolocationService struct {
 	db        *gorm.DB

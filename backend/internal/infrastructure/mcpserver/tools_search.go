@@ -387,9 +387,9 @@ func (s *ImageToolkitMCPServer) queryByLocation(minLat, maxLat, minLng, maxLng f
 	s.db.Table("image_files").
 		Select("image_files.id, image_files.path, image_files.mod_time").
 		Joins("INNER JOIN image_metadata ON image_metadata.image_file_id = image_files.id").
-		Joins("INNER JOIN geolocation_cache ON geolocation_cache.id = image_metadata.geolocation_ref").
-		Where("geolocation_cache.gps_latitude BETWEEN ? AND ?", minLat, maxLat).
-		Where("geolocation_cache.gps_longitude BETWEEN ? AND ?", minLng, maxLng).
+		Joins("INNER JOIN geolocation_caches ON geolocation_caches.id = image_metadata.geolocation_ref").
+		Where("geolocation_caches.gps_latitude BETWEEN ? AND ?", minLat, maxLat).
+		Where("geolocation_caches.gps_longitude BETWEEN ? AND ?", minLng, maxLng).
 		Order("image_files.mod_time DESC").
 		Limit(limit).
 		Find(&files)
@@ -397,9 +397,9 @@ func (s *ImageToolkitMCPServer) queryByLocation(minLat, maxLat, minLng, maxLng f
 	var total int64
 	s.db.Table("image_files").
 		Joins("INNER JOIN image_metadata ON image_metadata.image_file_id = image_files.id").
-		Joins("INNER JOIN geolocation_cache ON geolocation_cache.id = image_metadata.geolocation_ref").
-		Where("geolocation_cache.gps_latitude BETWEEN ? AND ?", minLat, maxLat).
-		Where("geolocation_cache.gps_longitude BETWEEN ? AND ?", minLng, maxLng).
+		Joins("INNER JOIN geolocation_caches ON geolocation_caches.id = image_metadata.geolocation_ref").
+		Where("geolocation_caches.gps_latitude BETWEEN ? AND ?", minLat, maxLat).
+		Where("geolocation_caches.gps_longitude BETWEEN ? AND ?", minLng, maxLng).
 		Count(&total)
 
 	return toImageSearchOutput(files, int(total)), nil
