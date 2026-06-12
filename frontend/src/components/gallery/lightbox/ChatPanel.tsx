@@ -411,7 +411,6 @@ export function ChatPanel({
       {/* Header */}
       <div className="px-4 py-3 shrink-0">
         <div className="flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-primary shrink-0" />
           {hasConversation && maxTokens > 0 ? (
             <div className="flex items-center gap-1.5 flex-1 min-w-0">
               <TokenDoughnut percent={tokenPercent} />
