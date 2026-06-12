@@ -238,8 +238,8 @@ export interface ImageMetadataDTO {
   software: string
   gpsLatitude: number | null
   gpsLongitude: number | null
-  geoCountry: string
-  geoCity: string
+  nameLocal: string
+  nameEng: string
   hasGps: boolean
   hasExif: boolean
 }
@@ -681,15 +681,15 @@ export interface UpdateGpsResponse {
   success: boolean
   lat: number
   lng: number
-  geoCountry: string
-  geoCity: string
+  nameLocal: string
+  nameEng: string
 }
 
 export interface LocationCandidate {
   lat: number
   lng: number
-  geoCountry: string
-  geoCity: string
+  nameLocal: string
+  nameEng: string
   photoCount: number
   thumbnail?: string
 }
@@ -708,8 +708,8 @@ export interface BatchUpdateGpsResponse {
   success: number
   failed: number
   failedFiles?: string[]
-  geoCountry: string
-  geoCity: string
+  nameLocal: string
+  nameEng: string
   lat: number
   lng: number
 }

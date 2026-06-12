@@ -137,20 +137,16 @@ func main() {
 		}
 	}
 
-	// Initialize offline geocoder (used by background sync for EXIF geo-enrichment)
-	geo := geocoder.NewGeocoder()
-	if geo != nil {
-		fmt.Println("Geocoder initialized successfully!")
-	} else {
-		fmt.Println("Geocoder unavailable, geo-enrichment will be disabled")
-	}
-
-	// Initialize Nominatim client for forward geocoding (location search)
+	// Initialize Nominatim client for geocoding (forward search + reverse geocoding)
 	nominatimClient := geocoder.NewNominatimClient(nil, "")
 	fmt.Println("Nominatim geocoding client initialized")
 
+	// Initialize GeolocationService (cache + rate-limited Nominatim reverse geocoding)
+	geolocationService := geocoder.NewGeolocationService(db, nominatimClient)
+	fmt.Println("Geolocation service initialized (Nominatim-backed cache)")
+
 	// Create background sync manager
-	backgroundSync := imaging.NewBackgroundSyncManager(db, thumbnailService, geo)
+	backgroundSync := imaging.NewBackgroundSyncManager(db, thumbnailService, geolocationService)
 
 	// Read schedule from DB (default: enabled=true, hour=3, minute=30)
 	syncEnabled := cfg.BackgroundSyncEnabled
@@ -252,7 +248,7 @@ func main() {
 	fmt.Println("AI agent initialized")
 
 	// Start web server
-	server := handler.NewServer(db, scanManager, ocrManager, llmOcrService, backgroundSync, tagScanManager, thumbnailService, cfg, geo, nominatimClient, mcpSrv, ag, convService)
+	server := handler.NewServer(db, scanManager, ocrManager, llmOcrService, backgroundSync, tagScanManager, thumbnailService, cfg, geolocationService, nominatimClient, mcpSrv, ag, convService)
 	router := server.SetupRouter(authMiddleware, csrfProtection, authHandlers)
 
 	// Start OCR health check if enabled

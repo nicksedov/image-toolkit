@@ -63,8 +63,8 @@ type ImageMetadataOutput struct {
 	DateTaken    string  `json:"dateTaken,omitempty"`
 	GPSLatitude  float64 `json:"gpsLatitude,omitempty"`
 	GPSLongitude float64 `json:"gpsLongitude,omitempty"`
-	GeoCountry   string  `json:"geoCountry,omitempty"`
-	GeoCity      string  `json:"geoCity,omitempty"`
+	NameLocal    string  `json:"nameLocal,omitempty"`
+	NameEng      string  `json:"nameEng,omitempty"`
 	CameraModel  string  `json:"cameraModel,omitempty"`
 	LensModel    string  `json:"lensModel,omitempty"`
 	Width        int     `json:"width,omitempty"`
@@ -387,9 +387,9 @@ func (s *ImageToolkitMCPServer) queryByLocation(minLat, maxLat, minLng, maxLng f
 	s.db.Table("image_files").
 		Select("image_files.id, image_files.path, image_files.mod_time").
 		Joins("INNER JOIN image_metadata ON image_metadata.image_file_id = image_files.id").
-		Where("image_metadata.gps_latitude IS NOT NULL AND image_metadata.gps_longitude IS NOT NULL").
-		Where("image_metadata.gps_latitude BETWEEN ? AND ?", minLat, maxLat).
-		Where("image_metadata.gps_longitude BETWEEN ? AND ?", minLng, maxLng).
+		Joins("INNER JOIN geolocation_caches ON geolocation_caches.id = image_metadata.geolocation_ref").
+		Where("geolocation_caches.gps_latitude BETWEEN ? AND ?", minLat, maxLat).
+		Where("geolocation_caches.gps_longitude BETWEEN ? AND ?", minLng, maxLng).
 		Order("image_files.mod_time DESC").
 		Limit(limit).
 		Find(&files)
@@ -397,9 +397,9 @@ func (s *ImageToolkitMCPServer) queryByLocation(minLat, maxLat, minLng, maxLng f
 	var total int64
 	s.db.Table("image_files").
 		Joins("INNER JOIN image_metadata ON image_metadata.image_file_id = image_files.id").
-		Where("image_metadata.gps_latitude IS NOT NULL AND image_metadata.gps_longitude IS NOT NULL").
-		Where("image_metadata.gps_latitude BETWEEN ? AND ?", minLat, maxLat).
-		Where("image_metadata.gps_longitude BETWEEN ? AND ?", minLng, maxLng).
+		Joins("INNER JOIN geolocation_caches ON geolocation_caches.id = image_metadata.geolocation_ref").
+		Where("geolocation_caches.gps_latitude BETWEEN ? AND ?", minLat, maxLat).
+		Where("geolocation_caches.gps_longitude BETWEEN ? AND ?", minLng, maxLng).
 		Count(&total)
 
 	return toImageSearchOutput(files, int(total)), nil
@@ -440,8 +440,6 @@ func (s *ImageToolkitMCPServer) queryImageMetadata(imagePath string) (ImageMetad
 
 	output := ImageMetadataOutput{
 		Path:        imagePath,
-		GeoCountry:  meta.GeoCountry,
-		GeoCity:     meta.GeoCity,
 		CameraModel: meta.CameraModel,
 		LensModel:   meta.LensModel,
 		Width:       meta.Width,
@@ -451,11 +449,16 @@ func (s *ImageToolkitMCPServer) queryImageMetadata(imagePath string) (ImageMetad
 	if meta.DateTaken != nil {
 		output.DateTaken = meta.DateTaken.Format("2006-01-02 15:04:05")
 	}
-	if meta.GPSLatitude != nil {
-		output.GPSLatitude = *meta.GPSLatitude
-	}
-	if meta.GPSLongitude != nil {
-		output.GPSLongitude = *meta.GPSLongitude
+
+	// Resolve geolocation from cache
+	if meta.GeolocationRef != nil {
+		var geoCache domain.GeolocationCache
+		if result := s.db.First(&geoCache, *meta.GeolocationRef); result.Error == nil {
+			output.GPSLatitude = geoCache.GPSLatitude
+			output.GPSLongitude = geoCache.GPSLongitude
+			output.NameLocal = geoCache.NameLocal
+			output.NameEng = geoCache.NameEng
+		}
 	}
 
 	return output, nil
@@ -531,10 +534,10 @@ func formatMetadataResult(output ImageMetadataOutput) string {
 	if output.GPSLatitude != 0 || output.GPSLongitude != 0 {
 		fmt.Fprintf(&sb, "GPS: %.6f, %.6f\n", output.GPSLatitude, output.GPSLongitude)
 	}
-	if output.GeoCountry != "" {
-		fmt.Fprintf(&sb, "Location: %s", output.GeoCountry)
-		if output.GeoCity != "" {
-			fmt.Fprintf(&sb, ", %s", output.GeoCity)
+	if output.NameLocal != "" || output.NameEng != "" {
+		fmt.Fprintf(&sb, "Location: %s", output.NameLocal)
+		if output.NameEng != "" && output.NameEng != output.NameLocal {
+			fmt.Fprintf(&sb, " (%s)", output.NameEng)
 		}
 		sb.WriteString("\n")
 	}

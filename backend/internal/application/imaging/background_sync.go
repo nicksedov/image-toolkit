@@ -17,29 +17,29 @@ import (
 // BackgroundSyncManager manages background synchronization of gallery files
 // and thumbnail cache. It runs daily at a configured time.
 type BackgroundSyncManager struct {
-	mu               sync.Mutex
-	running          bool
-	stopCh           chan struct{}
-	scheduleCh       chan struct{} // Signal to restart the schedule loop
-	db               *gorm.DB
-	thumbnailService *thumbnail.Service
-	geocoder         *geocoder.Geocoder
-	enabled          bool
-	hour             int
-	minute           int
+	mu                 sync.Mutex
+	running            bool
+	stopCh             chan struct{}
+	scheduleCh         chan struct{} // Signal to restart the schedule loop
+	db                 *gorm.DB
+	thumbnailService   *thumbnail.Service
+	geolocationService *geocoder.GeolocationService
+	enabled            bool
+	hour               int
+	minute             int
 }
 
 // NewBackgroundSyncManager creates a new background sync manager
-func NewBackgroundSyncManager(db *gorm.DB, thumbnailService *thumbnail.Service, geo *geocoder.Geocoder) *BackgroundSyncManager {
+func NewBackgroundSyncManager(db *gorm.DB, thumbnailService *thumbnail.Service, geoService *geocoder.GeolocationService) *BackgroundSyncManager {
 	return &BackgroundSyncManager{
-		db:               db,
-		thumbnailService: thumbnailService,
-		geocoder:         geo,
-		enabled:          true,
-		hour:             3,
-		minute:           30,
-		stopCh:           make(chan struct{}),
-		scheduleCh:       make(chan struct{}),
+		db:                 db,
+		thumbnailService:   thumbnailService,
+		geolocationService: geoService,
+		enabled:            true,
+		hour:               3,
+		minute:             30,
+		stopCh:             make(chan struct{}),
+		scheduleCh:         make(chan struct{}),
 	}
 }
 
@@ -407,11 +407,17 @@ func (bsm *BackgroundSyncManager) extractAndSaveMetadata(filePath string, imageF
 
 	meta.ImageFileID = imageFileID
 
-	// Enrich with geo data from geocoder if GPS coordinates are present
-	if bsm.geocoder != nil && meta.GPSLatitude != nil && meta.GPSLongitude != nil {
-		country, city := bsm.geocoder.ReverseGeocode(*meta.GPSLatitude, *meta.GPSLongitude)
-		meta.GeoCountry = country
-		meta.GeoCity = city
+	// Resolve geolocation via GeolocationService if GPS coordinates are present.
+	if bsm.geolocationService != nil {
+		lat, lng, hasGPS := extractGPSCoordinates(filePath)
+		if hasGPS {
+			geoEntry, err := bsm.geolocationService.ResolveGeolocation(lat, lng)
+			if err != nil {
+				log.Printf("Background sync: failed to resolve geolocation for %s: %v", filePath, err)
+			} else {
+				meta.GeolocationRef = &geoEntry.ID
+			}
+		}
 	}
 
 	// Upsert: insert or update

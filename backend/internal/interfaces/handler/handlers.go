@@ -962,6 +962,21 @@ func (s *Server) handleGetImageMetadata(c *gin.Context) {
 		return
 	}
 
+	// Resolve geolocation from cache if referenced
+	var geoLat, geoLng *float64
+	var nameLocal, nameEng string
+	if meta.GeolocationRef != nil {
+		var geoCache domain.GeolocationCache
+		if result := s.db.First(&geoCache, *meta.GeolocationRef); result.Error == nil {
+			lat := geoCache.GPSLatitude
+			lng := geoCache.GPSLongitude
+			geoLat = &lat
+			geoLng = &lng
+			nameLocal = geoCache.NameLocal
+			nameEng = geoCache.NameEng
+		}
+	}
+
 	// Build the DTO
 	metaDTO := &dto.ImageMetadataDTO{
 		Width:        meta.Width,
@@ -976,11 +991,11 @@ func (s *Server) handleGetImageMetadata(c *gin.Context) {
 		Orientation:  meta.Orientation,
 		ColorSpace:   meta.ColorSpace,
 		Software:     meta.Software,
-		GPSLatitude:  meta.GPSLatitude,
-		GPSLongitude: meta.GPSLongitude,
-		GeoCountry:   meta.GeoCountry,
-		GeoCity:      meta.GeoCity,
-		HasGPS:       meta.GPSLatitude != nil && meta.GPSLongitude != nil,
+		GPSLatitude:  geoLat,
+		GPSLongitude: geoLng,
+		NameLocal:    nameLocal,
+		NameEng:      nameEng,
+		HasGPS:       meta.GeolocationRef != nil,
 		HasExif:      imaging.HasExifData(&meta),
 	}
 
@@ -998,26 +1013,25 @@ func (s *Server) handleGetImagesMissingExif(c *gin.Context) {
 	pageSize := params.PageSize
 	offset := params.Offset
 
-	// Query: join image_files with image_metadata where date_taken OR GPS is missing
+	// Query: join image_files with image_metadata where date_taken OR geolocation is missing
 	type imageWithMetadata struct {
 		domain.ImageFile
-		DateTaken    *time.Time
-		GPSLatitude  *float64
-		GPSLongitude *float64
+		DateTaken      *time.Time
+		GeolocationRef *uint
 	}
 
 	var totalImages int64
 	s.db.Table("image_files").
-		Select("image_files.*, image_metadata.date_taken, image_metadata.gps_latitude, image_metadata.gps_longitude").
+		Select("image_files.*, image_metadata.date_taken, image_metadata.geolocation_ref").
 		Joins("LEFT JOIN image_metadata ON image_metadata.image_file_id = image_files.id").
-		Where("image_metadata.date_taken IS NULL OR image_metadata.gps_latitude IS NULL OR image_metadata.gps_longitude IS NULL").
+		Where("image_metadata.date_taken IS NULL OR image_metadata.geolocation_ref IS NULL").
 		Count(&totalImages)
 
 	var results []imageWithMetadata
 	s.db.Table("image_files").
-		Select("image_files.*, image_metadata.date_taken, image_metadata.gps_latitude, image_metadata.gps_longitude").
+		Select("image_files.*, image_metadata.date_taken, image_metadata.geolocation_ref").
 		Joins("LEFT JOIN image_metadata ON image_metadata.image_file_id = image_files.id").
-		Where("image_metadata.date_taken IS NULL OR image_metadata.gps_latitude IS NULL OR image_metadata.gps_longitude IS NULL").
+		Where("image_metadata.date_taken IS NULL OR image_metadata.geolocation_ref IS NULL").
 		Order("image_files.id DESC").
 		Offset(offset).
 		Limit(pageSize).
@@ -1027,7 +1041,7 @@ func (s *Server) handleGetImagesMissingExif(c *gin.Context) {
 	imageDTOs := make([]dto.GalleryImageDTO, len(results))
 	for i, r := range results {
 		missingDate := r.DateTaken == nil
-		missingGps := r.GPSLatitude == nil || r.GPSLongitude == nil
+		missingGps := r.GeolocationRef == nil
 		imageDTOs[i] = dto.GalleryImageDTO{
 			ID:          r.ID,
 			Path:        r.Path,
@@ -1075,13 +1089,12 @@ func (s *Server) handleGetGalleryCalendar(c *gin.Context) {
 	// Query: join image_files with image_metadata where date_taken is not null
 	type imageWithDate struct {
 		domain.ImageFile
-		DateTaken    time.Time
-		GPSLatitude  *float64
-		GPSLongitude *float64
+		DateTaken      time.Time
+		GeolocationRef *uint
 	}
 
 	baseQuery := s.db.Table("image_files").
-		Select("image_files.*, image_metadata.date_taken, image_metadata.gps_latitude, image_metadata.gps_longitude").
+		Select("image_files.*, image_metadata.date_taken, image_metadata.geolocation_ref").
 		Joins("INNER JOIN image_metadata ON image_metadata.image_file_id = image_files.id").
 		Where("image_metadata.date_taken IS NOT NULL")
 
@@ -1145,7 +1158,7 @@ func (s *Server) handleGetGalleryCalendar(c *gin.Context) {
 
 		// Create a FRESH baseQuery for cursor pagination to avoid state mutation
 		cursorQuery := s.db.Table("image_files").
-			Select("image_files.*, image_metadata.date_taken, image_metadata.gps_latitude, image_metadata.gps_longitude").
+			Select("image_files.*, image_metadata.date_taken, image_metadata.geolocation_ref").
 			Joins("INNER JOIN image_metadata ON image_metadata.image_file_id = image_files.id").
 			Where("image_metadata.date_taken IS NOT NULL")
 
@@ -1236,7 +1249,7 @@ func (s *Server) handleGetGalleryCalendar(c *gin.Context) {
 				// Date group is split across pages - fetch all remaining images
 				// for this date to keep the group intact
 				legacyQuery := s.db.Table("image_files").
-					Select("image_files.*, image_metadata.date_taken, image_metadata.gps_latitude, image_metadata.gps_longitude").
+					Select("image_files.*, image_metadata.date_taken, image_metadata.geolocation_ref").
 					Joins("INNER JOIN image_metadata ON image_metadata.image_file_id = image_files.id").
 					Where("image_metadata.date_taken IS NOT NULL")
 
@@ -1301,7 +1314,7 @@ func (s *Server) handleGetGalleryCalendar(c *gin.Context) {
 		g := groupsMap[dateStr]
 		imageDTOs := make([]dto.GalleryImageDTO, len(g.images))
 		for i, r := range g.images {
-			missingGps := r.GPSLatitude == nil || r.GPSLongitude == nil
+			missingGps := r.GeolocationRef == nil
 			imageDTOs[i] = dto.GalleryImageDTO{
 				ID:         r.ID,
 				Path:       r.Path,
@@ -1802,10 +1815,9 @@ func (s *Server) handleGetGeoImagesByBounds(c *gin.Context, page, pageSize int) 
 	var totalImages int64
 	s.db.Table("image_files").
 		Joins("INNER JOIN image_metadata ON image_metadata.image_file_id = image_files.id").
-		Where("image_metadata.gps_latitude IS NOT NULL").
-		Where("image_metadata.gps_longitude IS NOT NULL").
-		Where("image_metadata.gps_latitude BETWEEN ? AND ?", minLat, maxLat).
-		Where("image_metadata.gps_longitude BETWEEN ? AND ?", minLng, maxLng).
+		Joins("INNER JOIN geolocation_caches ON geolocation_caches.id = image_metadata.geolocation_ref").
+		Where("geolocation_caches.gps_latitude BETWEEN ? AND ?", minLat, maxLat).
+		Where("geolocation_caches.gps_longitude BETWEEN ? AND ?", minLng, maxLng).
 		Count(&totalImages)
 
 	pag := helpers.CalcPagination(page, pageSize, totalImages)
@@ -1815,10 +1827,9 @@ func (s *Server) handleGetGeoImagesByBounds(c *gin.Context, page, pageSize int) 
 	s.db.Table("image_files").
 		Select("image_files.*").
 		Joins("INNER JOIN image_metadata ON image_metadata.image_file_id = image_files.id").
-		Where("image_metadata.gps_latitude IS NOT NULL").
-		Where("image_metadata.gps_longitude IS NOT NULL").
-		Where("image_metadata.gps_latitude BETWEEN ? AND ?", minLat, maxLat).
-		Where("image_metadata.gps_longitude BETWEEN ? AND ?", minLng, maxLng).
+		Joins("INNER JOIN geolocation_caches ON geolocation_caches.id = image_metadata.geolocation_ref").
+		Where("geolocation_caches.gps_latitude BETWEEN ? AND ?", minLat, maxLat).
+		Where("geolocation_caches.gps_longitude BETWEEN ? AND ?", minLng, maxLng).
 		Order("image_files.path").
 		Offset(offset).
 		Limit(pageSize).
@@ -2982,10 +2993,18 @@ func (s *Server) handleUpdateGps(c *gin.Context) {
 		return
 	}
 
-	// Reverse geocode to get country/city
-	var geoCountry, geoCity string
-	if s.geocoder != nil {
-		geoCountry, geoCity = s.geocoder.ReverseGeocode(req.Lat, req.Lng)
+	// Reverse geocode via GeolocationService (cache + Nominatim)
+	var nameLocal, nameEng string
+	var geoRef *uint
+	if s.geolocationService != nil {
+		geoEntry, err := s.geolocationService.ResolveGeolocation(req.Lat, req.Lng)
+		if err != nil {
+			log.Printf("UpdateGps: failed to resolve geolocation for %s: %v", req.Path, err)
+		} else {
+			nameLocal = geoEntry.NameLocal
+			nameEng = geoEntry.NameEng
+			geoRef = &geoEntry.ID
+		}
 	}
 
 	// Upsert ImageMetadata in DB
@@ -2994,29 +3013,23 @@ func (s *Server) handleUpdateGps(c *gin.Context) {
 	if result.Error != nil {
 		// Create new metadata record
 		meta = domain.ImageMetadata{
-			ImageFileID:  imageFile.ID,
-			GPSLatitude:  &req.Lat,
-			GPSLongitude: &req.Lng,
-			GeoCountry:   geoCountry,
-			GeoCity:      geoCity,
+			ImageFileID:    imageFile.ID,
+			GeolocationRef: geoRef,
 		}
 		s.db.Create(&meta)
 	} else {
 		// Update existing record
 		s.db.Model(&meta).Updates(map[string]interface{}{
-			"gps_latitude":  req.Lat,
-			"gps_longitude": req.Lng,
-			"geo_country":   geoCountry,
-			"geo_city":      geoCity,
+			"geolocation_ref": geoRef,
 		})
 	}
 
 	s.respondJSON(c, http.StatusOK, dto.UpdateGpsResponse{
-		Success:    true,
-		Lat:        req.Lat,
-		Lng:        req.Lng,
-		GeoCountry: geoCountry,
-		GeoCity:    geoCity,
+		Success:   true,
+		Lat:       req.Lat,
+		Lng:       req.Lng,
+		NameLocal: nameLocal,
+		NameEng:   nameEng,
 	})
 }
 
@@ -3059,20 +3072,21 @@ func (s *Server) handleGetLocationCandidates(c *gin.Context) {
 		dateStr = dateParam
 	}
 
-	// Query same-day photos with GPS data
+	// Query same-day photos with geolocation data via JOIN through geolocation_caches
 	type gpsRow struct {
 		GPSLatitude  float64
 		GPSLongitude float64
-		GeoCountry   string
-		GeoCity      string
+		NameLocal    string
+		NameEng      string
 		FilePath     string
 	}
 
 	var rows []gpsRow
 	query := s.db.Table("image_metadata").
-		Select("image_metadata.gps_latitude, image_metadata.gps_longitude, image_metadata.geo_country, image_metadata.geo_city, image_files.path as file_path").
+		Select("geolocation_caches.gps_latitude, geolocation_caches.gps_longitude, geolocation_caches.name_local, geolocation_caches.name_eng, image_files.path as file_path").
 		Joins("JOIN image_files ON image_files.id = image_metadata.image_file_id").
-		Where("DATE(image_metadata.date_taken) = ? AND image_metadata.gps_latitude IS NOT NULL", dateStr)
+		Joins("JOIN geolocation_caches ON geolocation_caches.id = image_metadata.geolocation_ref").
+		Where("DATE(image_metadata.date_taken) = ?", dateStr)
 
 	if excludePath != "" {
 		query = query.Where("image_files.path != ?", excludePath)
@@ -3093,8 +3107,8 @@ func (s *Server) handleGetLocationCandidates(c *gin.Context) {
 	type locationGroup struct {
 		LatSum     float64
 		LngSum     float64
-		GeoCountry string
-		GeoCity    string
+		NameLocal  string
+		NameEng    string
 		PhotoCount int
 		FirstPath  string
 	}
@@ -3116,8 +3130,8 @@ func (s *Server) handleGetLocationCandidates(c *gin.Context) {
 			groupMap[key] = &locationGroup{
 				LatSum:     r.GPSLatitude,
 				LngSum:     r.GPSLongitude,
-				GeoCountry: r.GeoCountry,
-				GeoCity:    r.GeoCity,
+				NameLocal:  r.NameLocal,
+				NameEng:    r.NameEng,
 				PhotoCount: 1,
 				FirstPath:  r.FilePath,
 			}
@@ -3135,8 +3149,8 @@ func (s *Server) handleGetLocationCandidates(c *gin.Context) {
 		candidate := dto.LocationCandidate{
 			Lat:        g.LatSum / float64(g.PhotoCount),
 			Lng:        g.LngSum / float64(g.PhotoCount),
-			GeoCountry: g.GeoCountry,
-			GeoCity:    g.GeoCity,
+			NameLocal:  g.NameLocal,
+			NameEng:    g.NameEng,
 			PhotoCount: g.PhotoCount,
 		}
 
@@ -3183,10 +3197,18 @@ func (s *Server) handleBatchUpdateGps(c *gin.Context) {
 		trashDir = settings.TrashDir
 	}
 
-	// Reverse geocode once for all photos
-	var geoCountry, geoCity string
-	if s.geocoder != nil {
-		geoCountry, geoCity = s.geocoder.ReverseGeocode(req.Lat, req.Lng)
+	// Reverse geocode once for all photos via GeolocationService
+	var nameLocal, nameEng string
+	var geoRef *uint
+	if s.geolocationService != nil {
+		geoEntry, err := s.geolocationService.ResolveGeolocation(req.Lat, req.Lng)
+		if err != nil {
+			log.Printf("BatchUpdateGps: failed to resolve geolocation: %v", err)
+		} else {
+			nameLocal = geoEntry.NameLocal
+			nameEng = geoEntry.NameEng
+			geoRef = &geoEntry.ID
+		}
 	}
 
 	var successCount, failedCount int
@@ -3226,20 +3248,14 @@ func (s *Server) handleBatchUpdateGps(c *gin.Context) {
 		if result.Error != nil {
 			// Create new metadata record
 			meta = domain.ImageMetadata{
-				ImageFileID:  imageFile.ID,
-				GPSLatitude:  &req.Lat,
-				GPSLongitude: &req.Lng,
-				GeoCountry:   geoCountry,
-				GeoCity:      geoCity,
+				ImageFileID:    imageFile.ID,
+				GeolocationRef: geoRef,
 			}
 			s.db.Create(&meta)
 		} else {
 			// Update existing record
 			s.db.Model(&meta).Updates(map[string]interface{}{
-				"gps_latitude":  req.Lat,
-				"gps_longitude": req.Lng,
-				"geo_country":   geoCountry,
-				"geo_city":      geoCity,
+				"geolocation_ref": geoRef,
 			})
 		}
 
@@ -3250,8 +3266,8 @@ func (s *Server) handleBatchUpdateGps(c *gin.Context) {
 		Success:     successCount,
 		Failed:      failedCount,
 		FailedFiles: failedFiles,
-		GeoCountry:  geoCountry,
-		GeoCity:     geoCity,
+		NameLocal:   nameLocal,
+		NameEng:     nameEng,
 		Lat:         req.Lat,
 		Lng:         req.Lng,
 	})

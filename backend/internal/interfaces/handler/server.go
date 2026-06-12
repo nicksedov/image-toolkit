@@ -42,7 +42,7 @@ type Server struct {
 	llmFactory          *helpers.LLMFactory
 	fileMover           *helpers.FileMover
 	i18n                *i18n.Service
-	geocoder            *geocoder.Geocoder
+	geolocationService  *geocoder.GeolocationService
 	nominatim           *geocoder.NominatimClient
 	mcpServer           *mcpserver.ImageToolkitMCPServer
 	agent               *agent.Agent
@@ -50,7 +50,7 @@ type Server struct {
 }
 
 // NewServer creates a new server instance
-func NewServer(db *gorm.DB, scanManager *imaging.ScanManager, ocrManager *imaging.OcrManager, llmOcrService *imaging.LlmOcrService, backgroundSync *imaging.BackgroundSyncManager, tagScanManager *imaging.TagScanManager, thumbnailService *thumbnail.Service, cfg *config.AppConfig, rgeo *geocoder.Geocoder, nominatimClient *geocoder.NominatimClient, mcpSrv *mcpserver.ImageToolkitMCPServer, ag *agent.Agent, convService *agent.ConversationService) *Server {
+func NewServer(db *gorm.DB, scanManager *imaging.ScanManager, ocrManager *imaging.OcrManager, llmOcrService *imaging.LlmOcrService, backgroundSync *imaging.BackgroundSyncManager, tagScanManager *imaging.TagScanManager, thumbnailService *thumbnail.Service, cfg *config.AppConfig, geolocationService *geocoder.GeolocationService, nominatimClient *geocoder.NominatimClient, mcpSrv *mcpserver.ImageToolkitMCPServer, ag *agent.Agent, convService *agent.ConversationService) *Server {
 	var ocrClient ocr.Client
 	if cfg.OCREnabled {
 		ocrClient = ocr.NewClient(cfg.OCRHost, cfg.OCRPort)
@@ -75,7 +75,7 @@ func NewServer(db *gorm.DB, scanManager *imaging.ScanManager, ocrManager *imagin
 		ocrClient:           ocrClient,
 		clusterStorage:      geo.NewClusterStorage(),
 		i18n:                i18nSvc,
-		geocoder:            rgeo,
+		geolocationService:  geolocationService,
 		nominatim:           nominatimClient,
 		mcpServer:           mcpSrv,
 		agent:               ag,

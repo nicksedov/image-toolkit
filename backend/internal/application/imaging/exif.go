@@ -157,7 +157,9 @@ func extractExifFields(filePath string, meta *domain.ImageMetadata) {
 	}
 
 	// GPS coordinates - with multiple fallback methods
-	extractGPS(fi, meta, baseName)
+	// Note: GPS is no longer stored on ImageMetadata directly;
+	// it's resolved via GeolocationService -> GeolocationCache.
+	// extractGPSCoordinates() provides standalone GPS extraction.
 }
 
 // extractDateTaken tries multiple EXIF date fields to populate DateTaken.
@@ -177,14 +179,29 @@ func extractDateTaken(fi exiftool.FileMetadata, meta *domain.ImageMetadata, base
 }
 
 // extractGPS extracts GPS coordinates with multiple fallback methods.
-func extractGPS(fi exiftool.FileMetadata, meta *domain.ImageMetadata, baseName string) {
+// Deprecated: GPS fields removed from domain.ImageMetadata.
+// Use extractGPSCoordinates() instead.
+
+// extractGPSCoordinates reads GPS coordinates from an image file's EXIF metadata.
+// Returns (lat, lng, true) if GPS data is found, (0, 0, false) otherwise.
+func extractGPSCoordinates(filePath string) (float64, float64, bool) {
+	if exifTool == nil {
+		return 0, 0, false
+	}
+
+	fileInfos := exifTool.ExtractMetadata(filePath)
+	if len(fileInfos) == 0 || fileInfos[0].Err != nil {
+		return 0, 0, false
+	}
+
+	fi := fileInfos[0]
+	baseName := filepath.Base(filePath)
+
 	// Method 1: Try direct GPSLatitude/GPSLongitude as float
 	if lat, err := fi.GetFloat("GPSLatitude"); err == nil {
 		if lng, err := fi.GetFloat("GPSLongitude"); err == nil {
-			meta.GPSLatitude = &lat
-			meta.GPSLongitude = &lng
 			log.Printf("EXIF %s: GPS via float: lat=%.8f, lng=%.8f", baseName, lat, lng)
-			return
+			return lat, lng, true
 		}
 	}
 
@@ -194,17 +211,14 @@ func extractGPS(fi exiftool.FileMetadata, meta *domain.ImageMetadata, baseName s
 			lat, latOk := parseGPSString(latStr)
 			lng, lngOk := parseGPSString(lngStr)
 			if latOk && lngOk {
-				// Apply hemisphere reference
 				if ref, err := fi.GetString("GPSLatitudeRef"); err == nil && (ref == "S" || ref == "s") {
 					lat = -lat
 				}
 				if ref, err := fi.GetString("GPSLongitudeRef"); err == nil && (ref == "W" || ref == "w") {
 					lng = -lng
 				}
-				meta.GPSLatitude = &lat
-				meta.GPSLongitude = &lng
 				log.Printf("EXIF %s: GPS via string parse: lat=%.8f, lng=%.8f", baseName, lat, lng)
-				return
+				return lat, lng, true
 			}
 		}
 	}
@@ -212,14 +226,12 @@ func extractGPS(fi exiftool.FileMetadata, meta *domain.ImageMetadata, baseName s
 	// Method 3: Try GPSPosition if available
 	if gpsPos, err := fi.GetString("GPSPosition"); err == nil {
 		if lat, lng, ok := parseGPSPosition(gpsPos); ok {
-			meta.GPSLatitude = &lat
-			meta.GPSLongitude = &lng
 			log.Printf("EXIF %s: GPS via GPSPosition: lat=%.8f, lng=%.8f", baseName, lat, lng)
-			return
+			return lat, lng, true
 		}
 	}
 
-	log.Printf("EXIF %s: No GPS data extracted", baseName)
+	return 0, 0, false
 }
 
 // parseGPSString parses GPS coordinate strings in various formats:
@@ -389,7 +401,7 @@ func formatExposureTimeFloat(val float64) string {
 func HasExifData(meta *domain.ImageMetadata) bool {
 	return meta.CameraModel != "" || meta.LensModel != "" || meta.ISO != 0 ||
 		meta.Aperture != "" || meta.ShutterSpeed != "" || meta.FocalLength != "" ||
-		meta.DateTaken != nil || meta.Software != "" || meta.GPSLatitude != nil
+		meta.DateTaken != nil || meta.Software != "" || meta.GeolocationRef != nil
 }
 
 // WriteGPS backs up the original file and writes GPS coordinates to its EXIF metadata.

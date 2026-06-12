@@ -3,6 +3,7 @@ package geocoder
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -44,6 +45,130 @@ func NewNominatimClient(httpClient *http.Client, baseURL string) *NominatimClien
 		httpClient: httpClient,
 		baseURL:    baseURL,
 	}
+}
+
+// ReverseGeocodeResult holds the bilingual location names from a reverse geocode call.
+type ReverseGeocodeResult struct {
+	NameLocal string // Local-language place name (city/town/state from address details)
+	NameEng   string // English display name (from display_name field)
+}
+
+// nominatimReverseJSON is the raw JSON structure returned by Nominatim /reverse.
+type nominatimReverseJSON struct {
+	DisplayName  string            `json:"display_name"`
+	NameDetails  map[string]string `json:"namedetails"`
+	Address      struct {
+		City          string `json:"city"`
+		Town          string `json:"town"`
+		Village       string `json:"village"`
+		State         string `json:"state"`
+		Country       string `json:"country"`
+		Hamlet        string `json:"hamlet"`
+		Municipality  string `json:"municipality"`
+	} `json:"address"`
+}
+
+// ReverseGeocode performs reverse geocoding for the given coordinates.
+// Makes two Nominatim calls: one without language restriction (local names)
+// and one with accept-language=en (English names).
+// Returns a ReverseGeocodeResult with both local and English location names.
+func (n *NominatimClient) ReverseGeocode(lat, lng float64) (*ReverseGeocodeResult, error) {
+	// First call: local language (no accept-language)
+	localRaw, err := n.reverseCall(lat, lng, "")
+	if err != nil {
+		return nil, err
+	}
+
+	nameLocal := extractPlaceName(localRaw)
+
+	// Brief pause between Nominatim requests to be polite
+	time.Sleep(300 * time.Millisecond)
+
+	// Second call: English language
+	engRaw, err := n.reverseCall(lat, lng, "en")
+	if err != nil {
+		// Fallback: use namedetails or display_name from local call
+		nameEng := localRaw.NameDetails["name:en"]
+		if nameEng == "" {
+			nameEng = localRaw.DisplayName
+		}
+		return &ReverseGeocodeResult{
+			NameLocal: nameLocal,
+			NameEng:   nameEng,
+		}, nil
+	}
+
+	nameEng := extractPlaceName(engRaw)
+	if nameEng == "" {
+		nameEng = engRaw.NameDetails["name:en"]
+	}
+	if nameEng == "" {
+		nameEng = engRaw.DisplayName
+	}
+
+	return &ReverseGeocodeResult{
+		NameLocal: nameLocal,
+		NameEng:   nameEng,
+	}, nil
+}
+
+// reverseCall performs a single Nominatim /reverse request.
+// acceptLang sets the Accept-Language header; pass "" for local language.
+func (n *NominatimClient) reverseCall(lat, lng float64, acceptLang string) (*nominatimReverseJSON, error) {
+	reverseURL := fmt.Sprintf("%s/reverse?lat=%f&lon=%f&format=json&zoom=10&addressdetails=1&namedetails=1",
+		n.baseURL, lat, lng)
+
+	req, err := http.NewRequest(http.MethodGet, reverseURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create reverse request: %w", err)
+	}
+	req.Header.Set("User-Agent", "ImageToolkit/1.0 (https://github.com/nicksedov/image-toolkit)")
+	if acceptLang != "" {
+		req.Header.Set("Accept-Language", acceptLang)
+	}
+
+	resp, err := n.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("nominatim reverse request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("nominatim reverse returned status %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read nominatim reverse body: %w", err)
+	}
+
+	var raw nominatimReverseJSON
+	if err := json.Unmarshal(body, &raw); err != nil {
+		return nil, fmt.Errorf("failed to decode nominatim reverse response: %w", err)
+	}
+
+	return &raw, nil
+}
+
+// extractPlaceName builds a place name from address details
+// (city > town > village > hamlet > municipality > state).
+func extractPlaceName(raw *nominatimReverseJSON) string {
+	if raw.Address.City != "" {
+		return raw.Address.City
+	}
+	if raw.Address.Town != "" {
+		return raw.Address.Town
+	}
+	if raw.Address.Village != "" {
+		return raw.Address.Village
+	}
+	if raw.Address.Hamlet != "" {
+		return raw.Address.Hamlet
+	}
+	if raw.Address.Municipality != "" {
+		return raw.Address.Municipality
+	}
+	return raw.Address.State
 }
 
 // Search performs a forward geocoding search and returns up to 10 results.

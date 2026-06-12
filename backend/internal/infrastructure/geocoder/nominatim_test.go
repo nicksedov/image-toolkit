@@ -8,12 +8,9 @@ import (
 
 func TestNominatimSearch_Success(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Verify request headers
 		if ua := r.Header.Get("User-Agent"); ua == "" {
 			t.Error("expected User-Agent header to be set")
 		}
-
-		// Verify query parameters
 		if q := r.URL.Query().Get("q"); q != "Paris" {
 			t.Errorf("expected query 'Paris', got %q", q)
 		}
@@ -95,5 +92,163 @@ func TestNominatimSearch_InvalidJSON(t *testing.T) {
 	_, err := client.Search("test")
 	if err == nil {
 		t.Fatal("expected error for invalid JSON, got nil")
+	}
+}
+
+func TestNominatimReverseGeocode_Success(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/reverse" {
+			t.Errorf("expected path /reverse, got %q", r.URL.Path)
+		}
+		if namedetails := r.URL.Query().Get("namedetails"); namedetails != "1" {
+			t.Errorf("expected namedetails '1', got %q", namedetails)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+
+		// Respond based on Accept-Language header
+		lang := r.Header.Get("Accept-Language")
+		if lang == "en" {
+			w.Write([]byte(`{
+				"display_name": "Moscow, Russia",
+				"namedetails": {"name": "Москва", "name:en": "Moscow", "name:ru": "Москва"},
+				"address": {"city": "Moscow", "state": "Moscow", "country": "Russia"}
+			}`))
+		} else {
+			w.Write([]byte(`{
+				"display_name": "Москва, Россия",
+				"namedetails": {"name": "Москва", "name:en": "Moscow", "name:ru": "Москва"},
+				"address": {"city": "Москва", "state": "Москва", "country": "Россия"}
+			}`))
+		}
+	}))
+	defer server.Close()
+
+	client := NewNominatimClient(server.Client(), server.URL)
+	result, err := client.ReverseGeocode(55.7558, 37.6173)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if result.NameLocal != "Москва" {
+		t.Errorf("expected NameLocal 'Москва', got %q", result.NameLocal)
+	}
+	if result.NameEng != "Moscow" {
+		t.Errorf("expected NameEng 'Moscow', got %q", result.NameEng)
+	}
+}
+
+func TestNominatimReverseGeocode_NoAddress(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		lang := r.Header.Get("Accept-Language")
+		if lang == "en" {
+			w.Write([]byte(`{
+				"display_name": "Middle of Nowhere",
+				"namedetails": {"name": "Middle of Nowhere"},
+				"address": {}
+			}`))
+		} else {
+			w.Write([]byte(`{
+				"display_name": "Посреди нигде",
+				"namedetails": {"name": "Посреди нигде"},
+				"address": {}
+			}`))
+		}
+	}))
+	defer server.Close()
+
+	client := NewNominatimClient(server.Client(), server.URL)
+	result, err := client.ReverseGeocode(0, 0)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if result.NameLocal != "" {
+		t.Errorf("expected empty NameLocal, got %q", result.NameLocal)
+	}
+	// Falls back to display_name when no address and no name:en in namedetails
+	if result.NameEng != "Middle of Nowhere" {
+		t.Errorf("expected NameEng 'Middle of Nowhere', got %q", result.NameEng)
+	}
+}
+
+func TestNominatimReverseGeocode_HTTPError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusServiceUnavailable)
+	}))
+	defer server.Close()
+
+	client := NewNominatimClient(server.Client(), server.URL)
+	_, err := client.ReverseGeocode(55.7558, 37.6173)
+	if err == nil {
+		t.Fatal("expected error for HTTP 503, got nil")
+	}
+}
+
+func TestNominatimReverseGeocode_FallbackToTown(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		lang := r.Header.Get("Accept-Language")
+		if lang == "en" {
+			w.Write([]byte(`{
+				"display_name": "Small Town, Province, Country",
+				"namedetails": {"name": "Small Town", "name:en": "Small Town"},
+				"address": {"town": "Small Town", "state": "Province", "country": "Country"}
+			}`))
+		} else {
+			w.Write([]byte(`{
+				"display_name": "Малый Город, Провинция, Страна",
+				"namedetails": {"name": "Малый Город", "name:en": "Small Town"},
+				"address": {"town": "Малый Город", "state": "Провинция", "country": "Страна"}
+			}`))
+		}
+	}))
+	defer server.Close()
+
+	client := NewNominatimClient(server.Client(), server.URL)
+	result, err := client.ReverseGeocode(45.0, 10.0)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if result.NameLocal != "Малый Город" {
+		t.Errorf("expected NameLocal 'Малый Город', got %q", result.NameLocal)
+	}
+	if result.NameEng != "Small Town" {
+		t.Errorf("expected NameEng 'Small Town', got %q", result.NameEng)
+	}
+}
+
+func TestNominatimReverseGeocode_EnglishCallFails(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		lang := r.Header.Get("Accept-Language")
+		w.Header().Set("Content-Type", "application/json")
+		if lang == "en" {
+			// Second (English) call fails
+			w.WriteHeader(http.StatusServiceUnavailable)
+		} else {
+			// First (local) call succeeds
+			w.Write([]byte(`{
+				"display_name": "Москва, Россия",
+				"namedetails": {"name": "Москва", "name:en": "Moscow"},
+				"address": {"city": "Москва", "country": "Россия"}
+			}`))
+		}
+	}))
+	defer server.Close()
+
+	client := NewNominatimClient(server.Client(), server.URL)
+	result, err := client.ReverseGeocode(55.7558, 37.6173)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if result.NameLocal != "Москва" {
+		t.Errorf("expected NameLocal 'Москва', got %q", result.NameLocal)
+	}
+	// Falls back to namedetails["name:en"] from the local call
+	if result.NameEng != "Moscow" {
+		t.Errorf("expected NameEng 'Moscow' (fallback), got %q", result.NameEng)
 	}
 }

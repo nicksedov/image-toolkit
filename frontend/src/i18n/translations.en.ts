@@ -204,6 +204,8 @@ export const translationsEn = {
   "metadata.colorSpace": "Color Space",
   "metadata.software": "Software",
   "metadata.location": "Location",
+  "metadata.nameLocal": "Local name",
+  "metadata.nameEng": "English name",
   "metadata.coordinates": "Coordinates",
   "metadata.noData": "No metadata available",
   "metadata.loading": "Loading metadata...",

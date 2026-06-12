@@ -61,7 +61,7 @@ export function GeoSearchForm({ imagePath, paths, date, affectedCount, onGpsSave
   }, [imagePath, date])
 
   const handleSelectCandidate = (c: LocationCandidate) => {
-    const label = [c.geoCity, c.geoCountry].filter(Boolean).join(", ")
+    const label = [c.nameLocal, c.nameEng].filter(Boolean).join(", ")
     setSelected({ lat: c.lat, lng: c.lng, label })
     setQuery("")
   }
@@ -98,7 +98,7 @@ export function GeoSearchForm({ imagePath, paths, date, affectedCount, onGpsSave
           <p className="text-[10px] text-muted-foreground mb-1.5">{t("geo.suggestedLocations")}</p>
           <div className="flex flex-wrap gap-1">
             {candidates.map((c, i) => {
-              const label = [c.geoCity, c.geoCountry].filter(Boolean).join(", ")
+              const label = [c.nameLocal, c.nameEng].filter(Boolean).join(", ")
               const coords = `${c.lat.toFixed(2)}, ${c.lng.toFixed(2)}`
               return (
                 <button
