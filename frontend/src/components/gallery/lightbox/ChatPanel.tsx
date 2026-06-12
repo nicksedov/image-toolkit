@@ -236,6 +236,47 @@ function formatNumber(n: number): string {
   return n.toLocaleString()
 }
 
+// Doughnut chart for token usage
+function TokenDoughnut({ percent, size = 22 }: { percent: number; size?: number }) {
+  const stroke = 3
+  const radius = (size - stroke) / 2
+  const circumference = 2 * Math.PI * radius
+  const clamped = Math.min(Math.max(percent, 0), 100)
+  const offset = circumference - (clamped / 100) * circumference
+  const color = percent > 90 ? "#ef4444" : percent > 70 ? "#eab308" : "#22c55e"
+
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox={`0 0 ${size} ${size}`}
+      className="shrink-0 -rotate-90"
+    >
+      <circle
+        cx={size / 2}
+        cy={size / 2}
+        r={radius}
+        fill="none"
+        stroke="currentColor"
+        className="text-muted"
+        strokeWidth={stroke}
+      />
+      <circle
+        cx={size / 2}
+        cy={size / 2}
+        r={radius}
+        fill="none"
+        stroke={color}
+        strokeWidth={stroke}
+        strokeDasharray={circumference}
+        strokeDashoffset={offset}
+        strokeLinecap="round"
+        className="transition-all duration-300"
+      />
+    </svg>
+  )
+}
+
 function formatRelativeTime(dateStr: string): string {
   const now = Date.now()
   const then = new Date(dateStr).getTime()
@@ -358,9 +399,7 @@ export function ChatPanel({
     el.style.height = Math.min(el.scrollHeight, 120) + "px"
   }, [])
 
-  // Token progress bar color
   const tokenPercent = maxTokens > 0 ? (tokenCount / maxTokens) * 100 : 0
-  const tokenBarColor = tokenPercent > 90 ? "bg-red-500" : tokenPercent > 70 ? "bg-yellow-500" : "bg-green-500"
 
   const handleHistorySelect = useCallback((id: number) => {
     setShowHistory(false)
@@ -370,26 +409,19 @@ export function ChatPanel({
   return (
     <div className={className ?? "w-full md:w-[400px] lg:w-[450px] md:min-w-[350px] border-l bg-card h-full shrink-0 flex flex-col"}>
       {/* Header */}
-      <div className="px-4 py-3 border-b shrink-0 space-y-2">
+      <div className="px-4 py-3 shrink-0">
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-2 flex-1 min-w-0">
-            <Sparkles className="h-4 w-4 text-primary shrink-0" />
-            {hasConversation && maxTokens > 0 ? (
-              <div className="flex-1 min-w-0">
-                <div className="text-xs text-muted-foreground">
-                  {formatNumber(tokenCount)} / {formatNumber(maxTokens)} {t("chat.tokens")}
-                </div>
-                <div className="w-full h-1.5 bg-muted rounded-full mt-0.5 overflow-hidden">
-                  <div
-                    className={`h-full rounded-full transition-all duration-300 ${tokenBarColor}`}
-                    style={{ width: `${Math.min(tokenPercent, 100)}%` }}
-                  />
-                </div>
-              </div>
-            ) : (
-              <span className="text-sm font-semibold">{t("chat.title")}</span>
-            )}
-          </div>
+          <Sparkles className="h-4 w-4 text-primary shrink-0" />
+          {hasConversation && maxTokens > 0 ? (
+            <div className="flex items-center gap-1.5 flex-1 min-w-0">
+              <TokenDoughnut percent={tokenPercent} />
+              <span className="text-xs text-muted-foreground tabular-nums whitespace-nowrap">
+                {formatNumber(tokenCount)} / {formatNumber(maxTokens)}
+              </span>
+            </div>
+          ) : (
+            <span className="text-sm font-semibold flex-1 min-w-0">{t("chat.title")}</span>
+          )}
           {hasConversation && (
             <div className="flex gap-1 shrink-0">
               <div className="relative" ref={historyRef}>
@@ -403,7 +435,7 @@ export function ChatPanel({
                   <History className="h-3.5 w-3.5" />
                 </Button>
                 {showHistory && (
-                  <div className="absolute right-0 top-full mt-1 z-50 w-64 max-h-60 overflow-y-auto rounded-md border bg-popover shadow-md">
+                  <div className="absolute right-0 top-full mt-1 z-50 w-64 max-h-60 overflow-y-auto rounded-md border bg-card shadow-lg">
                     {conversations.length === 0 ? (
                       <div className="px-3 py-4 text-xs text-muted-foreground text-center">
                         {t("chat.history_empty")}
