@@ -3,6 +3,7 @@ package agent
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"strings"
 
 	"image-toolkit/internal/domain"
@@ -66,6 +67,15 @@ func (s *ConversationService) ListConversations(userID uint) ([]domain.Conversat
 	return conversations, nil
 }
 
+// ListConversationsByImage returns conversations for a user filtered by image path.
+func (s *ConversationService) ListConversationsByImage(userID uint, imagePath string) ([]domain.Conversation, error) {
+	var conversations []domain.Conversation
+	if err := s.db.Where("user_id = ? AND image_path = ?", userID, imagePath).Order("updated_at DESC").Find(&conversations).Error; err != nil {
+		return nil, fmt.Errorf("failed to list conversations by image: %w", err)
+	}
+	return conversations, nil
+}
+
 // DeleteConversation deletes a conversation and all its messages.
 func (s *ConversationService) DeleteConversation(convID, userID uint) error {
 	// Verify ownership
@@ -85,17 +95,23 @@ func (s *ConversationService) DeleteConversation(convID, userID uint) error {
 	})
 }
 
-// AddMessage adds a message to a conversation and updates the conversation timestamp.
+// AddMessage adds a message to a conversation and updates the conversation timestamp and token count.
 func (s *ConversationService) AddMessage(convID uint, msg domain.ConversationMessage) error {
 	msg.ConversationID = convID
+	// Auto-estimate token count if not provided
+	if msg.TokenCount == 0 && msg.Content != "" {
+		msg.TokenCount = estimateTokens(msg.Content)
+	}
 	if err := s.db.Create(&msg).Error; err != nil {
 		return fmt.Errorf("failed to add message: %w", err)
 	}
 
-	// Update conversation timestamp and title (if first user message)
-	s.db.Model(&domain.Conversation{}).
-		Where("id = ?", convID).
-		Update("updated_at", msg.CreatedAt)
+	// Update conversation timestamp, title (if first user message), and token count
+	updates := map[string]interface{}{
+		"updated_at":  msg.CreatedAt,
+		"token_count": gorm.Expr("token_count + ?", msg.TokenCount),
+	}
+	s.db.Model(&domain.Conversation{}).Where("id = ?", convID).Updates(updates)
 
 	// Auto-generate title from first user message
 	var count int64
@@ -125,19 +141,13 @@ func (s *ConversationService) GetMessages(convID uint) ([]domain.ConversationMes
 	return messages, nil
 }
 
-// CountTokens estimates the total token count across all messages in a conversation.
-// Uses a rough approximation: ~4 chars per token for English, ~2 chars per token for Russian.
+// CountTokens returns the cached token count for a conversation.
 func (s *ConversationService) CountTokens(convID uint) (int, error) {
-	var messages []domain.ConversationMessage
-	if err := s.db.Where("conversation_id = ?", convID).Find(&messages).Error; err != nil {
+	var conv domain.Conversation
+	if err := s.db.Select("token_count").First(&conv, convID).Error; err != nil {
 		return 0, fmt.Errorf("failed to count tokens: %w", err)
 	}
-
-	total := 0
-	for _, msg := range messages {
-		total += estimateTokens(msg.Content)
-	}
-	return total, nil
+	return conv.TokenCount, nil
 }
 
 // SummarizeOlderMessages compresses older messages into a summary to reduce context size.
@@ -208,6 +218,92 @@ func (s *ConversationService) SummarizeOlderMessages(convID uint, keepRecent int
 
 		return nil
 	})
+}
+
+// ResolveModelMaxTokens reads LlmProviderModelCache for the given provider, finds model by name,
+// and returns its ContextLength. Returns 0 if not found/unavailable.
+func (s *ConversationService) ResolveModelMaxTokens(providerAlias, modelName string) int {
+	var cache domain.LlmProviderModelCache
+	if err := s.db.Where("provider_alias = ?", providerAlias).First(&cache).Error; err != nil {
+		return 0
+	}
+
+	var models []llm.ModelInfo
+	if err := json.Unmarshal([]byte(cache.ModelsJSON), &models); err != nil {
+		return 0
+	}
+
+	for _, m := range models {
+		if m.Name == modelName || m.ID == modelName {
+			return m.ContextLength
+		}
+	}
+	return 0
+}
+
+// GenerateDisplaySummary generates an LLM summary for conversation history.
+// Falls back to first user message if fewer than 2 messages.
+func (s *ConversationService) GenerateDisplaySummary(convID uint, chatClient llm.ChatClient) {
+	conv, err := s.GetConversationByID(convID)
+	if err != nil {
+		return
+	}
+	// Skip if already has summary
+	if conv.Summary != "" {
+		return
+	}
+
+	messages, err := s.GetMessages(convID)
+	if err != nil || len(messages) < 2 {
+		// Fallback: use first user message as summary
+		for _, m := range messages {
+			if m.Role == "user" {
+				summary := m.Content
+				if len(summary) > 100 {
+					summary = summary[:100] + "..."
+				}
+				s.db.Model(&domain.Conversation{}).Where("id = ?", convID).Update("summary", summary)
+				return
+			}
+		}
+		return
+	}
+
+	// Build conversation text for summarization
+	var sb strings.Builder
+	for _, m := range messages {
+		if m.Role == "user" || m.Role == "assistant" {
+			fmt.Fprintf(&sb, "[%s]: %s\n", m.Role, m.Content)
+		}
+	}
+
+	resp, err := chatClient.Chat(llm.ChatRequest{
+		Messages: []llm.ChatMessage{
+			{Role: "system", Content: "Generate a brief one-line summary (max 80 chars) of this conversation. Output only the summary text, no quotes."},
+			{Role: "user", Content: sb.String()},
+		},
+	})
+	if err != nil {
+		log.Printf("Failed to generate summary for conversation %d: %v", convID, err)
+		// Fallback to first user message
+		for _, m := range messages {
+			if m.Role == "user" {
+				summary := m.Content
+				if len(summary) > 100 {
+					summary = summary[:100] + "..."
+				}
+				s.db.Model(&domain.Conversation{}).Where("id = ?", convID).Update("summary", summary)
+				return
+			}
+		}
+		return
+	}
+
+	summary := resp.Message.Content
+	if len(summary) > 100 {
+		summary = summary[:100] + "..."
+	}
+	s.db.Model(&domain.Conversation{}).Where("id = ?", convID).Update("summary", summary)
 }
 
 // MessagesToChatMessages converts domain messages to LLM chat messages.

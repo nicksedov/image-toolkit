@@ -4,13 +4,15 @@ import "time"
 
 // Conversation represents a chat dialog session with the AI agent.
 type Conversation struct {
-	ID        uint      `gorm:"primaryKey" json:"id"`
-	UserID    uint      `gorm:"index;not null" json:"userId"`
-	ImagePath string    `json:"imagePath,omitempty"`
-	Title     string    `json:"title"`
-	Language  string    `gorm:"default:en" json:"language"` // UI language code (en, ru)
-	CreatedAt time.Time `json:"createdAt"`
-	UpdatedAt time.Time `json:"updatedAt"`
+	ID         uint      `gorm:"primaryKey" json:"id"`
+	UserID     uint      `gorm:"index;not null" json:"userId"`
+	ImagePath  string    `json:"imagePath,omitempty"`
+	Title      string    `json:"title"`
+	Summary    string    `gorm:"type:text" json:"summary"`
+	TokenCount int       `json:"tokenCount"`
+	Language   string    `gorm:"default:en" json:"language"` // UI language code (en, ru)
+	CreatedAt  time.Time `json:"createdAt"`
+	UpdatedAt  time.Time `json:"updatedAt"`
 }
 
 // ConversationMessage stores individual messages in a conversation.

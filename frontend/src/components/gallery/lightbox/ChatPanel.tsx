@@ -16,8 +16,9 @@ import {
   FileText,
   ScanText,
   Calendar,
+  History,
 } from "lucide-react"
-import type { ChatMessage, ChatToolCallInfo } from "@/types"
+import type { ChatMessage, ChatToolCallInfo, Conversation } from "@/types"
 import type { TranslationKey } from "@/i18n"
 import { OcrMarkdownRenderer } from "./OcrMarkdownRenderer"
 import { fetchThumbnail } from "@/api/endpoints"
@@ -28,10 +29,16 @@ interface ChatPanelProps {
   error: string | null
   hasConversation: boolean
   imagePath: string | null
+  tokenCount: number
+  maxTokens: number
+  isTokenLimitReached: boolean
+  conversations: Conversation[]
+  activeConversationId?: number
   onSendMessage: (content: string) => void
   onAbortStream: () => void
   onNewConversation: () => void
   onDeleteConversation: () => void
+  onLoadConversation: (id: number) => void
   className?: string
 }
 
@@ -225,23 +232,49 @@ function ImageThumbnails({ paths }: { paths: string[] }) {
   )
 }
 
+function formatNumber(n: number): string {
+  return n.toLocaleString()
+}
+
+function formatRelativeTime(dateStr: string): string {
+  const now = Date.now()
+  const then = new Date(dateStr).getTime()
+  const diffMs = now - then
+  const diffMin = Math.floor(diffMs / 60000)
+  if (diffMin < 1) return "just now"
+  if (diffMin < 60) return `${diffMin}m ago`
+  const diffHr = Math.floor(diffMin / 60)
+  if (diffHr < 24) return `${diffHr}h ago`
+  const diffDays = Math.floor(diffHr / 24)
+  if (diffDays < 30) return `${diffDays}d ago`
+  return new Date(dateStr).toLocaleDateString()
+}
+
 export function ChatPanel({
   messages,
   isStreaming,
   error,
   hasConversation,
   imagePath,
+  tokenCount,
+  maxTokens,
+  isTokenLimitReached,
+  conversations,
+  activeConversationId,
   onSendMessage,
   onAbortStream,
   onNewConversation,
   onDeleteConversation,
+  onLoadConversation,
   className,
 }: ChatPanelProps) {
   const { t } = useTranslation()
   const [input, setInput] = useState("")
+  const [showHistory, setShowHistory] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const historyRef = useRef<HTMLDivElement>(null)
 
   const suggestions: Suggestion[] = [
     {
@@ -266,6 +299,18 @@ export function ChatPanel({
     },
   ]
 
+  // Close history dropdown on outside click
+  useEffect(() => {
+    if (!showHistory) return
+    const handler = (e: MouseEvent) => {
+      if (historyRef.current && !historyRef.current.contains(e.target as Node)) {
+        setShowHistory(false)
+      }
+    }
+    document.addEventListener("mousedown", handler)
+    return () => document.removeEventListener("mousedown", handler)
+  }, [showHistory])
+
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     if (messagesEndRef.current) {
@@ -282,10 +327,10 @@ export function ChatPanel({
 
   const handleSend = useCallback(() => {
     const trimmed = input.trim()
-    if (!trimmed || isStreaming) return
+    if (!trimmed || isStreaming || isTokenLimitReached) return
     onSendMessage(trimmed)
     setInput("")
-  }, [input, isStreaming, onSendMessage])
+  }, [input, isStreaming, isTokenLimitReached, onSendMessage])
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -299,10 +344,10 @@ export function ChatPanel({
 
   const handleSuggestionClick = useCallback(
     (suggestion: Suggestion) => {
-      if (isStreaming) return
+      if (isStreaming || isTokenLimitReached) return
       onSendMessage(t(suggestion.messageKey))
     },
-    [isStreaming, onSendMessage, t],
+    [isStreaming, isTokenLimitReached, onSendMessage, t],
   )
 
   // Auto-resize textarea
@@ -313,15 +358,78 @@ export function ChatPanel({
     el.style.height = Math.min(el.scrollHeight, 120) + "px"
   }, [])
 
+  // Token progress bar color
+  const tokenPercent = maxTokens > 0 ? (tokenCount / maxTokens) * 100 : 0
+  const tokenBarColor = tokenPercent > 90 ? "bg-red-500" : tokenPercent > 70 ? "bg-yellow-500" : "bg-green-500"
+
+  const handleHistorySelect = useCallback((id: number) => {
+    setShowHistory(false)
+    onLoadConversation(id)
+  }, [onLoadConversation])
+
   return (
     <div className={className ?? "w-full md:w-[400px] lg:w-[450px] md:min-w-[350px] border-l bg-card h-full shrink-0 flex flex-col"}>
       {/* Header */}
-      <div className="flex items-center gap-2 px-4 py-3 border-b shrink-0">
+      <div className="px-4 py-3 border-b shrink-0 space-y-2">
         <div className="flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-primary shrink-0" />
-          <span className="text-sm font-semibold">{t("chat.title")}</span>
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <Sparkles className="h-4 w-4 text-primary shrink-0" />
+            {hasConversation && maxTokens > 0 ? (
+              <div className="flex-1 min-w-0">
+                <div className="text-xs text-muted-foreground">
+                  {formatNumber(tokenCount)} / {formatNumber(maxTokens)} {t("chat.tokens")}
+                </div>
+                <div className="w-full h-1.5 bg-muted rounded-full mt-0.5 overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all duration-300 ${tokenBarColor}`}
+                    style={{ width: `${Math.min(tokenPercent, 100)}%` }}
+                  />
+                </div>
+              </div>
+            ) : (
+              <span className="text-sm font-semibold">{t("chat.title")}</span>
+            )}
+          </div>
           {hasConversation && (
-            <div className="flex gap-1 ml-1">
+            <div className="flex gap-1 shrink-0">
+              <div className="relative" ref={historyRef}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 w-7 p-0"
+                  onClick={() => setShowHistory(!showHistory)}
+                  title={t("chat.history")}
+                >
+                  <History className="h-3.5 w-3.5" />
+                </Button>
+                {showHistory && (
+                  <div className="absolute right-0 top-full mt-1 z-50 w-64 max-h-60 overflow-y-auto rounded-md border bg-popover shadow-md">
+                    {conversations.length === 0 ? (
+                      <div className="px-3 py-4 text-xs text-muted-foreground text-center">
+                        {t("chat.history_empty")}
+                      </div>
+                    ) : (
+                      conversations.map(c => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          className={`w-full text-left px-3 py-2 text-xs hover:bg-muted/50 transition-colors border-b border-border/30 last:border-0 ${
+                            c.id === activeConversationId ? "bg-primary/10" : ""
+                          }`}
+                          onClick={() => handleHistorySelect(c.id)}
+                        >
+                          <div className="font-medium truncate">
+                            {c.summary || c.title}
+                          </div>
+                          <div className="text-muted-foreground mt-0.5">
+                            {formatRelativeTime(c.updatedAt)}
+                          </div>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
               <Button
                 variant="ghost"
                 size="sm"
@@ -344,6 +452,14 @@ export function ChatPanel({
           )}
         </div>
       </div>
+
+      {/* Token exhaustion banner */}
+      {hasConversation && isTokenLimitReached && (
+        <div className="flex items-start gap-2 px-4 py-2 bg-destructive/10 text-destructive text-xs shrink-0">
+          <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+          <span className="flex-1">{t("chat.tokens_exhausted")}</span>
+        </div>
+      )}
 
       {/* Messages area */}
       <div
@@ -435,7 +551,7 @@ export function ChatPanel({
               placeholder={t("chat.placeholder")}
               rows={1}
               className="flex-1 resize-none rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-              disabled={isStreaming}
+              disabled={isStreaming || isTokenLimitReached}
               style={{ maxHeight: 120 }}
             />
             {isStreaming ? (
@@ -452,7 +568,7 @@ export function ChatPanel({
                 size="sm"
                 className="shrink-0 h-9 w-9 p-0"
                 onClick={handleSend}
-                disabled={!input.trim()}
+                disabled={!input.trim() || isTokenLimitReached}
               >
                 <Send className="h-3.5 w-3.5" />
               </Button>

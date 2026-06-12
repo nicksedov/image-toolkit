@@ -712,4 +712,8 @@ export const translationsRu = {
   "chat.tool_search_by_path": "Поиск по пути",
   "chat.tool_get_image_metadata": "Метаданные изображения",
   "chat.error_send": "Не удалось отправить сообщение",
+  "chat.tokens": "токенов",
+  "chat.history": "История",
+  "chat.history_empty": "Нет предыдущих диалогов для этого изображения",
+  "chat.tokens_exhausted": "Достигнут лимит токенов. Начните новый диалог, чтобы продолжить.",
  } as const

@@ -386,6 +386,153 @@ func TestSummarizeOlderMessages_NothingToSummarize(t *testing.T) {
 	}
 }
 
+func TestListConversationsByImage(t *testing.T) {
+	db, cleanup := testutil.NewTestDB(t)
+	defer cleanup()
+
+	svc := NewConversationService(db)
+	svc.CreateConversation(1, "/img1.jpg", "en")
+	svc.CreateConversation(1, "/img1.jpg", "en")
+	svc.CreateConversation(1, "/img2.jpg", "en")
+	svc.CreateConversation(2, "/img1.jpg", "en")
+
+	list, err := svc.ListConversationsByImage(1, "/img1.jpg")
+	if err != nil {
+		t.Fatalf("ListConversationsByImage failed: %v", err)
+	}
+	if len(list) != 2 {
+		t.Errorf("expected 2 conversations, got %d", len(list))
+	}
+
+	list2, _ := svc.ListConversationsByImage(2, "/img1.jpg")
+	if len(list2) != 1 {
+		t.Errorf("expected 1 conversation for user 2, got %d", len(list2))
+	}
+
+	list3, _ := svc.ListConversationsByImage(1, "/nonexistent.jpg")
+	if len(list3) != 0 {
+		t.Errorf("expected 0 conversations, got %d", len(list3))
+	}
+}
+
+func TestAddMessage_TokenIncrement(t *testing.T) {
+	db, cleanup := testutil.NewTestDB(t)
+	defer cleanup()
+
+	svc := NewConversationService(db)
+	conv, _ := svc.CreateConversation(1, "/img.jpg", "en")
+
+	// Initial token count should be 0
+	got, _ := svc.GetConversationByID(conv.ID)
+	if got.TokenCount != 0 {
+		t.Errorf("expected initial TokenCount=0, got %d", got.TokenCount)
+	}
+
+	// Add a message with known token count
+	svc.AddMessage(conv.ID, domain.ConversationMessage{
+		Role:       "user",
+		Content:    "hello world",
+		TokenCount: 5,
+	})
+
+	got, _ = svc.GetConversationByID(conv.ID)
+	if got.TokenCount != 5 {
+		t.Errorf("expected TokenCount=5 after first message, got %d", got.TokenCount)
+	}
+
+	// Add another message
+	svc.AddMessage(conv.ID, domain.ConversationMessage{
+		Role:       "assistant",
+		Content:    "hi there, how can I help you today?",
+		TokenCount: 10,
+	})
+
+	got, _ = svc.GetConversationByID(conv.ID)
+	if got.TokenCount != 15 {
+		t.Errorf("expected TokenCount=15 after second message, got %d", got.TokenCount)
+	}
+}
+
+func TestResolveModelMaxTokens(t *testing.T) {
+	db, cleanup := testutil.NewTestDB(t)
+	defer cleanup()
+
+	svc := NewConversationService(db)
+
+	// Insert a model cache entry with context length
+	modelsJSON := `[{"id":"llama3:latest","name":"llama3:latest","size":4000000000,"contextLength":8192},{"id":"mistral:latest","name":"mistral:latest","size":3000000000,"contextLength":32768}]`
+	cache := domain.LlmProviderModelCache{
+		ProviderAlias: "ollama_1",
+		ModelsJSON:    modelsJSON,
+	}
+	db.Create(&cache)
+
+	// Found model
+	maxTokens := svc.ResolveModelMaxTokens("ollama_1", "llama3:latest")
+	if maxTokens != 8192 {
+		t.Errorf("expected 8192, got %d", maxTokens)
+	}
+
+	maxTokens2 := svc.ResolveModelMaxTokens("ollama_1", "mistral:latest")
+	if maxTokens2 != 32768 {
+		t.Errorf("expected 32768, got %d", maxTokens2)
+	}
+
+	// Unknown model
+	maxTokens3 := svc.ResolveModelMaxTokens("ollama_1", "unknown:model")
+	if maxTokens3 != 0 {
+		t.Errorf("expected 0 for unknown model, got %d", maxTokens3)
+	}
+
+	// Unknown provider
+	maxTokens4 := svc.ResolveModelMaxTokens("nonexistent", "llama3:latest")
+	if maxTokens4 != 0 {
+		t.Errorf("expected 0 for unknown provider, got %d", maxTokens4)
+	}
+}
+
+func TestGenerateDisplaySummary_FallbackToFirstMessage(t *testing.T) {
+	db, cleanup := testutil.NewTestDB(t)
+	defer cleanup()
+
+	svc := NewConversationService(db)
+	conv, _ := svc.CreateConversation(1, "/img.jpg", "en")
+
+	// Add only 1 user message (fewer than 2)
+	svc.AddMessage(conv.ID, domain.ConversationMessage{
+		Role:       "user",
+		Content:    "What is in this photo?",
+		TokenCount: 5,
+	})
+
+	mock := &mockChatClient{}
+	svc.GenerateDisplaySummary(conv.ID, mock)
+
+	got, _ := svc.GetConversationByID(conv.ID)
+	if got.Summary != "What is in this photo?" {
+		t.Errorf("expected fallback summary, got %q", got.Summary)
+	}
+}
+
+func TestGenerateDisplaySummary_SkipsIfAlreadyHasSummary(t *testing.T) {
+	db, cleanup := testutil.NewTestDB(t)
+	defer cleanup()
+
+	svc := NewConversationService(db)
+	conv, _ := svc.CreateConversation(1, "/img.jpg", "en")
+
+	// Set existing summary
+	db.Model(&domain.Conversation{}).Where("id = ?", conv.ID).Update("summary", "Existing summary")
+
+	mock := &mockChatClient{}
+	svc.GenerateDisplaySummary(conv.ID, mock)
+
+	got, _ := svc.GetConversationByID(conv.ID)
+	if got.Summary != "Existing summary" {
+		t.Errorf("expected existing summary to be preserved, got %q", got.Summary)
+	}
+}
+
 // Ensure json.RawMessage tool call arguments survive the round-trip
 func TestToolCallsJSON_RoundTrip(t *testing.T) {
 	args := json.RawMessage(`{"image_path":"/test.jpg","language":"en"}`)

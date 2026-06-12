@@ -622,4 +622,8 @@ export const translationsEn = {
   "chat.tool_search_by_path": "Search by path",
   "chat.tool_get_image_metadata": "Image metadata",
   "chat.error_send": "Failed to send message",
+  "chat.tokens": "tokens",
+  "chat.history": "History",
+  "chat.history_empty": "No previous conversations for this image",
+  "chat.tokens_exhausted": "Token limit reached. Start a new conversation to continue.",
  } as const

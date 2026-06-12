@@ -12,15 +12,17 @@ import (
 
 // AgentConfig holds agent configuration.
 type AgentConfig struct {
-	MaxTokens     int // Token threshold for summarization (default 8000)
-	MaxToolRounds int // Maximum tool-use iterations per message (default 10)
+	MaxTokens              int // Token threshold for summarization (default 8000)
+	MaxToolRounds          int // Maximum tool-use iterations per message (default 10)
+	MaxConversationTokens  int // Max tokens per conversation before exhaustion (default 128000)
 }
 
 // DefaultAgentConfig returns sensible defaults.
 func DefaultAgentConfig() AgentConfig {
 	return AgentConfig{
-		MaxTokens:     8000,
-		MaxToolRounds: 10,
+		MaxTokens:             8000,
+		MaxToolRounds:         10,
+		MaxConversationTokens: 128000,
 	}
 }
 
@@ -39,12 +41,14 @@ type AgentResponse struct {
 
 // ToolEvent represents a real-time tool execution event streamed to the frontend.
 type ToolEvent struct {
-	Type   string `json:"type"` // "tool_call", "tool_result", "message", "error", "done"
-	Name   string `json:"name,omitempty"`
-	Status string `json:"status,omitempty"`
-	Result string `json:"result,omitempty"`
-	Content string `json:"content,omitempty"`
-	Error   string `json:"error,omitempty"`
+	Type       string `json:"type"` // "tool_call", "tool_result", "message", "error", "done", "token_usage"
+	Name       string `json:"name,omitempty"`
+	Status     string `json:"status,omitempty"`
+	Result     string `json:"result,omitempty"`
+	Content    string `json:"content,omitempty"`
+	Error      string `json:"error,omitempty"`
+	TokenCount int    `json:"tokenCount,omitempty"`
+	MaxTokens  int    `json:"maxTokens,omitempty"`
 }
 
 // ToolEventHandler is called during agent execution to stream events.
@@ -75,7 +79,28 @@ func NewAgent(convService *ConversationService, toolProvider ToolProvider, confi
 
 // ProcessMessage handles a user message, runs the agent loop, and returns the assistant response.
 // If eventHandler is non-nil, it receives real-time events during processing.
-func (a *Agent) ProcessMessage(ctx context.Context, convID uint, userMessage string, chatClient llm.ChatClient, eventHandler ToolEventHandler) (*AgentResponse, error) {
+// maxTokens: 0 = use config default; >0 = override max tokens for this call.
+func (a *Agent) ProcessMessage(ctx context.Context, convID uint, userMessage string, chatClient llm.ChatClient, eventHandler ToolEventHandler, maxTokens int) (*AgentResponse, error) {
+	// Resolve effective max tokens
+	effectiveMax := a.config.MaxConversationTokens
+	if maxTokens > 0 {
+		effectiveMax = maxTokens
+	}
+
+	// Check token exhaustion before processing
+	conv, err := a.conversationService.GetConversationByID(convID)
+	if err != nil {
+		return nil, fmt.Errorf("conversation not found: %w", err)
+	}
+	if effectiveMax > 0 && conv.TokenCount >= effectiveMax {
+		if eventHandler != nil {
+			eventHandler(ToolEvent{Type: "error", Error: "Token limit reached. Start a new conversation to continue."})
+			eventHandler(ToolEvent{Type: "token_usage", TokenCount: conv.TokenCount, MaxTokens: effectiveMax})
+			eventHandler(ToolEvent{Type: "done"})
+		}
+		return &AgentResponse{Message: "Token limit reached."}, nil
+	}
+
 	// Save user message
 	userMsg := domain.ConversationMessage{
 		Role:       "user",
@@ -86,8 +111,8 @@ func (a *Agent) ProcessMessage(ctx context.Context, convID uint, userMessage str
 		return nil, fmt.Errorf("failed to save user message: %w", err)
 	}
 
-	// Get conversation context
-	conv, err := a.conversationService.GetConversationByID(convID)
+	// Reload conversation to get updated context
+	conv, err = a.conversationService.GetConversationByID(convID)
 	if err != nil {
 		return nil, fmt.Errorf("conversation not found: %w", err)
 	}
@@ -138,11 +163,17 @@ func (a *Agent) ProcessMessage(ctx context.Context, convID uint, userMessage str
 
 			if eventHandler != nil {
 				eventHandler(ToolEvent{Type: "message", Content: resp.Message.Content})
+				// Emit token usage event
+				tokenCount, _ := a.conversationService.CountTokens(convID)
+				eventHandler(ToolEvent{Type: "token_usage", TokenCount: tokenCount, MaxTokens: effectiveMax})
 				eventHandler(ToolEvent{Type: "done"})
 			}
 
 			// Check token threshold and summarize if needed
 			a.maybeSummarize(convID, chatClient)
+
+			// Trigger summary generation in background if needed
+			a.maybeGenerateSummary(convID, chatClient)
 
 			return &AgentResponse{
 				Message:   resp.Message.Content,
@@ -221,8 +252,13 @@ func (a *Agent) ProcessMessage(ctx context.Context, convID uint, userMessage str
 	fallbackMsg := "I've reached the maximum number of tool invocations. Here's what I found so far."
 	if eventHandler != nil {
 		eventHandler(ToolEvent{Type: "message", Content: fallbackMsg})
+		tokenCount, _ := a.conversationService.CountTokens(convID)
+		eventHandler(ToolEvent{Type: "token_usage", TokenCount: tokenCount, MaxTokens: effectiveMax})
 		eventHandler(ToolEvent{Type: "done"})
 	}
+
+	// Trigger summary generation in background if needed
+	a.maybeGenerateSummary(convID, chatClient)
 
 	return &AgentResponse{
 		Message:   fallbackMsg,
@@ -278,5 +314,29 @@ func (a *Agent) maybeSummarize(convID uint, chatClient llm.ChatClient) {
 		if err := a.conversationService.SummarizeOlderMessages(convID, 6, chatClient); err != nil {
 			log.Printf("Failed to summarize conversation %d: %v", convID, err)
 		}
+	}
+}
+
+// maybeGenerateSummary triggers summary generation in a goroutine if summary is empty
+// and there are at least 2 user messages.
+func (a *Agent) maybeGenerateSummary(convID uint, chatClient llm.ChatClient) {
+	conv, err := a.conversationService.GetConversationByID(convID)
+	if err != nil || conv.Summary != "" {
+		return
+	}
+
+	// Count user messages
+	messages, err := a.conversationService.GetMessages(convID)
+	if err != nil {
+		return
+	}
+	userMsgCount := 0
+	for _, m := range messages {
+		if m.Role == "user" {
+			userMsgCount++
+		}
+	}
+	if userMsgCount >= 2 {
+		go a.conversationService.GenerateDisplaySummary(convID, chatClient)
 	}
 }

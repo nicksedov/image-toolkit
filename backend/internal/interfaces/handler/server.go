@@ -46,11 +46,12 @@ type Server struct {
 	nominatim           *geocoder.NominatimClient
 	mcpServer           *mcpserver.ImageToolkitMCPServer
 	agent               *agent.Agent
+	agentConfig         agent.AgentConfig
 	conversationService *agent.ConversationService
 }
 
 // NewServer creates a new server instance
-func NewServer(db *gorm.DB, scanManager *imaging.ScanManager, ocrManager *imaging.OcrManager, llmOcrService *imaging.LlmOcrService, backgroundSync *imaging.BackgroundSyncManager, tagScanManager *imaging.TagScanManager, thumbnailService *thumbnail.Service, cfg *config.AppConfig, geolocationService *geocoder.GeolocationService, nominatimClient *geocoder.NominatimClient, mcpSrv *mcpserver.ImageToolkitMCPServer, ag *agent.Agent, convService *agent.ConversationService) *Server {
+func NewServer(db *gorm.DB, scanManager *imaging.ScanManager, ocrManager *imaging.OcrManager, llmOcrService *imaging.LlmOcrService, backgroundSync *imaging.BackgroundSyncManager, tagScanManager *imaging.TagScanManager, thumbnailService *thumbnail.Service, cfg *config.AppConfig, geolocationService *geocoder.GeolocationService, nominatimClient *geocoder.NominatimClient, mcpSrv *mcpserver.ImageToolkitMCPServer, ag *agent.Agent, agCfg agent.AgentConfig, convService *agent.ConversationService) *Server {
 	var ocrClient ocr.Client
 	if cfg.OCREnabled {
 		ocrClient = ocr.NewClient(cfg.OCRHost, cfg.OCRPort)
@@ -79,6 +80,7 @@ func NewServer(db *gorm.DB, scanManager *imaging.ScanManager, ocrManager *imagin
 		nominatim:           nominatimClient,
 		mcpServer:           mcpSrv,
 		agent:               ag,
+		agentConfig:         agCfg,
 		conversationService: convService,
 	}
 	s.thumbnailBatch = helpers.NewThumbnailBatch(thumbnailService, s.thumbnailCache)

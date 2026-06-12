@@ -77,10 +77,16 @@ export function UnifiedLightbox({
   // AI Chat state
   const {
     conversation,
+    conversations,
     messages,
     isStreaming,
     error: chatError,
+    tokenCount,
+    maxTokens,
+    isTokenLimitReached,
     createNewConversation,
+    loadConversation,
+    loadConversations,
     removeConversation,
     sendMessage,
     abortStream,
@@ -92,6 +98,13 @@ export function UnifiedLightbox({
     }
   }, [imagePath, activeMode, conversation, createNewConversation])
 
+  // Load conversations for the current image when lightbox opens
+  useEffect(() => {
+    if (imagePath && activeMode === "ai") {
+      loadConversations(imagePath)
+    }
+  }, [imagePath, activeMode, loadConversations])
+
   const handleNewConversation = useCallback(() => {
     createNewConversation(imagePath || undefined)
   }, [imagePath, createNewConversation])
@@ -101,6 +114,10 @@ export function UnifiedLightbox({
       removeConversation(conversation.id)
     }
   }, [conversation, removeConversation])
+
+  const handleLoadConversation = useCallback((id: number) => {
+    loadConversation(id)
+  }, [loadConversation])
 
   // EXIF metadata state
   const { metadata, isLoading: metadataLoading, reload: reloadMetadata } = useImageMetadata(
@@ -191,10 +208,16 @@ export function UnifiedLightbox({
                 error={chatError}
                 hasConversation={conversation !== null}
                 imagePath={imagePath}
+                tokenCount={tokenCount}
+                maxTokens={maxTokens}
+                isTokenLimitReached={isTokenLimitReached}
+                conversations={conversations}
+                activeConversationId={conversation?.id}
                 onSendMessage={sendMessage}
                 onAbortStream={abortStream}
                 onNewConversation={handleNewConversation}
                 onDeleteConversation={handleDeleteConversation}
+                onLoadConversation={handleLoadConversation}
               />
             )}
             {activeMode === "exif" && (
@@ -234,10 +257,16 @@ function ChatPanelContent(props: {
   error: string | null
   hasConversation: boolean
   imagePath: string | null
+  tokenCount: number
+  maxTokens: number
+  isTokenLimitReached: boolean
+  conversations: import("@/types").Conversation[]
+  activeConversationId?: number
   onSendMessage: (content: string) => void
   onAbortStream: () => void
   onNewConversation: () => void
   onDeleteConversation: () => void
+  onLoadConversation: (id: number) => void
 }) {
   return (
     <ChatPanel

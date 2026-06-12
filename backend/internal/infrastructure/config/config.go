@@ -46,6 +46,9 @@ type AppConfig struct {
 
 	// VL LLM configuration
 	LlmMaxImageMegapixels float64
+
+	// Agent configuration
+	AgentMaxConversationTokens int
 }
 
 // LoadConfig reads configuration from environment variables
@@ -89,6 +92,7 @@ func LoadConfig() *AppConfig {
 		ThumbnailCachePreloadOnScan: getEnv("THUMBNAIL_CACHE_PRELOAD_ON_SCAN", "true") == "true",
 		BackgroundSyncEnabled:       getEnv("BACKGROUND_SYNC_ENABLED", "true") == "true",
 		LlmMaxImageMegapixels:       getEnvFloat("LLM_MAX_IMAGE_MEGAPIXELS", 3.6),
+		AgentMaxConversationTokens:  getEnvInt("AGENT_MAX_CONVERSATION_TOKENS", 128000),
 	}
 }
 
