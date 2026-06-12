@@ -84,26 +84,38 @@ export function UnifiedLightbox({
     tokenCount,
     maxTokens,
     isTokenLimitReached,
+    currentImagePath,
     createNewConversation,
     loadConversation,
     loadConversations,
     removeConversation,
     sendMessage,
     abortStream,
+    resetForImage,
   } = useChatAgent(language)
 
+  // Reset conversation state and load/create when image changes
   useEffect(() => {
-    if (imagePath && activeMode === "ai" && !conversation) {
-      createNewConversation(imagePath)
-    }
-  }, [imagePath, activeMode, conversation, createNewConversation])
+    if (!imagePath || activeMode !== "ai") return
+    if (imagePath === currentImagePath && conversation) return // Already loaded for this image
 
-  // Load conversations for the current image when lightbox opens
+    // Reset state for new image
+    resetForImage(imagePath)
+
+    // Load existing conversations for this image
+    loadConversations(imagePath)
+  }, [imagePath, activeMode, currentImagePath, conversation, resetForImage, loadConversations])
+
+  // Create new conversation if none exists for current image
   useEffect(() => {
-    if (imagePath && activeMode === "ai") {
-      loadConversations(imagePath)
-    }
-  }, [imagePath, activeMode, loadConversations])
+    if (!imagePath || activeMode !== "ai") return
+    if (currentImagePath !== imagePath) return // Wait for reset to complete
+    if (conversation) return // Already have a conversation
+    if (conversations.length > 0) return // User can select from history
+
+    // No conversations for this image - create a new one
+    createNewConversation(imagePath)
+  }, [imagePath, activeMode, currentImagePath, conversation, conversations.length, createNewConversation])
 
   const handleNewConversation = useCallback(() => {
     createNewConversation(imagePath || undefined)

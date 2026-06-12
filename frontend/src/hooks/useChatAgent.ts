@@ -17,12 +17,14 @@ interface UseChatAgentReturn {
   tokenCount: number
   maxTokens: number
   isTokenLimitReached: boolean
+  currentImagePath: string | null
   createNewConversation: (imagePath?: string) => Promise<void>
   loadConversation: (id: number) => Promise<void>
   loadConversations: (imagePath?: string) => Promise<void>
   removeConversation: (id: number) => Promise<void>
   sendMessage: (content: string) => void
   abortStream: () => void
+  resetForImage: (imagePath: string) => void
 }
 
 export function useChatAgent(language: string = "en"): UseChatAgentReturn {
@@ -31,6 +33,7 @@ export function useChatAgent(language: string = "en"): UseChatAgentReturn {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [isStreaming, setIsStreaming] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [currentImagePath, setCurrentImagePath] = useState<string | null>(null)
   const abortRef = useRef<AbortController | null>(null)
 
   const tokenCount = conversation?.tokenCount ?? 0
@@ -43,6 +46,7 @@ export function useChatAgent(language: string = "en"): UseChatAgentReturn {
       setConversation(conv)
       setMessages([])
       setError(null)
+      setCurrentImagePath(imagePath ?? null)
       // Refresh conversations list
       const list = await fetchConversations(imagePath)
       setConversations(list)
@@ -55,6 +59,7 @@ export function useChatAgent(language: string = "en"): UseChatAgentReturn {
     try {
       const list = await fetchConversations(imagePath)
       setConversations(list)
+      setCurrentImagePath(imagePath ?? null)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load conversations")
     }
@@ -62,7 +67,7 @@ export function useChatAgent(language: string = "en"): UseChatAgentReturn {
 
   const loadConversation = useCallback(async (id: number) => {
     try {
-      const list = await fetchConversations()
+      const list = await fetchConversations(currentImagePath ?? undefined)
       const conv = list.find(c => c.id === id)
       if (conv) {
         setConversation(conv)
@@ -74,7 +79,7 @@ export function useChatAgent(language: string = "en"): UseChatAgentReturn {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load conversation")
     }
-  }, [])
+  }, [currentImagePath])
 
   const removeConversation = useCallback(async (id: number) => {
     try {
@@ -84,12 +89,12 @@ export function useChatAgent(language: string = "en"): UseChatAgentReturn {
         setMessages([])
       }
       // Refresh conversations list
-      const list = await fetchConversations()
+      const list = await fetchConversations(currentImagePath ?? undefined)
       setConversations(list)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to delete conversation")
     }
-  }, [conversation])
+  }, [conversation, currentImagePath])
 
   const abortStream = useCallback(() => {
     if (abortRef.current) {
@@ -97,6 +102,13 @@ export function useChatAgent(language: string = "en"): UseChatAgentReturn {
       abortRef.current = null
       setIsStreaming(false)
     }
+  }, [])
+
+  const resetForImage = useCallback((imagePath: string) => {
+    setConversation(null)
+    setMessages([])
+    setError(null)
+    setCurrentImagePath(imagePath)
   }, [])
 
   const sendMessage = useCallback((content: string) => {
@@ -252,11 +264,13 @@ export function useChatAgent(language: string = "en"): UseChatAgentReturn {
     tokenCount,
     maxTokens,
     isTokenLimitReached,
+    currentImagePath,
     createNewConversation,
     loadConversation,
     loadConversations,
     removeConversation,
     sendMessage,
     abortStream,
+    resetForImage,
   }
 }
