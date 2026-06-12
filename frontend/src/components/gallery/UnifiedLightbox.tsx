@@ -42,11 +42,22 @@ export function UnifiedLightbox({
 }: UnifiedLightboxProps) {
   const { t, language } = useTranslation()
   const [activeMode, setActiveMode] = useState<LightboxMode>(initialMode)
+  const [internalShowGeoForm, setInternalShowGeoForm] = useState(false)
+  const isGeoFormVisible = showGeoForm ?? internalShowGeoForm
+
+  const handleShowGeoForm = useCallback((show: boolean) => {
+    if (onShowGeoFormChange) {
+      onShowGeoFormChange(show)
+    } else {
+      setInternalShowGeoForm(show)
+    }
+  }, [onShowGeoFormChange])
 
   // Reset mode when lightbox opens
   useEffect(() => {
     if (imagePath) {
       setActiveMode(initialMode)
+      setInternalShowGeoForm(false)
     }
   }, [imagePath, initialMode])
 
@@ -98,8 +109,8 @@ export function UnifiedLightbox({
 
   const handleGpsSaved = useCallback(() => {
     reloadMetadata()
-    onShowGeoFormChange?.(false)
-  }, [reloadMetadata, onShowGeoFormChange])
+    handleShowGeoForm(false)
+  }, [reloadMetadata, handleShowGeoForm])
 
   // URLs
   const standardImageUrl = imagePath ? buildImageUrl(imagePath, "/api/image") : ""
@@ -107,6 +118,7 @@ export function UnifiedLightbox({
   const handleClose = useCallback(() => {
     abortStream()
     resetOcr()
+    setInternalShowGeoForm(false)
     onClose()
   }, [abortStream, resetOcr, onClose])
 
@@ -190,8 +202,8 @@ export function UnifiedLightbox({
                 metadata={metadata}
                 isLoading={metadataLoading}
                 imagePath={imagePath}
-                showGeoForm={showGeoForm ?? false}
-                onShowGeoForm={() => onShowGeoFormChange?.(true)}
+                showGeoForm={isGeoFormVisible}
+                onShowGeoForm={() => handleShowGeoForm(true)}
                 onGpsSaved={handleGpsSaved}
               />
             )}
@@ -395,7 +407,7 @@ function MetadataContent({ metadata, imagePath, showGeoForm, onShowGeoForm, onGp
             </div>
             <Button
               type="button"
-              variant="ghost"
+              variant="outline"
               size="sm"
               className="w-full text-xs mt-2"
               onClick={onShowGeoForm}
