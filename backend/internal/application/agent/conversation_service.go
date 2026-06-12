@@ -58,19 +58,20 @@ func (s *ConversationService) GetConversationByID(convID uint) (*domain.Conversa
 	return &conv, nil
 }
 
-// ListConversations returns all conversations for a user, ordered by most recent.
+// ListConversations returns all conversations for a user that have at least one message, ordered by most recent.
 func (s *ConversationService) ListConversations(userID uint) ([]domain.Conversation, error) {
 	var conversations []domain.Conversation
-	if err := s.db.Where("user_id = ?", userID).Order("updated_at DESC").Find(&conversations).Error; err != nil {
+	if err := s.db.Where("user_id = ? AND token_count > 0", userID).Order("updated_at DESC").Find(&conversations).Error; err != nil {
 		return nil, fmt.Errorf("failed to list conversations: %w", err)
 	}
 	return conversations, nil
 }
 
 // ListConversationsByImage returns conversations for a user filtered by image path.
+// Only returns conversations that have at least one message.
 func (s *ConversationService) ListConversationsByImage(userID uint, imagePath string) ([]domain.Conversation, error) {
 	var conversations []domain.Conversation
-	if err := s.db.Where("user_id = ? AND image_path = ?", userID, imagePath).Order("updated_at DESC").Find(&conversations).Error; err != nil {
+	if err := s.db.Where("user_id = ? AND image_path = ? AND token_count > 0", userID, imagePath).Order("updated_at DESC").Find(&conversations).Error; err != nil {
 		return nil, fmt.Errorf("failed to list conversations by image: %w", err)
 	}
 	return conversations, nil
@@ -130,6 +131,13 @@ func (s *ConversationService) AddMessage(convID uint, msg domain.ConversationMes
 	}
 
 	return nil
+}
+
+// CleanupEmptyConversations deletes conversations with no messages for a given user and image path.
+// Used to prevent accumulating empty conversation rows when the user opens the chat panel.
+func (s *ConversationService) CleanupEmptyConversations(userID uint, imagePath string) {
+	s.db.Where("user_id = ? AND image_path = ? AND token_count = 0", userID, imagePath).
+		Delete(&domain.Conversation{})
 }
 
 // GetMessages returns all messages for a conversation, ordered chronologically.

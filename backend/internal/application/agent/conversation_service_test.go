@@ -86,9 +86,14 @@ func TestListConversations(t *testing.T) {
 	defer cleanup()
 
 	svc := NewConversationService(db)
-	svc.CreateConversation(1, "/img1.jpg", "en")
-	svc.CreateConversation(1, "/img2.jpg", "ru")
-	svc.CreateConversation(2, "/other.jpg", "en")
+	conv1, _ := svc.CreateConversation(1, "/img1.jpg", "en")
+	conv2, _ := svc.CreateConversation(1, "/img2.jpg", "ru")
+	conv3, _ := svc.CreateConversation(2, "/other.jpg", "en")
+
+	// Add messages so conversations are non-empty
+	svc.AddMessage(conv1.ID, domain.ConversationMessage{Role: "user", Content: "hello"})
+	svc.AddMessage(conv2.ID, domain.ConversationMessage{Role: "user", Content: "hello"})
+	svc.AddMessage(conv3.ID, domain.ConversationMessage{Role: "user", Content: "hello"})
 
 	list, err := svc.ListConversations(1)
 	if err != nil {
@@ -102,6 +107,30 @@ func TestListConversations(t *testing.T) {
 	if len(list2) != 1 {
 		t.Errorf("expected 1 conversation for user 2, got %d", len(list2))
 	}
+}
+
+func TestListConversations_EmptyFiltered(t *testing.T) {
+	db, cleanup := testutil.NewTestDB(t)
+	defer cleanup()
+
+	svc := NewConversationService(db)
+	conv1, _ := svc.CreateConversation(1, "/img1.jpg", "en")
+	conv2, _ := svc.CreateConversation(1, "/img2.jpg", "en")
+
+	// Only add message to conv1, leave conv2 empty
+	svc.AddMessage(conv1.ID, domain.ConversationMessage{Role: "user", Content: "hello"})
+
+	list, err := svc.ListConversations(1)
+	if err != nil {
+		t.Fatalf("ListConversations failed: %v", err)
+	}
+	if len(list) != 1 {
+		t.Errorf("expected 1 non-empty conversation, got %d", len(list))
+	}
+	if len(list) > 0 && list[0].ID != conv1.ID {
+		t.Errorf("expected conv1 to be listed, got conv %d", list[0].ID)
+	}
+	_ = conv2 // conv2 should not appear in the list
 }
 
 func TestDeleteConversation(t *testing.T) {
@@ -391,10 +420,16 @@ func TestListConversationsByImage(t *testing.T) {
 	defer cleanup()
 
 	svc := NewConversationService(db)
-	svc.CreateConversation(1, "/img1.jpg", "en")
-	svc.CreateConversation(1, "/img1.jpg", "en")
-	svc.CreateConversation(1, "/img2.jpg", "en")
-	svc.CreateConversation(2, "/img1.jpg", "en")
+	conv1, _ := svc.CreateConversation(1, "/img1.jpg", "en")
+	conv2, _ := svc.CreateConversation(1, "/img1.jpg", "en")
+	conv3, _ := svc.CreateConversation(1, "/img2.jpg", "en")
+	conv4, _ := svc.CreateConversation(2, "/img1.jpg", "en")
+
+	// Add messages to make them non-empty
+	svc.AddMessage(conv1.ID, domain.ConversationMessage{Role: "user", Content: "hello"})
+	svc.AddMessage(conv2.ID, domain.ConversationMessage{Role: "user", Content: "hello"})
+	svc.AddMessage(conv3.ID, domain.ConversationMessage{Role: "user", Content: "hello"})
+	svc.AddMessage(conv4.ID, domain.ConversationMessage{Role: "user", Content: "hello"})
 
 	list, err := svc.ListConversationsByImage(1, "/img1.jpg")
 	if err != nil {

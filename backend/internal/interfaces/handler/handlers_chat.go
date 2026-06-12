@@ -25,6 +25,12 @@ func (s *Server) handleCreateConversation(c *gin.Context) {
 	}
 
 	userID := middleware.GetUserID(c)
+
+	// Clean up any previous empty conversations for this image before creating a new one
+	if req.ImagePath != "" {
+		s.conversationService.CleanupEmptyConversations(userID, req.ImagePath)
+	}
+
 	conv, err := s.conversationService.CreateConversation(userID, req.ImagePath, req.Language)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
