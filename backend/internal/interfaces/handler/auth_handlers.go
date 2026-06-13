@@ -62,10 +62,17 @@ func (h *AuthHandlers) handleAuthStatus(c *gin.Context) {
 	// Try to get user from session
 	user := middleware.GetCurrentUser(c)
 	if user != nil {
+		// Re-fetch with avatar to correctly set hasAvatar flag
+		userWithAvatar, err := h.userService.GetUserWithAvatar(user.ID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, i18n.ErrorResponse(i18n.MsgAuthInternalError))
+			return
+		}
+
 		c.JSON(http.StatusOK, gin.H{
 			"isAuthenticated": true,
 			"isBootstrapMode": false,
-			"user":            dto.ToUserDTO(user),
+			"user":            dto.ToUserDTO(userWithAvatar),
 		})
 		return
 	}

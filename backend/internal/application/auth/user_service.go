@@ -267,14 +267,14 @@ func (s *UserService) DeleteAvatar(userID uint) error {
 
 // GetAvatar retrieves the avatar bytes for a user
 func (s *UserService) GetAvatar(userID uint) ([]byte, error) {
-	var avatar []byte
-	if err := s.db.Model(&domain.User{}).Select("avatar").Where("id = ?", userID).Scan(&avatar).Error; err != nil {
+	var user domain.User
+	if err := s.db.Select("avatar").First(&user, userID).Error; err != nil {
 		return nil, err
 	}
-	if len(avatar) == 0 {
+	if len(user.Avatar) == 0 {
 		return nil, errors.New("avatar not found")
 	}
-	return avatar, nil
+	return user.Avatar, nil
 }
 
 // countAdmins returns the number of active admin users
