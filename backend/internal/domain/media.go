@@ -160,6 +160,8 @@ type LlmSettings struct {
 	TagScanEndHour        int       `gorm:"default:7" json:"tagScanEndHour"`
 	TagScanEndMinute      int       `gorm:"default:0" json:"tagScanEndMinute"`
 	TagScanTimezoneOffset int       `gorm:"default:0" json:"tagScanTimezoneOffset"` // User's timezone offset in minutes (JS getTimezoneOffset: UTC+3 = -180)
+	EmbeddingProviderAlias string  `gorm:"default:''" json:"embeddingProviderAlias"` // empty = use active VL provider
+	EmbeddingModel         string  `gorm:"default:'qwen3-embedding:4b'" json:"embeddingModel"`
 	CreatedAt             time.Time `json:"createdAt"`
 	UpdatedAt             time.Time `json:"updatedAt"`
 }
@@ -169,6 +171,18 @@ type ImageTag struct {
 	ID          uint   `gorm:"primaryKey"`
 	ImageFileID uint   `gorm:"index;not null"`
 	Tag         string `gorm:"not null"`
+}
+
+// TagEmbedding stores vector embeddings for semantic tag search (pgvector).
+// One embedding per image, generated from concatenated AI tags.
+type TagEmbedding struct {
+	ID          uint      `gorm:"primaryKey" json:"id"`
+	ImageFileID uint      `gorm:"uniqueIndex;not null" json:"imageFileId"`
+	Embedding   string    `gorm:"type:vector(1024);not null" json:"-"` // pgvector type, 1024 dims for qwen3-embedding:4b
+	TagCount    int       `gorm:"not null" json:"tagCount"`
+	ModelName   string    `gorm:"not null" json:"modelName"`
+	CreatedAt   time.Time `json:"createdAt"`
+	UpdatedAt   time.Time `json:"updatedAt"`
 }
 
 // OcrLlmRecognition stores VL LLM OCR recognition results

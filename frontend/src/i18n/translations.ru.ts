@@ -13,6 +13,7 @@ export const translationsRu = {
   "tabs.ocr": "OCR",
   "tabs.exif": "EXIF",
   "tabs.trash": "Корзина",
+  "tabs.smartSearch": "Умный поиск",
 
   // Trash tab
   "trashTab.title": "Корзина",
@@ -731,4 +732,23 @@ export const translationsRu = {
   "avatar.removeSuccess": "Аватар удален",
   "avatar.removeFailed": "Не удалось удалить аватар",
   "avatar.invalidType": "Неверный тип изображения. Поддерживаются: JPEG, PNG, WebP, GIF",
+
+  // Умный поиск
+  "smartSearch.title": "Умный поиск",
+  "smartSearch.description": "Поиск изображений по описанию на естественном языке с использованием семантического сходства.",
+  "smartSearch.placeholder": "Опишите, что вы ищете...",
+  "smartSearch.searching": "Поиск...",
+  "smartSearch.resultCount": "{count} результат(ов)",
+  "smartSearch.resultCountOne": "{count} результат",
+  "smartSearch.empty": "Результаты не найдены",
+  "smartSearch.emptyHint": "Попробуйте другое описание или проверьте настройку эмбеддингов.",
+  "smartSearch.startTitle": "Поиск изображений",
+  "smartSearch.startHint": "Введите описание на естественном языке для поиска совпадающих изображений.",
+  "smartSearch.noEmbeddings": "Эмбеддинги не найдены. Для умного поиска необходимо сгенерировать эмбеддинги.",
+  "smartSearch.configureHint": "Убедитесь, что модель эмбеддингов настроена в настройках администратора, и запустите заполнение.",
+  "smartSearch.needsBackfill": "{count} изображений требуют генерации эмбеддингов.",
+  "smartSearch.startBackfill": "Сгенерировать эмбеддинги",
+  "smartSearch.stopBackfill": "Остановить",
+  "smartSearch.backfillRunning": "Генерация эмбеддингов...",
+  "smartSearch.backfillProgress": "Обработано {processed} из {total} изображений",
  } as const

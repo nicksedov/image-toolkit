@@ -13,6 +13,7 @@ export const translationsEn = {
   "tabs.ocr": "OCR",
   "tabs.exif": "EXIF",
   "tabs.trash": "Trash",
+  "tabs.smartSearch": "Smart Search",
 
   // Trash tab
   "trashTab.title": "Trash",
@@ -641,4 +642,23 @@ export const translationsEn = {
   "avatar.removeSuccess": "Avatar removed",
   "avatar.removeFailed": "Failed to remove avatar",
   "avatar.invalidType": "Invalid image type. Supported: JPEG, PNG, WebP, GIF",
+
+  // Smart Search
+  "smartSearch.title": "Smart Search",
+  "smartSearch.description": "Find images by natural language description using semantic similarity.",
+  "smartSearch.placeholder": "Describe what you're looking for...",
+  "smartSearch.searching": "Searching...",
+  "smartSearch.resultCount": "{count} result(s)",
+  "smartSearch.resultCountOne": "{count} result",
+  "smartSearch.empty": "No results found",
+  "smartSearch.emptyHint": "Try a different description or check that embeddings are configured.",
+  "smartSearch.startTitle": "Search your images",
+  "smartSearch.startHint": "Type a natural language description to find matching images.",
+  "smartSearch.noEmbeddings": "No embeddings found. Images need embeddings to enable smart search.",
+  "smartSearch.configureHint": "Make sure an embedding model is configured in Admin Settings and trigger a backfill.",
+  "smartSearch.needsBackfill": "{count} image(s) still need embeddings.",
+  "smartSearch.startBackfill": "Generate embeddings",
+  "smartSearch.stopBackfill": "Stop",
+  "smartSearch.backfillRunning": "Generating embeddings...",
+  "smartSearch.backfillProgress": "{processed} of {total} images processed",
  } as const

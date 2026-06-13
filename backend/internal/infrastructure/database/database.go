@@ -28,6 +28,11 @@ func InitDatabase(cfg *config.AppConfig) (*gorm.DB, error) {
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
 
+	// Enable pgvector extension BEFORE AutoMigrate needs the vector type
+	if err := db.Exec("CREATE EXTENSION IF NOT EXISTS vector").Error; err != nil {
+		return nil, fmt.Errorf("failed to enable pgvector extension: %w", err)
+	}
+
 	// Run AutoMigrate
 	if err := db.AutoMigrate(
 		&domain.ImageFile{},
@@ -48,8 +53,14 @@ func InitDatabase(cfg *config.AppConfig) (*gorm.DB, error) {
 		&domain.LlmProviderModelCache{},
 		&domain.Conversation{},
 		&domain.ConversationMessage{},
+		&domain.TagEmbedding{},
 	); err != nil {
 		return nil, fmt.Errorf("failed to migrate database: %w", err)
+	}
+
+	// Create HNSW index for fast vector similarity search
+	if err := db.Exec("CREATE INDEX IF NOT EXISTS idx_tag_embeddings_vector ON tag_embeddings USING hnsw (embedding vector_cosine_ops)").Error; err != nil {
+		return nil, fmt.Errorf("failed to create HNSW index: %w", err)
 	}
 
 	db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_llm_providers_alias ON llm_providers (alias)")

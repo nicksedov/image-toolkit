@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -44,6 +45,11 @@ type GetImageMetadataInput struct {
 	ImagePath string `json:"image_path" jsonschema:"Path to the image file"`
 }
 
+type SemanticSearchInput struct {
+	Query string `json:"query" jsonschema:"Natural language description of what you're looking for"`
+	Limit int    `json:"limit,omitempty" jsonschema:"Maximum number of results (default 20)"`
+}
+
 // --- Tool output types ---
 
 type ImageSearchResult struct {
@@ -56,6 +62,21 @@ type ImageSearchResult struct {
 type ImageSearchOutput struct {
 	Images []ImageSearchResult `json:"images"`
 	Total  int                 `json:"total"`
+}
+
+type SemanticSearchResult struct {
+	ID         uint     `json:"id"`
+	Path       string   `json:"path"`
+	FileName   string   `json:"fileName"`
+	ModTime    string   `json:"modTime,omitempty"`
+	Similarity float64  `json:"similarity"`
+	Tags       []string `json:"tags"`
+}
+
+type SemanticSearchOutput struct {
+	Images []SemanticSearchResult `json:"images"`
+	Total  int                    `json:"total"`
+	Query  string                 `json:"query"`
 }
 
 type ImageMetadataOutput struct {
@@ -152,6 +173,21 @@ func getImageMetadataToolDef() llm.ToolDefinition {
 	}
 }
 
+func semanticSearchToolDef() llm.ToolDefinition {
+	return llm.ToolDefinition{
+		Name:        "semantic_search",
+		Description: "Find images by natural language description using semantic similarity of AI-generated tags",
+		Parameters: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"query": map[string]any{"type": "string", "description": "Natural language description of what you're looking for"},
+				"limit": map[string]any{"type": "integer", "description": "Maximum number of results (default 20)"},
+			},
+			"required": []string{"query"},
+		},
+	}
+}
+
 // --- Registration ---
 
 func (s *ImageToolkitMCPServer) registerSearchTools() {
@@ -179,6 +215,11 @@ func (s *ImageToolkitMCPServer) registerSearchTools() {
 		Name:        "get_image_metadata",
 		Description: "Get EXIF metadata for a specific image",
 	}, s.handleGetImageMetadata)
+
+	mcp.AddTool(s.server, &mcp.Tool{
+		Name:        "semantic_search",
+		Description: "Find images by natural language description using semantic similarity of AI-generated tags. Unlike search_by_tags which requires exact tag matches, this finds images whose tags are semantically similar to the query.",
+	}, s.handleSemanticSearch)
 }
 
 // --- MCP SDK handlers ---
@@ -233,6 +274,17 @@ func (s *ImageToolkitMCPServer) handleGetImageMetadata(ctx context.Context, req 
 		return nil, ImageMetadataOutput{}, err
 	}
 	text := formatMetadataResult(output)
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{&mcp.TextContent{Text: text}},
+	}, output, nil
+}
+
+func (s *ImageToolkitMCPServer) handleSemanticSearch(ctx context.Context, req *mcp.CallToolRequest, input SemanticSearchInput) (*mcp.CallToolResult, SemanticSearchOutput, error) {
+	output, err := s.querySemanticSearch(input.Query, clampLimit(input.Limit))
+	if err != nil {
+		return nil, SemanticSearchOutput{}, err
+	}
+	text := formatSemanticSearchResult(output)
 	return &mcp.CallToolResult{
 		Content: []mcp.Content{&mcp.TextContent{Text: text}},
 	}, output, nil
@@ -298,6 +350,22 @@ func (s *ImageToolkitMCPServer) executeGetImageMetadata(ctx context.Context, arg
 		return "", err
 	}
 	return formatMetadataJSON(output)
+}
+
+func (s *ImageToolkitMCPServer) executeSemanticSearch(ctx context.Context, args json.RawMessage) (string, error) {
+	var input SemanticSearchInput
+	if err := json.Unmarshal(args, &input); err != nil {
+		return "", fmt.Errorf("invalid arguments: %w", err)
+	}
+	output, err := s.querySemanticSearch(input.Query, clampLimit(input.Limit))
+	if err != nil {
+		return "", err
+	}
+	data, err := json.Marshal(output)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
 }
 
 // --- Query implementations ---
@@ -560,3 +628,143 @@ func formatMetadataJSON(output ImageMetadataOutput) (string, error) {
 	}
 	return string(data), nil
 }
+
+// querySemanticSearch performs semantic search using vector similarity.
+func (s *ImageToolkitMCPServer) querySemanticSearch(query string, limit int) (SemanticSearchOutput, error) {
+	if query == "" {
+		return SemanticSearchOutput{}, fmt.Errorf("query is required")
+	}
+
+	// Load embedding settings
+	var settings domain.LlmSettings
+	if err := s.db.First(&settings).Error; err != nil {
+		return SemanticSearchOutput{}, fmt.Errorf("LLM settings not found")
+	}
+
+	providerAlias := settings.EmbeddingProviderAlias
+	if providerAlias == "" {
+		providerAlias = settings.ActiveProvider
+	}
+
+	var provider domain.LlmProvider
+	if err := s.db.Where("alias = ?", providerAlias).First(&provider).Error; err != nil {
+		return SemanticSearchOutput{}, fmt.Errorf("embedding provider '%s' not found", providerAlias)
+	}
+
+	modelName := settings.EmbeddingModel
+	if modelName == "" {
+		modelName = "qwen3-embedding:4b"
+	}
+
+	embeddingClient, err := llm.NewEmbeddingClient(provider.Name, provider.ApiUrl, provider.ApiKey, modelName)
+	if err != nil {
+		return SemanticSearchOutput{}, fmt.Errorf("failed to create embedding client: %w", err)
+	}
+
+	// Embed the query
+	queryEmbeddings, err := embeddingClient.Embed([]string{strings.ToLower(query)})
+	if err != nil {
+		return SemanticSearchOutput{}, fmt.Errorf("failed to embed query: %w", err)
+	}
+	if len(queryEmbeddings) == 0 {
+		return SemanticSearchOutput{}, fmt.Errorf("empty embedding result")
+	}
+
+	// Convert to pgvector format
+	vecStr := llm.Float32SliceToPgVector(queryEmbeddings[0])
+
+	// Run nearest-neighbor search
+	type searchResult struct {
+		ImageFileID uint    `gorm:"column:image_file_id"`
+		Similarity  float64 `gorm:"column:similarity"`
+	}
+
+	var results []searchResult
+	if err := s.db.Raw(`
+		SELECT te.image_file_id, 1 - (te.embedding <=> ?::vector) AS similarity
+		FROM tag_embeddings te
+		ORDER BY te.embedding <=> ?::vector
+		LIMIT ?
+	`, vecStr, vecStr, limit).Scan(&results).Error; err != nil {
+		return SemanticSearchOutput{}, fmt.Errorf("semantic search query failed: %w", err)
+	}
+
+	if len(results) == 0 {
+		return SemanticSearchOutput{
+			Images: []SemanticSearchResult{},
+			Total:  0,
+			Query:  query,
+		}, nil
+	}
+
+	// Fetch image files
+	imageIDs := make([]uint, len(results))
+	similarityMap := make(map[uint]float64)
+	for i, r := range results {
+		imageIDs[i] = r.ImageFileID
+		similarityMap[r.ImageFileID] = r.Similarity
+	}
+
+	var files []domain.ImageFile
+	s.db.Where("id IN ?", imageIDs).Find(&files)
+
+	fileMap := make(map[uint]domain.ImageFile)
+	for _, f := range files {
+		fileMap[f.ID] = f
+	}
+
+	// Batch-fetch tags for all result images (avoids N+1)
+	var allTags []domain.ImageTag
+	s.db.Where("image_file_id IN ?", imageIDs).Find(&allTags)
+	tagsMap := make(map[uint][]string)
+	for _, t := range allTags {
+		tagsMap[t.ImageFileID] = append(tagsMap[t.ImageFileID], t.Tag)
+	}
+
+	// Build results
+	images := make([]SemanticSearchResult, 0, len(files))
+	for _, id := range imageIDs {
+		f, ok := fileMap[id]
+		if !ok {
+			continue
+		}
+
+		tagStrs := tagsMap[id]
+		if len(tagStrs) > 10 {
+			tagStrs = tagStrs[:10]
+		}
+		sort.Strings(tagStrs)
+
+		images = append(images, SemanticSearchResult{
+			ID:         f.ID,
+			Path:       f.Path,
+			FileName:   fileNameFromPath(f.Path),
+			ModTime:    f.ModTime.Format("2006-01-02 15:04:05"),
+			Similarity: similarityMap[id],
+			Tags:       tagStrs,
+		})
+	}
+
+	return SemanticSearchOutput{
+		Images: images,
+		Total:  len(images),
+		Query:  query,
+	}, nil
+}
+
+func formatSemanticSearchResult(output SemanticSearchOutput) string {
+	if len(output.Images) == 0 {
+		return fmt.Sprintf("No images found for query: %s", output.Query)
+	}
+	var sb strings.Builder
+	fmt.Fprintf(&sb, "Found %d images for query \"%s\":\n", output.Total, output.Query)
+	for _, img := range output.Images {
+		fmt.Fprintf(&sb, "- [%d] %s (similarity: %.0f%%)", img.ID, img.Path, img.Similarity*100)
+		if len(img.Tags) > 0 {
+			fmt.Fprintf(&sb, " tags: %s", strings.Join(img.Tags, ", "))
+		}
+		sb.WriteString("\n")
+	}
+	return sb.String()
+}
+

@@ -802,3 +802,34 @@ export interface TagSearchResponse {
   images: TagSearchResult[]
   total: number
 }
+
+// --- Smart Search Types ---
+
+export interface SmartSearchResult {
+  id: number
+  path: string
+  fileName: string
+  modTime?: string
+  similarity: number
+  tags: string[]
+}
+
+export interface SmartSearchResponse {
+  images: SmartSearchResult[]
+  total: number
+  query: string
+}
+
+// --- Embedding Backfill Types ---
+
+export interface EmbeddingBackfillProgress {
+  total: number
+  processed: number
+  remaining: number
+  lastError: string
+}
+
+export interface EmbeddingBackfillStatus {
+  running: boolean
+  progress: EmbeddingBackfillProgress
+}

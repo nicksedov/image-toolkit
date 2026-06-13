@@ -34,6 +34,7 @@ type Server struct {
 	llmOcrService       *imaging.LlmOcrService
 	backgroundSync      *imaging.BackgroundSyncManager
 	tagScanManager      *imaging.TagScanManager
+	embeddingBackfill   *imaging.EmbeddingBackfillManager
 	config              *config.AppConfig
 	ocrClient           ocr.Client
 	clusterStorage      *geo.ClusterStorage
@@ -51,7 +52,7 @@ type Server struct {
 }
 
 // NewServer creates a new server instance
-func NewServer(db *gorm.DB, scanManager *imaging.ScanManager, ocrManager *imaging.OcrManager, llmOcrService *imaging.LlmOcrService, backgroundSync *imaging.BackgroundSyncManager, tagScanManager *imaging.TagScanManager, thumbnailService *thumbnail.Service, cfg *config.AppConfig, geolocationService *geocoder.GeolocationService, nominatimClient *geocoder.NominatimClient, mcpSrv *mcpserver.ImageToolkitMCPServer, ag *agent.Agent, agCfg agent.AgentConfig, convService *agent.ConversationService) *Server {
+func NewServer(db *gorm.DB, scanManager *imaging.ScanManager, ocrManager *imaging.OcrManager, llmOcrService *imaging.LlmOcrService, backgroundSync *imaging.BackgroundSyncManager, tagScanManager *imaging.TagScanManager, embeddingBackfill *imaging.EmbeddingBackfillManager, thumbnailService *thumbnail.Service, cfg *config.AppConfig, geolocationService *geocoder.GeolocationService, nominatimClient *geocoder.NominatimClient, mcpSrv *mcpserver.ImageToolkitMCPServer, ag *agent.Agent, agCfg agent.AgentConfig, convService *agent.ConversationService) *Server {
 	var ocrClient ocr.Client
 	if cfg.OCREnabled {
 		ocrClient = ocr.NewClient(cfg.OCRHost, cfg.OCRPort)
@@ -72,6 +73,7 @@ func NewServer(db *gorm.DB, scanManager *imaging.ScanManager, ocrManager *imagin
 		llmOcrService:       llmOcrService,
 		backgroundSync:      backgroundSync,
 		tagScanManager:      tagScanManager,
+		embeddingBackfill:   embeddingBackfill,
 		config:              cfg,
 		ocrClient:           ocrClient,
 		clusterStorage:      geo.NewClusterStorage(),

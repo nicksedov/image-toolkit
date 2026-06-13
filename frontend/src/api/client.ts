@@ -13,7 +13,7 @@ export function translateApiMessage(message: string | undefined): string {
   return message
 }
 
-export async function apiGet<T>(path: string, params?: Record<string, string>): Promise<T> {
+export async function apiGet<T>(path: string, params?: Record<string, string>, signal?: AbortSignal): Promise<T> {
   const url = new URL(`${API_BASE_URL}${path}`, window.location.origin)
   if (params) {
     Object.entries(params).forEach(([key, value]) => {
@@ -23,6 +23,7 @@ export async function apiGet<T>(path: string, params?: Record<string, string>): 
 
   const response = await fetch(url.toString(), {
     credentials: "include",
+    signal,
   })
   const data = await response.json()
 

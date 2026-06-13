@@ -280,6 +280,7 @@ You have access to the following tools:
 - search_by_location: Find images at specific geographic coordinates
 - search_by_path: Find images by filename or path pattern
 - get_image_metadata: Get EXIF metadata for an image
+- semantic_search: Find images by natural language description using semantic similarity
 
 Guidelines:
 - Use tools when you need information. Don't guess.

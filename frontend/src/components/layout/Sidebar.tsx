@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react"
 import { useTranslation } from "@/i18n"
-import { Settings, ImageIcon, FileScan, Shield, Users, ChevronDown, ChevronRight, Folder, Calendar, FileText, MapPin, Trash2, Database } from "lucide-react"
+import { Settings, ImageIcon, FileScan, Shield, Users, ChevronDown, ChevronRight, Folder, Calendar, FileText, MapPin, Trash2, Database, Search } from "lucide-react"
 import { useAuth } from "@/providers/AuthProvider"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -34,6 +34,7 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
     { value: "deduplication", icon: FileScan, label: t("tabs.deduplication") },
     { value: "ocr", icon: FileText, label: t("tabs.ocr") },
     { value: "exif", icon: Database, label: t("tabs.exif") },
+    { value: "smart-search", icon: Search, label: t("tabs.smartSearch") },
   ]
 
   const adminTabs: TabItem[] = [
@@ -42,7 +43,7 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
   ]
 
   const isGalleryActive = activeTab.startsWith("gallery")
-  const isToolsActive = activeTab === "deduplication" || activeTab === "ocr" || activeTab === "exif"
+  const isToolsActive = activeTab === "deduplication" || activeTab === "ocr" || activeTab === "exif" || activeTab === "smart-search"
   const isTrashActive = activeTab === "gallery-trash"
   const isAdminActive = activeTab === "admin-users" || activeTab === "admin-settings"
 

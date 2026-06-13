@@ -20,8 +20,9 @@ const OcrTab = lazy(() => import("@/components/tabs/OcrTab").then(module => ({ d
 const ExifTab = lazy(() => import("@/components/tabs/ExifTab").then(module => ({ default: module.ExifTab })))
 const AdminSettingsTab = lazy(() => import("@/components/tabs/AdminSettingsTab").then(module => ({ default: module.AdminSettingsTab })))
 const AdminPanel = lazy(() => import("@/components/auth/AdminPanel").then(module => ({ default: module.AdminPanel })))
+const SmartSearchTab = lazy(() => import("@/components/tabs/SmartSearchTab").then(module => ({ default: module.SmartSearchTab })))
 
-type TabValue = "settings" | "gallery-folders" | "gallery-calendar" | "gallery-geolocation" | "gallery-trash" | "deduplication" | "ocr" | "exif" | "profile" | "admin-settings" | "admin-users"
+type TabValue = "settings" | "gallery-folders" | "gallery-calendar" | "gallery-geolocation" | "gallery-trash" | "deduplication" | "ocr" | "exif" | "smart-search" | "profile" | "admin-settings" | "admin-users"
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabValue>("gallery-folders")
@@ -155,6 +156,12 @@ export default function App() {
               <TabsContent value="exif">
                 <Suspense fallback={<div className="flex items-center justify-center py-20"><div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" /></div>}>
                   <ExifTab />
+                </Suspense>
+              </TabsContent>
+
+              <TabsContent value="smart-search">
+                <Suspense fallback={<div className="flex items-center justify-center py-20"><div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" /></div>}>
+                  <SmartSearchTab />
                 </Suspense>
               </TabsContent>
 

@@ -68,6 +68,7 @@ func (s *ImageToolkitMCPServer) ToolDefinitions() []llm.ToolDefinition {
 		searchByLocationToolDef(),
 		searchByPathToolDef(),
 		getImageMetadataToolDef(),
+		semanticSearchToolDef(),
 	}
 }
 
@@ -92,6 +93,8 @@ func (s *ImageToolkitMCPServer) ExecuteTool(ctx context.Context, name string, ar
 		return s.executeSearchByPath(ctx, arguments)
 	case "get_image_metadata":
 		return s.executeGetImageMetadata(ctx, arguments)
+	case "semantic_search":
+		return s.executeSemanticSearch(ctx, arguments)
 	default:
 		return "", fmt.Errorf("unknown tool: %s", name)
 	}
