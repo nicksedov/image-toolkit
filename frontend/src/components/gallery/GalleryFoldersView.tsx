@@ -66,6 +66,7 @@ export function GalleryFoldersView({ onImageClick, onImageDownload, onImageDelet
           icon={ImageIcon}
           textKey={totalImages === 1 ? "gallery.imageCountOne" : "gallery.imageCount"}
           textValues={{ count: totalImages.toLocaleString() }}
+          isLoading={!initialized}
         />
 
         <div className="flex items-center gap-2">
@@ -112,7 +113,7 @@ export function GalleryFoldersView({ onImageClick, onImageDownload, onImageDelet
         </div>
       )}
 
-      {!initialized && isLoading ? (
+      {!initialized ? (
         <div className="space-y-3">
           {Array.from({ length: 3 }).map((_, i) => (
             <Skeleton key={i} className="h-40 w-full rounded-lg" />

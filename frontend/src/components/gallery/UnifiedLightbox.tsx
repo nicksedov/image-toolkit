@@ -77,20 +77,44 @@ export function UnifiedLightbox({
   // AI Chat state
   const {
     conversation,
+    conversations,
     messages,
     isStreaming,
     error: chatError,
+    tokenCount,
+    maxTokens,
+    isTokenLimitReached,
+    currentImagePath,
     createNewConversation,
+    loadConversation,
+    loadConversations,
     removeConversation,
     sendMessage,
     abortStream,
+    resetForImage,
   } = useChatAgent(language)
 
+  // Reset conversation state and load/create when image changes
   useEffect(() => {
-    if (imagePath && activeMode === "ai" && !conversation) {
-      createNewConversation(imagePath)
-    }
-  }, [imagePath, activeMode, conversation, createNewConversation])
+    if (!imagePath || activeMode !== "ai") return
+
+    // Reset state for the image (clears conversation and messages)
+    resetForImage(imagePath)
+
+    // Load existing conversations for this image
+    loadConversations(imagePath)
+  }, [imagePath, activeMode, resetForImage, loadConversations])
+
+  // Create new conversation if none exists for current image
+  useEffect(() => {
+    if (!imagePath || activeMode !== "ai") return
+    if (currentImagePath !== imagePath) return // Wait for reset to complete
+    if (conversation) return // Already have a conversation
+    if (conversations.length > 0) return // User can select from history
+
+    // No conversations for this image - create a new one
+    createNewConversation(imagePath)
+  }, [imagePath, activeMode, currentImagePath, conversation, conversations.length, createNewConversation])
 
   const handleNewConversation = useCallback(() => {
     createNewConversation(imagePath || undefined)
@@ -101,6 +125,10 @@ export function UnifiedLightbox({
       removeConversation(conversation.id)
     }
   }, [conversation, removeConversation])
+
+  const handleLoadConversation = useCallback((id: number) => {
+    loadConversation(id)
+  }, [loadConversation])
 
   // EXIF metadata state
   const { metadata, isLoading: metadataLoading, reload: reloadMetadata } = useImageMetadata(
@@ -118,9 +146,10 @@ export function UnifiedLightbox({
   const handleClose = useCallback(() => {
     abortStream()
     resetOcr()
+    resetForImage("")
     setInternalShowGeoForm(false)
     onClose()
-  }, [abortStream, resetOcr, onClose])
+  }, [abortStream, resetOcr, resetForImage, onClose])
 
   const formatProcessingTime = (ms?: number) => {
     if (!ms) return ""
@@ -191,10 +220,16 @@ export function UnifiedLightbox({
                 error={chatError}
                 hasConversation={conversation !== null}
                 imagePath={imagePath}
+                tokenCount={tokenCount}
+                maxTokens={maxTokens}
+                isTokenLimitReached={isTokenLimitReached}
+                conversations={conversations}
+                activeConversationId={conversation?.id}
                 onSendMessage={sendMessage}
                 onAbortStream={abortStream}
                 onNewConversation={handleNewConversation}
                 onDeleteConversation={handleDeleteConversation}
+                onLoadConversation={handleLoadConversation}
               />
             )}
             {activeMode === "exif" && (
@@ -234,10 +269,16 @@ function ChatPanelContent(props: {
   error: string | null
   hasConversation: boolean
   imagePath: string | null
+  tokenCount: number
+  maxTokens: number
+  isTokenLimitReached: boolean
+  conversations: import("@/types").Conversation[]
+  activeConversationId?: number
   onSendMessage: (content: string) => void
   onAbortStream: () => void
   onNewConversation: () => void
   onDeleteConversation: () => void
+  onLoadConversation: (id: number) => void
 }) {
   return (
     <ChatPanel

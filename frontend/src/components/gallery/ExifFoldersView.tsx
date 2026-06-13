@@ -39,6 +39,7 @@ export function ExifFoldersView({ onImageClick, onImageDownload, onImageDelete, 
           icon={FileWarning}
           textKey={totalImages === 1 ? "exif.imageCountOne" : "exif.imageCount"}
           textValues={{ count: totalImages.toLocaleString() }}
+          isLoading={!initialized}
         />
       </div>
 
@@ -48,7 +49,7 @@ export function ExifFoldersView({ onImageClick, onImageDownload, onImageDelete, 
         </div>
       )}
 
-      {!initialized && isLoading ? (
+      {!initialized ? (
         <div className="space-y-3">
           {Array.from({ length: 3 }).map((_, i) => (
             <Skeleton key={i} className="h-40 w-full rounded-lg" />

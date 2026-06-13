@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sync"
 	"time"
 )
 
@@ -251,7 +252,8 @@ type ollamaModel struct {
 	Digest     string `json:"digest"`
 }
 
-// ListModels returns a list of available models from Ollama server
+// ListModels returns a list of available models from Ollama server.
+// It also fetches context length for each model via /api/show concurrently.
 func (c *OllamaClient) ListModels() ([]ModelInfo, error) {
 	httpReq, err := http.NewRequest("GET", c.BaseURL+"/api/tags", nil)
 	if err != nil {
@@ -286,5 +288,65 @@ func (c *OllamaClient) ListModels() ([]ModelInfo, error) {
 		}
 	}
 
+	// Fetch context length concurrently for each model (bounded to 4 goroutines)
+	const maxConcurrency = 4
+	sem := make(chan struct{}, maxConcurrency)
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	for i := range models {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+			ctxLen := c.fetchContextLength(models[idx].Name)
+			if ctxLen > 0 {
+				mu.Lock()
+				models[idx].ContextLength = ctxLen
+				mu.Unlock()
+			}
+		}(i)
+	}
+	wg.Wait()
+
 	return models, nil
+}
+
+// fetchContextLength calls /api/show to extract context_length for a model.
+func (c *OllamaClient) fetchContextLength(modelName string) int {
+	httpReq, err := http.NewRequest("GET", c.BaseURL+"/api/show?name="+modelName, nil)
+	if err != nil {
+		return 0
+	}
+	if c.APIKey != "" {
+		httpReq.Header.Set("Authorization", "Bearer "+c.APIKey)
+	}
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(httpReq)
+	if err != nil {
+		return 0
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return 0
+	}
+
+	var showResp struct {
+		ModelInfo map[string]any `json:"model_info"`
+		Parameters string         `json:"parameters"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&showResp); err != nil {
+		return 0
+	}
+
+	// Try model_info map for known keys
+	for _, key := range []string{"llama.context_length", "transformer.context_length", "context_length"} {
+		if v, ok := showResp.ModelInfo[key]; ok {
+			if n, ok := v.(float64); ok && n > 0 {
+				return int(n)
+			}
+		}
+	}
+
+	return 0
 }

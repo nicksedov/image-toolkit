@@ -535,8 +535,12 @@ export function createConversation(req: CreateConversationRequest): Promise<Conv
   return apiPost<Conversation>("/api/chat/conversations", req)
 }
 
-export function fetchConversations(): Promise<Conversation[]> {
-  return apiGet<Conversation[]>("/api/chat/conversations")
+export function fetchConversations(imagePath?: string): Promise<Conversation[]> {
+  const params: Record<string, string> = {}
+  if (imagePath) {
+    params.imagePath = imagePath
+  }
+  return apiGet<Conversation[]>("/api/chat/conversations", params)
 }
 
 export function deleteConversation(id: number): Promise<{ message: string }> {

@@ -10,12 +10,15 @@ type CreateConversationRequest struct {
 
 // ConversationDTO represents a conversation in API responses.
 type ConversationDTO struct {
-	ID        uint   `json:"id"`
-	ImagePath string `json:"imagePath,omitempty"`
-	Title     string `json:"title"`
-	Language  string `json:"language"`
-	CreatedAt string `json:"createdAt"`
-	UpdatedAt string `json:"updatedAt"`
+	ID         uint   `json:"id"`
+	ImagePath  string `json:"imagePath,omitempty"`
+	Title      string `json:"title"`
+	Summary    string `json:"summary,omitempty"`
+	TokenCount int    `json:"tokenCount"`
+	MaxTokens  int    `json:"maxTokens"`
+	Language   string `json:"language"`
+	CreatedAt  string `json:"createdAt"`
+	UpdatedAt  string `json:"updatedAt"`
 }
 
 // SendMessageRequest for POST /api/chat/conversations/:id/messages
@@ -41,10 +44,12 @@ type ToolCallInfo struct {
 
 // SSEEvent represents a server-sent event from the agent.
 type SSEEvent struct {
-	Type    string `json:"type"`            // "tool_call", "tool_result", "message", "error", "done"
-	Name    string `json:"name,omitempty"`
-	Status  string `json:"status,omitempty"`
-	Result  string `json:"result,omitempty"`
-	Content string `json:"content,omitempty"`
-	Error   string `json:"error,omitempty"`
+	Type       string `json:"type"` // "tool_call", "tool_result", "message", "error", "done", "token_usage"
+	Name       string `json:"name,omitempty"`
+	Status     string `json:"status,omitempty"`
+	Result     string `json:"result,omitempty"`
+	Content    string `json:"content,omitempty"`
+	Error      string `json:"error,omitempty"`
+	TokenCount int    `json:"tokenCount,omitempty"`
+	MaxTokens  int    `json:"maxTokens,omitempty"`
 }

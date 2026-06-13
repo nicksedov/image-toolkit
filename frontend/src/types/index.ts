@@ -587,6 +587,7 @@ export interface LlmModelDTO {
   id: string
   name: string
   size?: number
+  contextLength?: number
 }
 
 export interface LlmModelsResponse {
@@ -720,6 +721,9 @@ export interface Conversation {
   id: number
   imagePath?: string
   title: string
+  summary?: string
+  tokenCount: number
+  maxTokens: number
   language: string
   createdAt: string
   updatedAt: string
@@ -776,7 +780,13 @@ export interface SSEDoneEvent {
   type: "done"
 }
 
-export type SSEEvent = SSEToolCallEvent | SSEToolResultEvent | SSEMessageEvent | SSEErrorEvent | SSEDoneEvent
+export interface SSETokenUsageEvent {
+  type: "token_usage"
+  tokenCount: number
+  maxTokens: number
+}
+
+export type SSEEvent = SSEToolCallEvent | SSEToolResultEvent | SSEMessageEvent | SSEErrorEvent | SSEDoneEvent | SSETokenUsageEvent
 
 // --- Tag Search Types ---
 

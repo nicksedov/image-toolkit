@@ -5,7 +5,7 @@ import { GalleryImageGrid } from "@/components/gallery/GalleryImageGrid"
 import { useGeoClusters } from "@/hooks/useGeoClusters"
 import { useGeoImages } from "@/hooks/useGeoImages"
 import { useTranslation } from "@/i18n"
-import { ArrowLeft, MapPin, ImageIcon } from "lucide-react"
+import { ArrowLeft, MapPin, ImageIcon, Loader2 } from "lucide-react"
 import { useIntersectionObserver } from "@/hooks/useIntersectionObserver"
 import { PaginationFooter } from "@/components/ui/pagination-footer"
 import { ViewHeader } from "@/components/ui/view-header"
@@ -100,7 +100,7 @@ export function GalleryGeolocationView({ onImageClick, onImageDownload, onImageD
   const mapContainerRef = useRef<HTMLDivElement>(null)
   const [hasAnyGeoImages, setHasAnyGeoImages] = useState(false)
 
-  const { clusters, totalImages, isLoading: clustersLoading } = useGeoClusters({
+  const { clusters, totalImages, isLoading: clustersLoading, initialized: clustersInitialized } = useGeoClusters({
     bounds: viewMode === "map" ? (mapBounds || { minLat: -90, maxLat: 90, minLng: -180, maxLng: 180 }) : null,
     zoom: mapZoom,
     width: mapSize.width,
@@ -229,16 +229,20 @@ export function GalleryGeolocationView({ onImageClick, onImageDownload, onImageD
   // Map view
   return (
     <div className="space-y-2">
-      {totalImages > 0 && (
+      {(totalImages > 0 || !clustersInitialized) && (
         <div className="flex items-center gap-2">
           <MapPin className="h-5 w-5 text-muted-foreground" />
-          <span className="text-sm text-muted-foreground">
-            {t("geolocation.totalGeoImages", { count: totalImages.toString() })}
-          </span>
+          {!clustersInitialized ? (
+            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+          ) : (
+            <span className="text-sm text-muted-foreground">
+              {t("geolocation.totalGeoImages", { count: totalImages.toString() })}
+            </span>
+          )}
         </div>
       )}
 
-      {totalImages === 0 && !clustersLoading && !hasAnyGeoImages ? (
+      {totalImages === 0 && !clustersLoading && clustersInitialized && !hasAnyGeoImages ? (
         <div className="rounded-lg border border-dashed p-12 text-center">
           <ImageIcon className="mx-auto h-10 w-10 text-muted-foreground/50" />
           <p className="mt-2 text-sm font-medium text-muted-foreground">

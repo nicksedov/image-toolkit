@@ -244,11 +244,13 @@ func main() {
 
 	// Create conversation service and agent
 	convService := agentpkg.NewConversationService(db)
-	ag := agentpkg.NewAgent(convService, mcpSrv, agentpkg.DefaultAgentConfig())
+	agCfg := agentpkg.DefaultAgentConfig()
+	agCfg.MaxConversationTokens = cfg.AgentMaxConversationTokens
+	ag := agentpkg.NewAgent(convService, mcpSrv, agCfg)
 	fmt.Println("AI agent initialized")
 
 	// Start web server
-	server := handler.NewServer(db, scanManager, ocrManager, llmOcrService, backgroundSync, tagScanManager, thumbnailService, cfg, geolocationService, nominatimClient, mcpSrv, ag, convService)
+	server := handler.NewServer(db, scanManager, ocrManager, llmOcrService, backgroundSync, tagScanManager, thumbnailService, cfg, geolocationService, nominatimClient, mcpSrv, ag, agCfg, convService)
 	router := server.SetupRouter(authMiddleware, csrfProtection, authHandlers)
 
 	// Start OCR health check if enabled

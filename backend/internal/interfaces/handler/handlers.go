@@ -2650,9 +2650,10 @@ func (s *Server) handleGetLlmModels(c *gin.Context) {
 	modelDTOs := make([]dto.LlmModelDTO, len(models))
 	for i, m := range models {
 		modelDTOs[i] = dto.LlmModelDTO{
-			ID:   m.ID,
-			Name: m.Name,
-			Size: m.Size,
+			ID:            m.ID,
+			Name:          m.Name,
+			Size:          m.Size,
+			ContextLength: m.ContextLength,
 		}
 	}
 

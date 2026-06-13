@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"image-toolkit/internal/application/agent"
+	"image-toolkit/internal/domain"
 	"image-toolkit/internal/infrastructure/llm"
 	"image-toolkit/internal/interfaces/dto"
 	"image-toolkit/internal/interfaces/middleware"
@@ -24,40 +25,65 @@ func (s *Server) handleCreateConversation(c *gin.Context) {
 	}
 
 	userID := middleware.GetUserID(c)
+
+	// Clean up any previous empty conversations for this image before creating a new one
+	if req.ImagePath != "" {
+		s.conversationService.CleanupEmptyConversations(userID, req.ImagePath)
+	}
+
 	conv, err := s.conversationService.CreateConversation(userID, req.ImagePath, req.Language)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
+	// Resolve max tokens from active provider/model
+	maxTokens := s.resolveMaxTokens(c)
+
 	c.JSON(http.StatusCreated, dto.ConversationDTO{
-		ID:        conv.ID,
-		ImagePath: conv.ImagePath,
-		Title:     conv.Title,
-		Language:  conv.Language,
-		CreatedAt: conv.CreatedAt.Format("2006-01-02T15:04:05Z"),
-		UpdatedAt: conv.UpdatedAt.Format("2006-01-02T15:04:05Z"),
+		ID:         conv.ID,
+		ImagePath:  conv.ImagePath,
+		Title:      conv.Title,
+		Summary:    conv.Summary,
+		TokenCount: conv.TokenCount,
+		MaxTokens:  maxTokens,
+		Language:   conv.Language,
+		CreatedAt:  conv.CreatedAt.Format("2006-01-02T15:04:05Z"),
+		UpdatedAt:  conv.UpdatedAt.Format("2006-01-02T15:04:05Z"),
 	})
 }
 
 // handleListConversations handles GET /api/chat/conversations
 func (s *Server) handleListConversations(c *gin.Context) {
 	userID := middleware.GetUserID(c)
-	conversations, err := s.conversationService.ListConversations(userID)
+	imagePath := c.Query("imagePath")
+
+	var conversations []domain.Conversation
+	var err error
+	if imagePath != "" {
+		conversations, err = s.conversationService.ListConversationsByImage(userID, imagePath)
+	} else {
+		conversations, err = s.conversationService.ListConversations(userID)
+	}
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
+	maxTokens := s.resolveMaxTokens(c)
+
 	result := make([]dto.ConversationDTO, len(conversations))
 	for i, conv := range conversations {
 		result[i] = dto.ConversationDTO{
-			ID:        conv.ID,
-			ImagePath: conv.ImagePath,
-			Title:     conv.Title,
-			Language:  conv.Language,
-			CreatedAt: conv.CreatedAt.Format("2006-01-02T15:04:05Z"),
-			UpdatedAt: conv.UpdatedAt.Format("2006-01-02T15:04:05Z"),
+			ID:         conv.ID,
+			ImagePath:  conv.ImagePath,
+			Title:      conv.Title,
+			Summary:    conv.Summary,
+			TokenCount: conv.TokenCount,
+			MaxTokens:  maxTokens,
+			Language:   conv.Language,
+			CreatedAt:  conv.CreatedAt.Format("2006-01-02T15:04:05Z"),
+			UpdatedAt:  conv.UpdatedAt.Format("2006-01-02T15:04:05Z"),
 		}
 	}
 
@@ -158,6 +184,9 @@ func (s *Server) handleSendMessage(c *gin.Context) {
 		return
 	}
 
+	// Resolve max tokens from model cache
+	maxTokens := s.resolveMaxTokens(c)
+
 	// Set SSE headers
 	c.Header("Content-Type", "text/event-stream")
 	c.Header("Cache-Control", "no-cache")
@@ -168,12 +197,14 @@ func (s *Server) handleSendMessage(c *gin.Context) {
 	c.Stream(func(w io.Writer) bool {
 		eventHandler := func(event agent.ToolEvent) {
 			data, _ := json.Marshal(dto.SSEEvent{
-				Type:    event.Type,
-				Name:    event.Name,
-				Status:  event.Status,
-				Result:  event.Result,
-				Content: event.Content,
-				Error:   event.Error,
+				Type:       event.Type,
+				Name:       event.Name,
+				Status:     event.Status,
+				Result:     event.Result,
+				Content:    event.Content,
+				Error:      event.Error,
+				TokenCount: event.TokenCount,
+				MaxTokens:  event.MaxTokens,
 			})
 			fmt.Fprintf(w, "data: %s\n\n", data)
 			if f, ok := w.(http.Flusher); ok {
@@ -181,7 +212,7 @@ func (s *Server) handleSendMessage(c *gin.Context) {
 			}
 		}
 
-		_, err := s.agent.ProcessMessage(c.Request.Context(), uint(convID), req.Content, chatClient, eventHandler)
+		_, err := s.agent.ProcessMessage(c.Request.Context(), uint(convID), req.Content, chatClient, eventHandler, maxTokens)
 		if err != nil {
 			data, _ := json.Marshal(dto.SSEEvent{
 				Type:  "error",
@@ -195,4 +226,18 @@ func (s *Server) handleSendMessage(c *gin.Context) {
 
 		return false // Stop streaming
 	})
+}
+
+// resolveMaxTokens resolves max tokens from active provider/model cache, falling back to config default.
+func (s *Server) resolveMaxTokens(c *gin.Context) int {
+	llmSettings := s.settingsLoader.LlmSettings()
+	provider, ok := s.settingsLoader.LlmProvider(llmSettings.ActiveProvider)
+	if !ok {
+		return s.agentConfig.MaxConversationTokens
+	}
+	modelMax := s.conversationService.ResolveModelMaxTokens(provider.Alias, provider.Model)
+	if modelMax > 0 {
+		return modelMax
+	}
+	return s.agentConfig.MaxConversationTokens
 }

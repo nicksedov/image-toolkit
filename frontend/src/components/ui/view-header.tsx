@@ -1,4 +1,5 @@
 import type { LucideIcon } from "lucide-react"
+import { Loader2 } from "lucide-react"
 import { useTranslation } from "@/i18n"
 import type { TranslationKey } from "@/i18n/types"
 
@@ -17,6 +18,8 @@ export interface ViewHeaderProps {
   iconClassName?: string
   /** Custom class for text */
   textClassName?: string
+  /** When true, display a loading spinner instead of the text */
+  isLoading?: boolean
 }
 
 export function ViewHeader({
@@ -27,6 +30,7 @@ export function ViewHeader({
   className = "flex items-center gap-2",
   iconClassName = "h-5 w-5 text-muted-foreground",
   textClassName = "text-sm text-muted-foreground",
+  isLoading = false,
 }: ViewHeaderProps) {
   const { t } = useTranslation()
 
@@ -37,9 +41,13 @@ export function ViewHeader({
   return (
     <div className={className}>
       <Icon className={iconClassName} />
-      <span className={textClassName}>
-        {text || fallbackText}
-      </span>
+      {isLoading ? (
+        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+      ) : (
+        <span className={textClassName}>
+          {text || fallbackText}
+        </span>
+      )}
     </div>
   )
 }

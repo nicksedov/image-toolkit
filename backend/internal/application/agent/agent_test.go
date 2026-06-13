@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"testing"
 
+	"image-toolkit/internal/domain"
 	"image-toolkit/internal/infrastructure/llm"
 	"image-toolkit/internal/testutil"
 )
@@ -55,7 +56,7 @@ func TestAgent_NoToolCalls(t *testing.T) {
 	var events []ToolEvent
 	resp, err := agent.ProcessMessage(context.Background(), conv.ID, "What is this?", mockLLM, func(e ToolEvent) {
 		events = append(events, e)
-	})
+	}, 0)
 
 	if err != nil {
 		t.Fatalf("ProcessMessage failed: %v", err)
@@ -67,15 +68,18 @@ func TestAgent_NoToolCalls(t *testing.T) {
 		t.Errorf("expected no tool calls, got %d", len(resp.ToolCalls))
 	}
 
-	// Verify events: message + done
-	if len(events) != 2 {
-		t.Fatalf("expected 2 events, got %d", len(events))
+	// Verify events: message + token_usage + done
+	if len(events) != 3 {
+		t.Fatalf("expected 3 events, got %d", len(events))
 	}
 	if events[0].Type != "message" {
 		t.Errorf("expected 'message' event, got %q", events[0].Type)
 	}
-	if events[1].Type != "done" {
-		t.Errorf("expected 'done' event, got %q", events[1].Type)
+	if events[1].Type != "token_usage" {
+		t.Errorf("expected 'token_usage' event, got %q", events[1].Type)
+	}
+	if events[2].Type != "done" {
+		t.Errorf("expected 'done' event, got %q", events[2].Type)
 	}
 }
 
@@ -122,7 +126,7 @@ func TestAgent_SingleToolCall(t *testing.T) {
 	var events []ToolEvent
 	resp, err := agent.ProcessMessage(context.Background(), conv.ID, "What's in this image?", mockLLM, func(e ToolEvent) {
 		events = append(events, e)
-	})
+	}, 0)
 
 	if err != nil {
 		t.Fatalf("ProcessMessage failed: %v", err)
@@ -216,7 +220,7 @@ func TestAgent_MultipleToolCalls(t *testing.T) {
 
 	agent := NewAgent(convSvc, toolProvider, DefaultAgentConfig())
 
-	resp, err := agent.ProcessMessage(context.Background(), conv.ID, "Find similar images", mockLLM, nil)
+	resp, err := agent.ProcessMessage(context.Background(), conv.ID, "Find similar images", mockLLM, nil, 0)
 	if err != nil {
 		t.Fatalf("ProcessMessage failed: %v", err)
 	}
@@ -259,7 +263,7 @@ func TestAgent_MaxToolRounds(t *testing.T) {
 	config := AgentConfig{MaxTokens: 8000, MaxToolRounds: 3}
 	agent := NewAgent(convSvc, toolProvider, config)
 
-	resp, err := agent.ProcessMessage(context.Background(), conv.ID, "loop forever", mockLLM, nil)
+	resp, err := agent.ProcessMessage(context.Background(), conv.ID, "loop forever", mockLLM, nil, 0)
 	if err != nil {
 		t.Fatalf("ProcessMessage failed: %v", err)
 	}
@@ -308,7 +312,7 @@ func TestAgent_ToolError(t *testing.T) {
 
 	agent := NewAgent(convSvc, toolProvider, DefaultAgentConfig())
 
-	resp, err := agent.ProcessMessage(context.Background(), conv.ID, "Describe this", mockLLM, nil)
+	resp, err := agent.ProcessMessage(context.Background(), conv.ID, "Describe this", mockLLM, nil, 0)
 	if err != nil {
 		t.Fatalf("ProcessMessage failed: %v", err)
 	}
@@ -346,7 +350,7 @@ func TestAgent_NilEventHandler(t *testing.T) {
 	agent := NewAgent(convSvc, toolProvider, DefaultAgentConfig())
 
 	// Pass nil event handler - should not panic
-	resp, err := agent.ProcessMessage(context.Background(), conv.ID, "Hi", mockLLM, nil)
+	resp, err := agent.ProcessMessage(context.Background(), conv.ID, "Hi", mockLLM, nil, 0)
 	if err != nil {
 		t.Fatalf("ProcessMessage failed: %v", err)
 	}
@@ -362,5 +366,159 @@ func TestDefaultAgentConfig(t *testing.T) {
 	}
 	if config.MaxToolRounds != 10 {
 		t.Errorf("expected MaxToolRounds=10, got %d", config.MaxToolRounds)
+	}
+	if config.MaxConversationTokens != 128000 {
+		t.Errorf("expected MaxConversationTokens=128000, got %d", config.MaxConversationTokens)
+	}
+}
+
+func TestAgent_TokenLimitEnforcement(t *testing.T) {
+	db, cleanup := testutil.NewTestDB(t)
+	defer cleanup()
+
+	convSvc := NewConversationService(db)
+	conv, _ := convSvc.CreateConversation(1, "/test.jpg", "en")
+
+	// Pre-fill token count above limit
+	db.Model(&domain.Conversation{}).Where("id = ?", conv.ID).Update("token_count", 100)
+
+	mockLLM := &mockChatClient{
+		responses: []*llm.ChatResponse{
+			{
+				Message:    llm.ChatMessage{Role: "assistant", Content: "Should not reach this"},
+				StopReason: "end_turn",
+			},
+		},
+	}
+
+	toolProvider := &mockToolProvider{
+		tools:      []llm.ToolDefinition{},
+		executeMap: map[string]func(json.RawMessage) (string, error){},
+	}
+
+	// Custom max tokens = 50, but token_count is 100 => should block
+	config := AgentConfig{MaxTokens: 8000, MaxToolRounds: 10, MaxConversationTokens: 50}
+	ag := NewAgent(convSvc, toolProvider, config)
+
+	var events []ToolEvent
+	resp, err := ag.ProcessMessage(context.Background(), conv.ID, "Hello", mockLLM, func(e ToolEvent) {
+		events = append(events, e)
+	}, 0)
+
+	if err != nil {
+		t.Fatalf("ProcessMessage failed: %v", err)
+	}
+	if resp.Message != "Token limit reached." {
+		t.Errorf("expected token limit message, got %q", resp.Message)
+	}
+
+	// Verify events include error + token_usage + done
+	hasError := false
+	hasTokenUsage := false
+	for _, e := range events {
+		if e.Type == "error" {
+			hasError = true
+		}
+		if e.Type == "token_usage" {
+			hasTokenUsage = true
+			if e.TokenCount != 100 {
+				t.Errorf("expected tokenCount=100, got %d", e.TokenCount)
+			}
+			if e.MaxTokens != 50 {
+				t.Errorf("expected maxTokens=50, got %d", e.MaxTokens)
+			}
+		}
+	}
+	if !hasError {
+		t.Error("expected error event")
+	}
+	if !hasTokenUsage {
+		t.Error("expected token_usage event")
+	}
+}
+
+func TestAgent_TokenLimitCustomOverride(t *testing.T) {
+	db, cleanup := testutil.NewTestDB(t)
+	defer cleanup()
+
+	convSvc := NewConversationService(db)
+	conv, _ := convSvc.CreateConversation(1, "/test.jpg", "en")
+
+	// Pre-fill token count to 75
+	db.Model(&domain.Conversation{}).Where("id = ?", conv.ID).Update("token_count", 75)
+
+	mockLLM := &mockChatClient{
+		responses: []*llm.ChatResponse{
+			{
+				Message:    llm.ChatMessage{Role: "assistant", Content: "Should not reach this"},
+				StopReason: "end_turn",
+			},
+		},
+	}
+
+	toolProvider := &mockToolProvider{
+		tools:      []llm.ToolDefinition{},
+		executeMap: map[string]func(json.RawMessage) (string, error){},
+	}
+
+	// Config default is 128000, but pass maxTokens=50 as override
+	config := DefaultAgentConfig()
+	ag := NewAgent(convSvc, toolProvider, config)
+
+	resp, err := ag.ProcessMessage(context.Background(), conv.ID, "Hello", mockLLM, nil, 50)
+	if err != nil {
+		t.Fatalf("ProcessMessage failed: %v", err)
+	}
+	if resp.Message != "Token limit reached." {
+		t.Errorf("expected token limit message with custom override, got %q", resp.Message)
+	}
+}
+
+func TestAgent_TokenUsageEvent(t *testing.T) {
+	db, cleanup := testutil.NewTestDB(t)
+	defer cleanup()
+
+	convSvc := NewConversationService(db)
+	conv, _ := convSvc.CreateConversation(1, "/test.jpg", "en")
+
+	mockLLM := &mockChatClient{
+		responses: []*llm.ChatResponse{
+			{
+				Message:    llm.ChatMessage{Role: "assistant", Content: "Hello world!"},
+				StopReason: "end_turn",
+			},
+		},
+	}
+
+	toolProvider := &mockToolProvider{
+		tools:      []llm.ToolDefinition{},
+		executeMap: map[string]func(json.RawMessage) (string, error){},
+	}
+
+	config := DefaultAgentConfig()
+	ag := NewAgent(convSvc, toolProvider, config)
+
+	var events []ToolEvent
+	_, err := ag.ProcessMessage(context.Background(), conv.ID, "Hi there", mockLLM, func(e ToolEvent) {
+		events = append(events, e)
+	}, 0)
+	if err != nil {
+		t.Fatalf("ProcessMessage failed: %v", err)
+	}
+
+	hasTokenUsage := false
+	for _, e := range events {
+		if e.Type == "token_usage" {
+			hasTokenUsage = true
+			if e.TokenCount <= 0 {
+				t.Errorf("expected positive tokenCount, got %d", e.TokenCount)
+			}
+			if e.MaxTokens != 128000 {
+				t.Errorf("expected maxTokens=128000, got %d", e.MaxTokens)
+			}
+		}
+	}
+	if !hasTokenUsage {
+		t.Error("expected token_usage event")
 	}
 }
