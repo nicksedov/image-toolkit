@@ -186,7 +186,7 @@ export const translationsRu = {
   "lightbox.title": "Просмотр изображения",
   "lightbox.description": "Просмотр изображения с метаданными",
   "lightbox.alt": "Полноразмерный просмотр",
-  "lightbox.tab.ai": "ИИ-помощник",
+  "lightbox.tab.ai": "ИИ-ассистент",
   "lightbox.tab.exif": "Детали",
   "lightbox.tab.ocr": "OCR",
 
@@ -494,7 +494,7 @@ export const translationsRu = {
   "llm_ocr.enableDescription": "Разрешить использование VL LLM для распознавания текста в OCR Lightbox",
 
   // AI Assistant
-  "ai.title": "ИИ-помощник",
+  "ai.title": "ИИ-ассистент",
   "ai.description": "Используйте ИИ для анализа и понимания ваших изображений",
   "ai.describeImage": "Описать изображение",
   "ai.describeImageDescription": "Создать подробное текстовое описание того, что изображено на картинке",
@@ -688,7 +688,7 @@ export const translationsRu = {
   "llm_providers.providerLabel": "Провайдер: {alias}",
 
   // Чат / Агент
-  "chat.title": "ИИ-помощник",
+  "chat.title": "ИИ-ассистент",
   "chat.placeholder": "Спросите что-нибудь об этом изображении...",
   "chat.start_button": "Начать диалог",
   "chat.new_conversation": "Новый диалог",
