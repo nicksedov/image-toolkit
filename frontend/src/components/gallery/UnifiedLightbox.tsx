@@ -97,14 +97,13 @@ export function UnifiedLightbox({
   // Reset conversation state and load/create when image changes
   useEffect(() => {
     if (!imagePath || activeMode !== "ai") return
-    if (imagePath === currentImagePath && conversation) return // Already loaded for this image
 
-    // Reset state for new image
+    // Reset state for the image (clears conversation and messages)
     resetForImage(imagePath)
 
     // Load existing conversations for this image
     loadConversations(imagePath)
-  }, [imagePath, activeMode, currentImagePath, conversation, resetForImage, loadConversations])
+  }, [imagePath, activeMode, resetForImage, loadConversations])
 
   // Create new conversation if none exists for current image
   useEffect(() => {
@@ -147,9 +146,10 @@ export function UnifiedLightbox({
   const handleClose = useCallback(() => {
     abortStream()
     resetOcr()
+    resetForImage("")
     setInternalShowGeoForm(false)
     onClose()
-  }, [abortStream, resetOcr, onClose])
+  }, [abortStream, resetOcr, resetForImage, onClose])
 
   const formatProcessingTime = (ms?: number) => {
     if (!ms) return ""
