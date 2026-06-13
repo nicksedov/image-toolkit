@@ -1,12 +1,19 @@
 package auth
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"image"
+	_ "image/gif"
+	_ "image/jpeg"
+	_ "image/png"
 	"time"
 
 	"image-toolkit/internal/domain"
 
+	"github.com/deepteams/webp"
+	"github.com/disintegration/imaging"
 	"gorm.io/gorm"
 )
 
@@ -90,10 +97,10 @@ func (s *UserService) GetUser(id uint) (*domain.User, error) {
 	return &user, nil
 }
 
-// ListUsers returns all users
+// ListUsers returns all users (avatar excluded for performance)
 func (s *UserService) ListUsers() ([]domain.User, error) {
 	var users []domain.User
-	if err := s.db.Order("created_at desc").Find(&users).Error; err != nil {
+	if err := s.db.Omit("avatar").Order("created_at desc").Find(&users).Error; err != nil {
 		return nil, err
 	}
 	return users, nil
@@ -206,7 +213,7 @@ func (s *UserService) DeleteUser(adminID, userID uint) error {
 // UpdateProfile updates the current user's own profile
 func (s *UserService) UpdateProfile(userID uint, displayName string) (*domain.User, error) {
 	var user domain.User
-	if err := s.db.First(&user, userID).Error; err != nil {
+	if err := s.db.Omit("avatar").First(&user, userID).Error; err != nil {
 		return nil, err
 	}
 
@@ -215,6 +222,59 @@ func (s *UserService) UpdateProfile(userID uint, displayName string) (*domain.Us
 	}
 
 	return &user, nil
+}
+
+// GetUserWithAvatar retrieves a user including the avatar field
+func (s *UserService) GetUserWithAvatar(id uint) (*domain.User, error) {
+	var user domain.User
+	if err := s.db.First(&user, id).Error; err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
+// UpdateAvatar processes and stores a user's avatar image
+func (s *UserService) UpdateAvatar(userID uint, imageData []byte) error {
+	if len(imageData) == 0 {
+		return errors.New("empty image data")
+	}
+	if len(imageData) > 10<<20 {
+		return errors.New("image too large, maximum 10MB")
+	}
+
+	// Decode image
+	img, _, err := image.Decode(bytes.NewReader(imageData))
+	if err != nil {
+		return fmt.Errorf("failed to decode image: %w", err)
+	}
+
+	// Resize to 128x128
+	resized := imaging.Fill(img, 128, 128, imaging.Center, imaging.Lanczos)
+
+	// Encode as WebP
+	var buf bytes.Buffer
+	if err := webp.Encode(&buf, resized, &webp.Options{Quality: 85}); err != nil {
+		return fmt.Errorf("failed to encode avatar as WebP: %w", err)
+	}
+
+	return s.db.Model(&domain.User{}).Where("id = ?", userID).Update("avatar", buf.Bytes()).Error
+}
+
+// DeleteAvatar removes a user's avatar
+func (s *UserService) DeleteAvatar(userID uint) error {
+	return s.db.Model(&domain.User{}).Where("id = ?", userID).Update("avatar", nil).Error
+}
+
+// GetAvatar retrieves the avatar bytes for a user
+func (s *UserService) GetAvatar(userID uint) ([]byte, error) {
+	var user domain.User
+	if err := s.db.Select("avatar").First(&user, userID).Error; err != nil {
+		return nil, err
+	}
+	if len(user.Avatar) == 0 {
+		return nil, errors.New("avatar not found")
+	}
+	return user.Avatar, nil
 }
 
 // countAdmins returns the number of active admin users

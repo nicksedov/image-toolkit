@@ -1,9 +1,9 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useAuth } from "@/providers/AuthProvider"
-import { changePassword as apiChangePassword, updateProfile as apiUpdateProfile } from "@/api/endpoints"
+import { changePassword as apiChangePassword, updateProfile as apiUpdateProfile, uploadAvatar, deleteAvatar, getAvatarUrl } from "@/api/endpoints"
 import type { ChangePasswordResponse } from "@/types"
 import { toast } from "sonner"
-import { Loader2, Lock } from "lucide-react"
+import { Loader2, Lock, Trash2, Upload, User } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -12,6 +12,7 @@ import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
 import { useTranslation } from "@/i18n"
 import { translateApiMessage } from "@/api/client"
+import { AvatarCropDialog } from "@/components/auth/AvatarCropDialog"
 
 export function UserProfile() {
   const { user, updateUser, logout } = useAuth()
@@ -23,6 +24,12 @@ export function UserProfile() {
   const [newPassword, setNewPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [isChangingPassword, setIsChangingPassword] = useState(false)
+
+  const [cropOpen, setCropOpen] = useState(false)
+  const [cropFile, setCropFile] = useState<File | null>(null)
+  const [isUploading, setIsUploading] = useState(false)
+  const [avatarVersion, setAvatarVersion] = useState(Date.now())
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     const handleNavigateToLogin = () => {
@@ -104,6 +111,110 @@ export function UserProfile() {
         <h2 className="text-2xl font-bold">{t("adminPanel.updateProfile")}</h2>
         <p className="text-muted-foreground">{t("adminPanel.profileDescription")}</p>
       </div>
+
+      {/* Avatar Card */}
+      {user && (
+        <Card>
+          <CardHeader>
+            <CardTitle>{t("avatar.title")}</CardTitle>
+            <CardDescription>{t("avatar.description")}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-4">
+              <div className="h-20 w-20 rounded-full overflow-hidden bg-muted flex items-center justify-center shrink-0">
+                {user.hasAvatar ? (
+                  <img
+                    src={`${getAvatarUrl(user.id)}?v=${avatarVersion}`}
+                    alt="Avatar"
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <User className="h-10 w-10 text-muted-foreground" />
+                )}
+              </div>
+              <div className="flex gap-2">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    if (!file) return
+                    // Validate type
+                    const allowed = ["image/jpeg", "image/png", "image/webp", "image/gif"]
+                    if (!allowed.includes(file.type)) {
+                      toast.error(t("avatar.invalidType"))
+                      return
+                    }
+                    setCropFile(file)
+                    setCropOpen(true)
+                    e.target.value = ""
+                  }}
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={isUploading}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  {isUploading ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Upload className="mr-2 h-4 w-4" />
+                  )}
+                  {t("avatar.upload")}
+                </Button>
+                {user.hasAvatar && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={isUploading}
+                    onClick={async () => {
+                      setIsUploading(true)
+                      try {
+                        const response = await deleteAvatar()
+                        updateUser(response.user)
+                        setAvatarVersion(Date.now())
+                        toast.success(t("avatar.removeSuccess"))
+                      } catch (err) {
+                        const msg = err instanceof Error ? translateApiMessage(err.message) : t("avatar.removeFailed")
+                        toast.error(msg)
+                      } finally {
+                        setIsUploading(false)
+                      }
+                    }}
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    {t("avatar.remove")}
+                  </Button>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <AvatarCropDialog
+        open={cropOpen}
+        onOpenChange={setCropOpen}
+        imageFile={cropFile}
+        onApply={async (blob) => {
+          setCropOpen(false)
+          setIsUploading(true)
+          try {
+            const response = await uploadAvatar(blob)
+            updateUser(response.user)
+            setAvatarVersion(Date.now())
+            toast.success(t("avatar.uploadSuccess"))
+          } catch (err) {
+            const msg = err instanceof Error ? translateApiMessage(err.message) : t("avatar.uploadFailed")
+            toast.error(msg)
+          } finally {
+            setIsUploading(false)
+          }
+        }}
+      />
 
       <Card>
         <CardContent className="space-y-4 pt-6">

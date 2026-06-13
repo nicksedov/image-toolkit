@@ -174,5 +174,14 @@
   "description_batch_gps": "Batch GPS messages",
   "batch_gps": {
     "no_paths": "No image paths provided"
+  },
+
+  "description_avatar": "Avatar messages",
+  "avatar": {
+    "upload_failed": "Failed to upload avatar",
+    "invalid_type": "Invalid image type. Supported: JPEG, PNG, WebP, GIF",
+    "too_large": "Image is too large. Maximum size is 10MB",
+    "delete_failed": "Failed to delete avatar",
+    "not_found": "Avatar not found"
   }
 }

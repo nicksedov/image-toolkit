@@ -716,4 +716,19 @@ export const translationsRu = {
   "chat.history": "История",
   "chat.history_empty": "Нет предыдущих диалогов для этого изображения",
   "chat.tokens_exhausted": "Достигнут лимит токенов. Начните новый диалог, чтобы продолжить.",
+
+  // Аватар
+  "avatar.title": "Аватар",
+  "avatar.description": "Загрузите изображение профиля. Поддерживаемые форматы: JPEG, PNG, WebP, GIF.",
+  "avatar.upload": "Загрузить",
+  "avatar.remove": "Удалить",
+  "avatar.crop": "Обрезать аватар",
+  "avatar.cropDescription": "Перетащите для позиционирования, используйте ползунок для масштабирования",
+  "avatar.zoom": "Масштаб",
+  "avatar.apply": "Применить",
+  "avatar.uploadSuccess": "Аватар успешно загружен",
+  "avatar.uploadFailed": "Не удалось загрузить аватар",
+  "avatar.removeSuccess": "Аватар удален",
+  "avatar.removeFailed": "Не удалось удалить аватар",
+  "avatar.invalidType": "Неверный тип изображения. Поддерживаются: JPEG, PNG, WebP, GIF",
  } as const

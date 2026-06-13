@@ -116,7 +116,8 @@ func (s *AuthService) GetCurrentUser(token string) (*domain.User, error) {
 	s.sessionRepo.UpdateLastSeen(token)
 
 	var user domain.User
-	if err := s.db.First(&user, session.UserID).Error; err != nil {
+	// Exclude avatar bytes to avoid loading ~10KB on every authenticated request
+	if err := s.db.Omit("avatar").First(&user, session.UserID).Error; err != nil {
 		return nil, err
 	}
 

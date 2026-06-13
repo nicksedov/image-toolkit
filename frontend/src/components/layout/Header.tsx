@@ -1,5 +1,6 @@
 import { useTranslation } from "@/i18n"
 import { useAuth } from "@/providers/AuthProvider"
+import { getAvatarUrl } from "@/api/endpoints"
 import { LogOut, Settings, User } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { IconButton } from "@/components/ui/icon-button"
@@ -22,7 +23,11 @@ export function Header({ onTabChange }: HeaderProps) {
               className="flex items-center gap-2 rounded-md px-2 py-1 hover:bg-muted transition-colors cursor-pointer"
               onClick={() => onTabChange("profile")}
             >
-              <User className="h-4 w-4 text-muted-foreground" />
+              {user.hasAvatar ? (
+                <img src={getAvatarUrl(user.id)} className="h-6 w-6 rounded-full object-cover" alt="" />
+              ) : (
+                <User className="h-4 w-4 text-muted-foreground" />
+              )}
               <span className="text-sm font-medium">{user.displayName}</span>
               <Badge variant="outline" className="text-xs">
                 {user.role === "admin" ? t("adminPanel.roleAdmin") : t("adminPanel.roleUser")}

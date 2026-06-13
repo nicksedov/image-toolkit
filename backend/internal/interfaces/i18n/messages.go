@@ -36,6 +36,13 @@ const (
 	MsgAuthProfileUpdateFailed    MessageKey = "auth.profile_update_failed"
 	MsgAuthAuditLogsFailed        MessageKey = "auth.audit_logs_failed"
 
+	// Avatar messages
+	MsgAvatarUploadFailed MessageKey = "avatar.upload_failed"
+	MsgAvatarInvalidType  MessageKey = "avatar.invalid_type"
+	MsgAvatarTooLarge     MessageKey = "avatar.too_large"
+	MsgAvatarDeleteFailed MessageKey = "avatar.delete_failed"
+	MsgAvatarNotFound     MessageKey = "avatar.not_found"
+
 	// Scan messages
 	MsgScanStarted         MessageKey = "scan.started"
 	MsgScanFailed          MessageKey = "scan.failed"

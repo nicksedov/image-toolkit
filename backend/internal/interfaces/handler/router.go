@@ -46,6 +46,9 @@ func (s *Server) SetupRouter(authMiddleware *middleware.AuthMiddleware, csrfProt
 			protected.GET("/auth/me", authHandlers.handleMe)
 			protected.POST("/auth/change-password", authHandlers.handleChangePassword)
 			protected.PATCH("/users/me", authHandlers.handleUpdateProfile)
+			protected.POST("/users/me/avatar", authHandlers.handleUploadAvatar)
+			protected.DELETE("/users/me/avatar", authHandlers.handleDeleteAvatar)
+			protected.GET("/users/:id/avatar", authHandlers.handleGetAvatar)
 
 			// Thumbnail cache endpoints
 			protected.GET("/thumbnail/cache/stats", s.handleThumbnailCacheStats)

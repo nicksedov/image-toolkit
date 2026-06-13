@@ -1,4 +1,4 @@
-import { apiGet, apiPost, apiDelete, apiPut, apiPatch } from "./client"
+import { apiGet, apiPost, apiDelete, apiPut, apiPatch, apiUpload } from "./client"
 import type {
   DuplicatesResponse,
   ScanResponse,
@@ -335,6 +335,23 @@ export function bootstrapSetup(req: BootstrapSetupRequest): Promise<{ user: impo
 
 export function updateProfile(req: UpdateProfileRequest): Promise<{ user: import("@/types").UserDTO }> {
   return apiPatch<{ user: import("@/types").UserDTO }>("/api/users/me", req)
+}
+
+// --- Avatar ---
+
+export function uploadAvatar(file: Blob): Promise<{ user: import("@/types").UserDTO }> {
+  const formData = new FormData()
+  formData.append("avatar", file)
+  return apiUpload<{ user: import("@/types").UserDTO }>("/api/users/me/avatar", formData)
+}
+
+export function deleteAvatar(): Promise<{ user: import("@/types").UserDTO }> {
+  return apiDelete<{ user: import("@/types").UserDTO }>("/api/users/me/avatar")
+}
+
+export function getAvatarUrl(userId: number): string {
+  const baseUrl = import.meta.env.VITE_API_URL || ""
+  return `${baseUrl}/api/users/${userId}/avatar`
 }
 
 // --- Admin ---
