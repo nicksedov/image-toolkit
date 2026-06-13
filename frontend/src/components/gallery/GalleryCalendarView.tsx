@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { fetchCalendarMonthInfo, fetchCalendarAllDates } from "@/api/endpoints"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Calendar as CalendarIcon, ArrowDown, ArrowUp } from "lucide-react"
+import { Calendar as CalendarIcon, ArrowDown, ArrowUp, Loader2 } from "lucide-react"
 import { useTranslation } from "@/i18n"
 import type { GalleryImageDTO, CalendarDateGroup, CalendarMonthInfo, TimelineDateMarker } from "@/types"
 import { useCalendarData } from "@/hooks/useCalendarData"
@@ -245,14 +245,18 @@ export function GalleryCalendarView({ onImageClick, onImageDownload, onImageDele
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <CalendarIcon className="h-5 w-5 text-muted-foreground" />
-          <span className="text-sm text-muted-foreground">
-            {calendar.dateRange.totalWithDate > 0
-              ? calendar.dateRange.totalWithDate === 1
-                ? t("gallery.imageCountOne", { count: calendar.dateRange.totalWithDate.toLocaleString() })
-                : t("gallery.imageCount", { count: calendar.dateRange.totalWithDate.toLocaleString() })
-              : t("gallery.calendar.noDateInfo")
-            }
-          </span>
+          {!calendar.initialized ? (
+            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+          ) : (
+            <span className="text-sm text-muted-foreground">
+              {calendar.dateRange.totalWithDate > 0
+                ? calendar.dateRange.totalWithDate === 1
+                  ? t("gallery.imageCountOne", { count: calendar.dateRange.totalWithDate.toLocaleString() })
+                  : t("gallery.imageCount", { count: calendar.dateRange.totalWithDate.toLocaleString() })
+                : t("gallery.calendar.noDateInfo")
+              }
+            </span>
+          )}
         </div>
 
         <button
@@ -294,7 +298,7 @@ export function GalleryCalendarView({ onImageClick, onImageDownload, onImageDele
             </div>
           )}
 
-          {!calendar.initialized && calendar.isLoading ? (
+          {!calendar.initialized ? (
             <div className="space-y-3">
               {Array.from({ length: 3 }).map((_, i) => (
                 <Skeleton key={i} className="h-40 w-full rounded-lg" />

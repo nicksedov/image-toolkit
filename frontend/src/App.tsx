@@ -105,7 +105,7 @@ export default function App() {
       <Sidebar activeTab={activeTab} onTabChange={handleTabChange} />
 
       <div className="flex flex-1 flex-col overflow-hidden">
-        <Header />
+        <Header onTabChange={handleTabChange} />
 
         <main className={`flex-1 overflow-auto ${activeTab === "gallery-geolocation" ? "px-3 py-3" : "px-8 py-6"}`}>
           <div className={activeTab === "gallery-geolocation" ? "mx-auto" : "mx-auto max-w-7xl"}>

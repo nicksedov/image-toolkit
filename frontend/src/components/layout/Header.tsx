@@ -1,10 +1,14 @@
 import { useTranslation } from "@/i18n"
 import { useAuth } from "@/providers/AuthProvider"
-import { LogOut, User } from "lucide-react"
+import { LogOut, Settings, User } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { IconButton } from "@/components/ui/icon-button"
 
-export function Header() {
+interface HeaderProps {
+  onTabChange: (tab: string) => void
+}
+
+export function Header({ onTabChange }: HeaderProps) {
   const { t } = useTranslation()
   const { user, logout } = useAuth()
 
@@ -13,13 +17,24 @@ export function Header() {
       <div className="flex items-center justify-end gap-3">
         {user && (
           <>
-            <div className="flex items-center gap-2">
+            <button
+              type="button"
+              className="flex items-center gap-2 rounded-md px-2 py-1 hover:bg-muted transition-colors cursor-pointer"
+              onClick={() => onTabChange("profile")}
+            >
               <User className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm font-medium">{user.displayName}</span>
               <Badge variant="outline" className="text-xs">
                 {user.role === "admin" ? t("adminPanel.roleAdmin") : t("adminPanel.roleUser")}
               </Badge>
-            </div>
+            </button>
+            <IconButton
+              variant="ghost"
+              size="sm"
+              icon={Settings}
+              onClick={() => onTabChange("settings")}
+              title={t("tabs.preferences")}
+            />
             <IconButton
               variant="ghost"
               size="sm"

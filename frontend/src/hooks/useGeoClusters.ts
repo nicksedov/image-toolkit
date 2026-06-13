@@ -14,6 +14,7 @@ interface UseGeoClustersReturn {
   totalImages: number
   isLoading: boolean
   error: string | null
+  initialized: boolean
   refetch: () => void
 }
 
@@ -23,6 +24,7 @@ export function useGeoClusters({ bounds, zoom, width, height }: UseGeoClustersPa
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [refetchKey, setRefetchKey] = useState(0)
+  const [initialized, setInitialized] = useState(false)
 
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -31,6 +33,7 @@ export function useGeoClusters({ bounds, zoom, width, height }: UseGeoClustersPa
       setClusters([])
       setTotalImages(0)
       setIsLoading(false)
+      setInitialized(true)
       return
     }
 
@@ -48,10 +51,12 @@ export function useGeoClusters({ bounds, zoom, width, height }: UseGeoClustersPa
       })
       setClusters(result.clusters)
       setTotalImages(result.totalImages)
+      setInitialized(true)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to fetch clusters")
       setClusters([])
       setTotalImages(0)
+      setInitialized(true)
     } finally {
       setIsLoading(false)
     }
@@ -78,5 +83,5 @@ export function useGeoClusters({ bounds, zoom, width, height }: UseGeoClustersPa
     setRefetchKey((k) => k + 1)
   }, [])
 
-  return { clusters, totalImages, isLoading, error, refetch }
+  return { clusters, totalImages, isLoading, error, initialized, refetch }
 }
