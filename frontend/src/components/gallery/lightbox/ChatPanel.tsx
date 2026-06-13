@@ -434,7 +434,7 @@ export function ChatPanel({
                   <History className="h-3.5 w-3.5" />
                 </Button>
                 {showHistory && (
-                  <div className="absolute right-0 top-full mt-1 z-50 w-64 max-h-60 overflow-y-auto rounded-md border bg-card shadow-lg">
+                  <div className="absolute right-0 top-full mt-1 z-50 w-64 max-h-60 overflow-y-auto rounded-md border bg-popover text-popover-foreground shadow-lg" style={{ backgroundColor: 'var(--color-popover)', color: 'var(--color-popover-foreground)' }}>
                     {conversations.length === 0 ? (
                       <div className="px-3 py-4 text-xs text-muted-foreground text-center">
                         {t("chat.history_empty")}

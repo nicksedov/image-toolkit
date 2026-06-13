@@ -118,3 +118,23 @@ export async function apiPatch<T>(path: string, body?: unknown): Promise<T> {
 
   return data as T
 }
+
+export async function apiUpload<T>(path: string, formData: FormData): Promise<T> {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method: "POST",
+    credentials: "include",
+    body: formData,
+  })
+
+  const data = await response.json()
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      handleUnauthorized()
+    }
+    const errorMessage = translateApiMessage(data.error || data.message)
+    throw new Error(errorMessage)
+  }
+
+  return data as T
+}

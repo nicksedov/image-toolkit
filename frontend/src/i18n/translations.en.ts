@@ -626,4 +626,19 @@ export const translationsEn = {
   "chat.history": "History",
   "chat.history_empty": "No previous conversations for this image",
   "chat.tokens_exhausted": "Token limit reached. Start a new conversation to continue.",
+
+  // Avatar
+  "avatar.title": "Avatar",
+  "avatar.description": "Upload a profile picture. Supported formats: JPEG, PNG, WebP, GIF.",
+  "avatar.upload": "Upload",
+  "avatar.remove": "Remove",
+  "avatar.crop": "Crop Avatar",
+  "avatar.cropDescription": "Drag to reposition, use the slider to zoom",
+  "avatar.zoom": "Zoom",
+  "avatar.apply": "Apply",
+  "avatar.uploadSuccess": "Avatar uploaded successfully",
+  "avatar.uploadFailed": "Failed to upload avatar",
+  "avatar.removeSuccess": "Avatar removed",
+  "avatar.removeFailed": "Failed to remove avatar",
+  "avatar.invalidType": "Invalid image type. Supported: JPEG, PNG, WebP, GIF",
  } as const

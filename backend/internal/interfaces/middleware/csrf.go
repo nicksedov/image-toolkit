@@ -27,6 +27,7 @@ func NewCSRFProtection(i18nSvc *i18n.Service) *CSRFProtection {
 			"/api/auth/bootstrap/setup",
 			"/api/auth/change-password",
 			"/api/users/me",
+			"/api/users/me/avatar",
 			"/api/admin/users",
 			"/api/admin/users/:id",
 			"/api/settings",

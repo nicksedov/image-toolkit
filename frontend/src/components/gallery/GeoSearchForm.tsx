@@ -131,7 +131,7 @@ export function GeoSearchForm({ imagePath, paths, date, affectedCount, onGpsSave
 
         {/* Search results dropdown */}
         {results.length > 0 && !selected && (
-          <div className="absolute z-50 top-full left-0 right-0 mt-1 max-h-48 overflow-y-auto rounded-md border bg-card shadow-lg">
+          <div className="absolute z-50 top-full left-0 right-0 mt-1 max-h-48 overflow-y-auto rounded-md border bg-popover text-popover-foreground shadow-lg" style={{ backgroundColor: 'var(--color-popover)', color: 'var(--color-popover-foreground)' }}>
             {results.map((r, i) => (
               <button
                 key={i}
@@ -147,7 +147,7 @@ export function GeoSearchForm({ imagePath, paths, date, affectedCount, onGpsSave
         )}
 
         {query.length >= 2 && results.length === 0 && !isSearching && !selected && (
-          <div className="absolute z-50 top-full left-0 right-0 mt-1 rounded-md border bg-card shadow-lg px-2.5 py-2 text-xs text-muted-foreground">
+          <div className="absolute z-50 top-full left-0 right-0 mt-1 rounded-md border bg-popover text-popover-foreground shadow-lg px-2.5 py-2 text-xs text-muted-foreground" style={{ backgroundColor: 'var(--color-popover)', color: 'var(--color-popover-foreground)' }}>
             {t("geo.noResults")}
           </div>
         )}

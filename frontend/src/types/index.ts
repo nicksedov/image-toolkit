@@ -341,6 +341,7 @@ export interface UserDTO {
   login: string
   displayName: string
   role: UserRole
+  hasAvatar: boolean
   isActive: boolean
   mustChangePassword: boolean
   createdAt: string

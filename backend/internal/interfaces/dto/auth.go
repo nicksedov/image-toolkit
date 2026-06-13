@@ -24,6 +24,7 @@ type UserDTO struct {
 	Login              string          `json:"login"`
 	DisplayName        string          `json:"displayName"`
 	Role               domain.UserRole `json:"role"`
+	HasAvatar          bool            `json:"hasAvatar"`
 	IsActive           bool            `json:"isActive"`
 	MustChangePassword bool            `json:"mustChangePassword"`
 	CreatedAt          string          `json:"createdAt"`
@@ -37,6 +38,7 @@ func ToUserDTO(u *domain.User) UserDTO {
 		Login:              u.Login,
 		DisplayName:        u.DisplayName,
 		Role:               u.Role,
+		HasAvatar:          len(u.Avatar) > 0,
 		IsActive:           u.IsActive,
 		MustChangePassword: u.MustChangePassword,
 		CreatedAt:          u.CreatedAt.Format("2006-01-02 15:04:05"),

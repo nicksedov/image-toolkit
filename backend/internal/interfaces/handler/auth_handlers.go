@@ -2,6 +2,7 @@ package handler
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 
@@ -149,8 +150,15 @@ func (h *AuthHandlers) handleMe(c *gin.Context) {
 		return
 	}
 
+	// Re-fetch with avatar to correctly set hasAvatar flag
+	userWithAvatar, err := h.userService.GetUserWithAvatar(user.ID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, i18n.ErrorResponse(i18n.MsgAuthInternalError))
+		return
+	}
+
 	c.JSON(http.StatusOK, gin.H{
-		"user": dto.ToUserDTO(user),
+		"user": dto.ToUserDTO(userWithAvatar),
 	})
 }
 
@@ -429,7 +437,14 @@ func (h *AuthHandlers) handleUpdateProfile(c *gin.Context) {
 		return
 	}
 
-	updatedUser, err := h.userService.UpdateProfile(user.ID, req.DisplayName)
+	_, err := h.userService.UpdateProfile(user.ID, req.DisplayName)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, i18n.ErrorResponse(i18n.MsgAuthProfileUpdateFailed))
+		return
+	}
+
+	// Re-fetch with avatar to correctly set hasAvatar flag
+	updatedUser, err := h.userService.GetUserWithAvatar(user.ID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, i18n.ErrorResponse(i18n.MsgAuthProfileUpdateFailed))
 		return
@@ -438,6 +453,112 @@ func (h *AuthHandlers) handleUpdateProfile(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"user": dto.ToUserDTO(updatedUser),
 	})
+}
+
+// handleUploadAvatar uploads and processes the current user's avatar
+func (h *AuthHandlers) handleUploadAvatar(c *gin.Context) {
+	user := middleware.GetCurrentUser(c)
+	if user == nil {
+		c.JSON(http.StatusUnauthorized, i18n.ErrorResponse(i18n.MsgAuthUnauthorized))
+		return
+	}
+
+	// Parse multipart form (max 10MB)
+	if err := c.Request.ParseMultipartForm(10 << 20); err != nil {
+		c.JSON(http.StatusBadRequest, i18n.ErrorResponse(i18n.MsgAvatarTooLarge))
+		return
+	}
+
+	file, header, err := c.Request.FormFile("avatar")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, i18n.ErrorResponse(i18n.MsgAvatarInvalidType))
+		return
+	}
+	defer file.Close()
+
+	// Validate content type
+	contentType := header.Header.Get("Content-Type")
+	allowedTypes := map[string]bool{
+		"image/jpeg": true,
+		"image/png":  true,
+		"image/webp": true,
+		"image/gif":  true,
+	}
+	if !allowedTypes[contentType] {
+		c.JSON(http.StatusBadRequest, i18n.ErrorResponse(i18n.MsgAvatarInvalidType))
+		return
+	}
+
+	// Read file bytes
+	fileBytes, err := io.ReadAll(file)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, i18n.ErrorResponse(i18n.MsgAvatarUploadFailed))
+		return
+	}
+
+	if err := h.userService.UpdateAvatar(user.ID, fileBytes); err != nil {
+		if strings.Contains(err.Error(), "too large") {
+			c.JSON(http.StatusBadRequest, i18n.ErrorResponse(i18n.MsgAvatarTooLarge))
+			return
+		}
+		c.JSON(http.StatusInternalServerError, i18n.ErrorResponse(i18n.MsgAvatarUploadFailed))
+		return
+	}
+
+	// Return updated user with hasAvatar=true
+	updatedUser, err := h.userService.GetUserWithAvatar(user.ID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, i18n.ErrorResponse(i18n.MsgAvatarUploadFailed))
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"user": dto.ToUserDTO(updatedUser),
+	})
+}
+
+// handleDeleteAvatar removes the current user's avatar
+func (h *AuthHandlers) handleDeleteAvatar(c *gin.Context) {
+	user := middleware.GetCurrentUser(c)
+	if user == nil {
+		c.JSON(http.StatusUnauthorized, i18n.ErrorResponse(i18n.MsgAuthUnauthorized))
+		return
+	}
+
+	if err := h.userService.DeleteAvatar(user.ID); err != nil {
+		c.JSON(http.StatusInternalServerError, i18n.ErrorResponse(i18n.MsgAvatarDeleteFailed))
+		return
+	}
+
+	// Return updated user with hasAvatar=false
+	updatedUser, err := h.userService.GetUserWithAvatar(user.ID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, i18n.ErrorResponse(i18n.MsgAvatarDeleteFailed))
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"user": dto.ToUserDTO(updatedUser),
+	})
+}
+
+// handleGetAvatar serves a user's avatar image
+func (h *AuthHandlers) handleGetAvatar(c *gin.Context) {
+	id := c.Param("id")
+	var userID uint
+	if _, err := fmt.Sscanf(id, "%d", &userID); err != nil {
+		c.JSON(http.StatusBadRequest, i18n.ErrorResponse(i18n.MsgAvatarNotFound))
+		return
+	}
+
+	avatar, err := h.userService.GetAvatar(userID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, i18n.ErrorResponse(i18n.MsgAvatarNotFound))
+		return
+	}
+
+	c.Header("Cache-Control", "public, max-age=300")
+	c.Data(http.StatusOK, "image/webp", avatar)
 }
 
 // handleAuditLogs returns audit logs (admin only)

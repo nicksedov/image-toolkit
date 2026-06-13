@@ -19,6 +19,7 @@ type User struct {
 	DisplayName        string     `gorm:"size:255;not null" json:"displayName"`
 	Role               UserRole   `gorm:"size:50;not null;default:user" json:"role"`
 	PasswordHash       string     `gorm:"not null" json:"-"`
+	Avatar             []byte     `gorm:"type:bytea" json:"-"`
 	IsActive           bool       `gorm:"default:true" json:"isActive"`
 	MustChangePassword bool       `gorm:"default:false" json:"mustChangePassword"`
 	CreatedAt          time.Time  `json:"createdAt"`
