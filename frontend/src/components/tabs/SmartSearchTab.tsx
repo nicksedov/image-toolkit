@@ -1,11 +1,10 @@
 import { useState, useCallback, useRef, useEffect } from "react"
-import { Search, Loader2, X, AlertTriangle, Zap } from "lucide-react"
+import { Search, Loader2, X, AlertTriangle, Zap, ImageIcon } from "lucide-react"
 import { useTranslation } from "@/i18n"
 import type { SmartSearchResult, EmbeddingBackfillStatus } from "@/types"
 import { UnifiedLightbox } from "@/components/gallery/UnifiedLightbox"
 import { useSmartSearch } from "@/hooks/useSmartSearch"
-import { fetchEmbeddingStatus, startEmbeddingBackfill, stopEmbeddingBackfill } from "@/api/endpoints"
-import { buildImageUrl } from "@/utils/buildImageUrl"
+import { fetchEmbeddingStatus, startEmbeddingBackfill, stopEmbeddingBackfill, fetchThumbnail } from "@/api/endpoints"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -13,6 +12,39 @@ import { usePolling } from "@/hooks/usePolling"
 
 const DEBOUNCE_MS = 300
 const EMBEDDING_POLL_INTERVAL = 3000
+
+/** Lazily fetches and renders a thumbnail via the JSON thumbnail API. */
+function LazyThumbnail({ path, fileName }: { path: string; fileName: string }) {
+  const [src, setSrc] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    fetchThumbnail(path)
+      .then((res) => {
+        if (!cancelled) setSrc(res.thumbnail)
+      })
+      .catch(() => {
+        // leave blank on error
+      })
+    return () => { cancelled = true }
+  }, [path])
+
+  if (!src) {
+    return (
+      <div className="w-full h-full flex items-center justify-center bg-muted">
+        <ImageIcon className="h-8 w-8 text-muted-foreground" />
+      </div>
+    )
+  }
+
+  return (
+    <img
+      src={src}
+      alt={fileName}
+      className="w-full h-full object-cover"
+    />
+  )
+}
 
 export function SmartSearchTab() {
   const { t } = useTranslation()
@@ -252,11 +284,7 @@ export function SmartSearchTab() {
               className="group relative aspect-square rounded-lg overflow-hidden border bg-card hover:border-primary transition-colors"
             >
               {/* Thumbnail */}
-              <img
-                src={buildImageUrl(result.path, "/api/thumbnail")}
-                alt={result.fileName}
-                className="w-full h-full object-cover"
-              />
+              <LazyThumbnail path={result.path} fileName={result.fileName} />
 
               {/* Similarity badge */}
               <Badge
