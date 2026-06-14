@@ -183,5 +183,39 @@
     "too_large": "Изображение слишком большое. Максимальный размер 10 МБ",
     "delete_failed": "Не удалось удалить аватар",
     "not_found": "Аватар не найден"
+  },
+
+  "description_chat": "Сообщения чата",
+  "chat": {
+    "invalid_request": "Неверное тело запроса",
+    "conversation_not_found": "Диалог не найден",
+    "invalid_conversation_id": "Неверный ID диалога",
+    "content_required": "Содержимое обязательно",
+    "llm_no_chat_support": "LLM-провайдер не поддерживает чат/вызов функций",
+    "conversation_deleted": "Диалог удален"
+  },
+
+  "description_embedding": "Сообщения эмбеддингов",
+  "embedding": {
+    "manager_not_available": "Менеджер бэкфилла эмбеддингов недоступен",
+    "backfill_started": "Бэкфилл эмбеддингов начат",
+    "backfill_stopped": "Бэкфилл эмбеддингов остановлен",
+    "provider_not_found": "Провайдер эмбеддингов не найден",
+    "client_creation_failed": "Не удалось создать клиент эмбеддингов",
+    "probe_failed": "Ошибка пробного запроса эмбеддингов",
+    "empty_vector": "Пробный запрос эмбеддингов вернул пустой вектор"
+  },
+
+  "description_tag_search": "Сообщения поиска по тегам",
+  "tag_search": {
+    "query_required": "Параметр tags обязателен",
+    "at_least_one_required": "Необходим хотя бы один тег"
+  },
+
+  "description_tag_scan": "Сообщения сканирования тегов",
+  "tag_scan": {
+    "manager_not_available": "Менеджер сканирования тегов недоступен",
+    "paused": "Сканирование тегов приостановлено",
+    "resumed": "Сканирование тегов возобновлено"
   }
 }

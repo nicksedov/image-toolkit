@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"image-toolkit/internal/application/imaging"
+	"image-toolkit/internal/interfaces/i18n"
 
 	"github.com/gin-gonic/gin"
 )
@@ -21,23 +22,23 @@ func (s *Server) handleEmbeddingStatus(c *gin.Context) {
 // handleEmbeddingStart starts the embedding backfill process.
 func (s *Server) handleEmbeddingStart(c *gin.Context) {
 	if s.embeddingBackfill == nil {
-		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Embedding backfill manager not available"})
+		s.respondError(c, http.StatusServiceUnavailable, i18n.MsgEmbeddingManagerNotAvailable)
 		return
 	}
 
 	if err := s.embeddingBackfill.Start(); err != nil {
-		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+		s.respondError(c, http.StatusConflict, i18n.MsgEmbeddingManagerNotAvailable)
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"message": "Embedding backfill started"})
+	s.respondSuccess(c, http.StatusOK, i18n.MsgEmbeddingBackfillStarted)
 }
 
 // handleEmbeddingStop stops the embedding backfill process.
 func (s *Server) handleEmbeddingStop(c *gin.Context) {
 	if s.embeddingBackfill == nil {
-		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Embedding backfill manager not available"})
+		s.respondError(c, http.StatusServiceUnavailable, i18n.MsgEmbeddingManagerNotAvailable)
 		return
 	}
 	s.embeddingBackfill.Stop()
-	c.JSON(http.StatusOK, gin.H{"message": "Embedding backfill stopped"})
+	s.respondSuccess(c, http.StatusOK, i18n.MsgEmbeddingBackfillStopped)
 }

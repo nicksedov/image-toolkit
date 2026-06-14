@@ -477,6 +477,17 @@ type UpdateLlmSettingsRequest struct {
 	EmbeddingDimension     *int    `json:"embeddingDimension,omitempty"`
 }
 
+// ProbeEmbeddingDimensionRequest for POST /api/llm/embedding/probe
+type ProbeEmbeddingDimensionRequest struct {
+	ProviderAlias string `json:"providerAlias" binding:"required"`
+	Model         string `json:"model" binding:"required"`
+}
+
+// ProbeEmbeddingDimensionResponse for POST /api/llm/embedding/probe
+type ProbeEmbeddingDimensionResponse struct {
+	Dimension int `json:"dimension"`
+}
+
 // CreateLlmProviderRequest for POST /api/llm/providers
 type CreateLlmProviderRequest struct {
 	Alias  string `json:"alias" binding:"required"`

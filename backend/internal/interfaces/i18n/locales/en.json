@@ -183,5 +183,39 @@
     "too_large": "Image is too large. Maximum size is 10MB",
     "delete_failed": "Failed to delete avatar",
     "not_found": "Avatar not found"
+  },
+
+  "description_chat": "Chat messages",
+  "chat": {
+    "invalid_request": "Invalid request body",
+    "conversation_not_found": "Conversation not found",
+    "invalid_conversation_id": "Invalid conversation ID",
+    "content_required": "Content is required",
+    "llm_no_chat_support": "LLM provider does not support chat/function calling",
+    "conversation_deleted": "Conversation deleted"
+  },
+
+  "description_embedding": "Embedding messages",
+  "embedding": {
+    "manager_not_available": "Embedding backfill manager not available",
+    "backfill_started": "Embedding backfill started",
+    "backfill_stopped": "Embedding backfill stopped",
+    "provider_not_found": "Embedding provider not found",
+    "client_creation_failed": "Failed to create embedding client",
+    "probe_failed": "Embedding probe failed",
+    "empty_vector": "Embedding probe returned empty vector"
+  },
+
+  "description_tag_search": "Tag search messages",
+  "tag_search": {
+    "query_required": "Tags query parameter is required",
+    "at_least_one_required": "At least one tag is required"
+  },
+
+  "description_tag_scan": "Tag scan messages",
+  "tag_scan": {
+    "manager_not_available": "Tag scan manager not available",
+    "paused": "Tag scan paused",
+    "resumed": "Tag scan resumed"
   }
 }

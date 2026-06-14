@@ -112,6 +112,7 @@ func (s *Server) SetupRouter(authMiddleware *middleware.AuthMiddleware, csrfProt
 			protected.GET("/llm/recognize-status", s.handleLlmRecognizeStatus)
 			protected.GET("/llm/recognition", s.handleGetLlmRecognition)
 			protected.GET("/llm/models", s.handleGetLlmModels)
+			protected.POST("/llm/embedding/probe", s.handleProbeEmbeddingDimension)
 
 			// AI Assistant endpoints
 			protected.POST("/ai/action", s.handleAiAction)

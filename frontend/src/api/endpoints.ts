@@ -480,6 +480,10 @@ export function fetchLlmModels(provider?: string, force?: boolean): Promise<LlmM
   return apiGet<LlmModelsResponse>("/api/llm/models", params)
 }
 
+export function probeEmbeddingDimension(providerAlias: string, model: string): Promise<{ dimension: number }> {
+  return apiPost<{ dimension: number }>("/api/llm/embedding/probe", { providerAlias, model })
+}
+
 // --- Tag Scan ---
 
 export function fetchTagScanStatus(): Promise<TagScanStatusResponse> {

@@ -2247,6 +2247,54 @@ func (s *Server) handleUpdateLlmSettings(c *gin.Context) {
 	c.JSON(http.StatusOK, map[string]string{"message": string(i18n.MsgLlmOcrSettingsSaved)})
 }
 
+// handleProbeEmbeddingDimension probes the embedding model to detect its vector dimension.
+// Sends a single "dimension probe" text to the model and returns len(embeddings[0]).
+func (s *Server) handleProbeEmbeddingDimension(c *gin.Context) {
+	var req dto.ProbeEmbeddingDimensionRequest
+	if !helpers.BindJSON(c, &req) {
+		return
+	}
+
+	// Resolve provider by alias
+	var provider domain.LlmProvider
+	if err := s.db.Where("alias = ?", req.ProviderAlias).First(&provider).Error; err != nil {
+		s.respondError(c, http.StatusNotFound, i18n.MsgEmbeddingProviderNotFound)
+		return
+	}
+
+	// Create embedding client
+	embeddingClient, err := llm.NewEmbeddingClient(provider.Name, provider.ApiUrl, provider.ApiKey, req.Model)
+	if err != nil {
+		s.respondError(c, http.StatusInternalServerError, i18n.MsgEmbeddingClientFailed)
+		return
+	}
+
+	// Probe: send a single short text and measure output dimension
+	probe, err := embeddingClient.Embed([]string{"dimension probe"})
+	if err != nil {
+		s.respondError(c, http.StatusInternalServerError, i18n.MsgEmbeddingProbeFailed)
+		return
+	}
+	if len(probe) == 0 || len(probe[0]) == 0 {
+		s.respondError(c, http.StatusInternalServerError, i18n.MsgEmbeddingEmptyVector)
+		return
+	}
+
+	dimension := len(probe[0])
+
+	// Persist detected dimension into LlmSettings so downstream code uses it immediately
+	var settings domain.LlmSettings
+	if s.db.First(&settings).Error == nil {
+		s.db.Model(&settings).Updates(map[string]interface{}{
+			"embedding_dimension":     dimension,
+			"embedding_model":         req.Model,
+			"embedding_provider_alias": req.ProviderAlias,
+		})
+	}
+
+	c.JSON(http.StatusOK, dto.ProbeEmbeddingDimensionResponse{Dimension: dimension})
+}
+
 // handleCreateLlmProvider creates a new LLM provider
 func (s *Server) handleCreateLlmProvider(c *gin.Context) {
 	var req dto.CreateLlmProviderRequest
@@ -2417,23 +2465,23 @@ func (s *Server) handleTagScanStatus(c *gin.Context) {
 // handleTagScanPause pauses the tag scanning
 func (s *Server) handleTagScanPause(c *gin.Context) {
 	if s.tagScanManager == nil {
-		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Tag scan manager not available"})
+		s.respondError(c, http.StatusServiceUnavailable, i18n.MsgTagScanManagerNotAvailable)
 		return
 	}
 
 	s.tagScanManager.RequestPause()
-	c.JSON(http.StatusOK, gin.H{"message": "Tag scan paused"})
+	s.respondSuccess(c, http.StatusOK, i18n.MsgTagScanPaused)
 }
 
 // handleTagScanResume resumes the tag scanning
 func (s *Server) handleTagScanResume(c *gin.Context) {
 	if s.tagScanManager == nil {
-		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Tag scan manager not available"})
+		s.respondError(c, http.StatusServiceUnavailable, i18n.MsgTagScanManagerNotAvailable)
 		return
 	}
 
 	s.tagScanManager.Resume()
-	c.JSON(http.StatusOK, gin.H{"message": "Tag scan resumed"})
+	s.respondSuccess(c, http.StatusOK, i18n.MsgTagScanResumed)
 }
 
 // handleLlmRecognize starts LLM-based OCR recognition asynchronously
