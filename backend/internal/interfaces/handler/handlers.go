@@ -2136,6 +2136,8 @@ func (s *Server) handleGetLlmSettings(c *gin.Context) {
 		TagScanEndHour:        settings.TagScanEndHour,
 		TagScanEndMinute:      settings.TagScanEndMinute,
 		TagScanTimezoneOffset: settings.TagScanTimezoneOffset,
+		EmbeddingProviderAlias: settings.EmbeddingProviderAlias,
+		EmbeddingModel:         settings.EmbeddingModel,
 		Providers:             providerDTOs,
 	})
 }
@@ -2171,6 +2173,12 @@ func (s *Server) handleUpdateLlmSettings(c *gin.Context) {
 	if req.TagScanTimezoneOffset != nil {
 		globalUpdates["tag_scan_timezone_offset"] = *req.TagScanTimezoneOffset
 	}
+	if req.EmbeddingProviderAlias != nil {
+		globalUpdates["embedding_provider_alias"] = *req.EmbeddingProviderAlias
+	}
+	if req.EmbeddingModel != nil {
+		globalUpdates["embedding_model"] = *req.EmbeddingModel
+	}
 
 	if err == gorm.ErrRecordNotFound {
 		settings = domain.LlmSettings{
@@ -2201,6 +2209,12 @@ func (s *Server) handleUpdateLlmSettings(c *gin.Context) {
 		}
 		if req.TagScanTimezoneOffset != nil {
 			settings.TagScanTimezoneOffset = *req.TagScanTimezoneOffset
+		}
+		if req.EmbeddingProviderAlias != nil {
+			settings.EmbeddingProviderAlias = *req.EmbeddingProviderAlias
+		}
+		if req.EmbeddingModel != nil {
+			settings.EmbeddingModel = *req.EmbeddingModel
 		}
 		if err := s.db.Create(&settings).Error; err != nil {
 			c.JSON(http.StatusInternalServerError, i18n.ErrorResponse(i18n.MsgLlmOcrSettingsSaveFailed))
