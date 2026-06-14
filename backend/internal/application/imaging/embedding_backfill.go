@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"image-toolkit/internal/domain"
+	"image-toolkit/internal/infrastructure/database"
 	"image-toolkit/internal/infrastructure/llm"
 
 	"gorm.io/gorm"
@@ -23,8 +24,8 @@ type EmbeddingBackfillProgress struct {
 
 // EmbeddingBackfillStatus holds the current status of the embedding backfill.
 type EmbeddingBackfillStatus struct {
-	Running   bool                       `json:"running"`
-	Progress  EmbeddingBackfillProgress  `json:"progress"`
+	Running  bool                      `json:"running"`
+	Progress EmbeddingBackfillProgress `json:"progress"`
 }
 
 // EmbeddingBackfillManager generates embeddings for images that have tags but no embeddings.
@@ -101,23 +102,33 @@ func (m *EmbeddingBackfillManager) run() {
 		log.Println("Embedding backfill: finished")
 	}()
 
-	// Create embedding client
-	embeddingClient, modelName, err := resolveEmbeddingClient(m.db)
+	// Create embedding client with dimension
+	embeddingClient, modelName, dimension, err := resolveEmbeddingClient(m.db)
 	if err != nil {
 		m.setError(fmt.Sprintf("Failed to create embedding client: %v", err))
 		return
 	}
-	// Count images that need embeddings (have tags but no embedding, or model changed)
+
+	// Ensure the per-model child table exists
+	if err := database.EnsureEmbeddingTable(m.db, modelName, dimension); err != nil {
+		m.setError(fmt.Sprintf("Failed to ensure embedding table: %v", err))
+		return
+	}
+
+	childTable := domain.EmbeddingTableName(modelName)
+
+	// Count images that need embeddings for this model
 	var total int64
 	m.db.Table("image_files").
 		Joins("INNER JOIN image_tags ON image_tags.image_file_id = image_files.id").
 		Joins("LEFT JOIN tag_embeddings ON tag_embeddings.image_file_id = image_files.id").
-		Where("tag_embeddings.id IS NULL OR tag_embeddings.model_name != ?", modelName).
+		Joins(fmt.Sprintf("LEFT JOIN %s ON %s.tag_embeddings_id = tag_embeddings.id", childTable, childTable)).
+		Where(fmt.Sprintf("%s.id IS NULL", childTable)).
 		Distinct("image_files.id").
 		Count(&total)
 
 	if total == 0 {
-		log.Println("Embedding backfill: all images already have embeddings")
+		log.Println("Embedding backfill: all images already have embeddings for this model")
 		return
 	}
 
@@ -126,12 +137,10 @@ func (m *EmbeddingBackfillManager) run() {
 	m.progress.Remaining = int(total)
 	m.mu.Unlock()
 
-	// Process in batches of 100
 	const batchSize = 100
 	cursor := uint(0)
 
 	for {
-		// Check stop signal
 		select {
 		case <-m.stopCh:
 			log.Println("Embedding backfill: stopped by user")
@@ -139,7 +148,6 @@ func (m *EmbeddingBackfillManager) run() {
 		default:
 		}
 
-		// Find next batch of images that need embeddings
 		type imageWithTags struct {
 			ImageFileID uint
 			Tags        string
@@ -150,7 +158,8 @@ func (m *EmbeddingBackfillManager) run() {
 			Select("image_files.id as image_file_id").
 			Joins("INNER JOIN image_tags ON image_tags.image_file_id = image_files.id").
 			Joins("LEFT JOIN tag_embeddings ON tag_embeddings.image_file_id = image_files.id").
-			Where("(tag_embeddings.id IS NULL OR tag_embeddings.model_name != ?) AND image_files.id > ?", modelName, cursor).
+			Joins(fmt.Sprintf("LEFT JOIN %s ON %s.tag_embeddings_id = tag_embeddings.id", childTable, childTable)).
+			Where(fmt.Sprintf("%s.id IS NULL AND image_files.id > ?", childTable), cursor).
 			Group("image_files.id").
 			Order("image_files.id ASC").
 			Limit(batchSize).
@@ -161,35 +170,37 @@ func (m *EmbeddingBackfillManager) run() {
 			break
 		}
 
-		// Load tags for each image and build text strings
 		imageIDs := make([]uint, len(results))
 		for i, r := range results {
 			imageIDs[i] = r.ImageFileID
 		}
 
+		// Batch-fetch tags for all images in this batch (avoids N+1)
+		var allTags []domain.ImageTag
+		m.db.Where("image_file_id IN ?", imageIDs).Find(&allTags)
+		tagsByImage := make(map[uint][]string)
+		for _, t := range allTags {
+			tagsByImage[t.ImageFileID] = append(tagsByImage[t.ImageFileID], t.Tag)
+		}
+
 		tagTexts := make([]string, len(imageIDs))
 		for i, imgID := range imageIDs {
-			var tags []domain.ImageTag
-			m.db.Where("image_file_id = ?", imgID).Find(&tags)
-			tagStrs := make([]string, len(tags))
-			for j, t := range tags {
-				tagStrs[j] = strings.ToLower(t.Tag)
+			tagStrs := tagsByImage[imgID]
+			for j := range tagStrs {
+				tagStrs[j] = strings.ToLower(tagStrs[j])
 			}
 			sort.Strings(tagStrs)
 			tagTexts[i] = strings.Join(tagStrs, ", ")
 		}
 
-		// Call embedding API for the batch
 		embeddings, err := embeddingClient.Embed(tagTexts)
 		if err != nil {
 			m.setError(fmt.Sprintf("Embedding API failed: %v", err))
 			log.Printf("Embedding backfill: embedding API error: %v", err)
-			// Update cursor to skip this batch and continue
 			cursor = imageIDs[len(imageIDs)-1]
 			continue
 		}
 
-		// Upsert embeddings for each image
 		for i, imgID := range imageIDs {
 			if i >= len(embeddings) {
 				break
@@ -200,20 +211,11 @@ func (m *EmbeddingBackfillManager) run() {
 				tagCount = 0
 			}
 
-			// Upsert: delete existing, then create
-			m.db.Where("image_file_id = ?", imgID).Delete(&domain.TagEmbedding{})
-			embedding := domain.TagEmbedding{
-				ImageFileID: imgID,
-				Embedding:   vecStr,
-				TagCount:    tagCount,
-				ModelName:   modelName,
-			}
-			if err := m.db.Create(&embedding).Error; err != nil {
+			if err := upsertEmbedding(m.db, imgID, childTable, dimension, vecStr, tagCount); err != nil {
 				log.Printf("Embedding backfill: failed to save embedding for image %d: %v", imgID, err)
 			}
 		}
 
-		// Update cursor and progress
 		cursor = imageIDs[len(imageIDs)-1]
 		m.mu.Lock()
 		m.progress.Processed += len(imageIDs)
@@ -224,12 +226,38 @@ func (m *EmbeddingBackfillManager) run() {
 	}
 }
 
+// upsertEmbedding upserts the parent TagEmbedding record and the child table row.
+func upsertEmbedding(db *gorm.DB, imageFileID uint, childTable string, dimension int, vecStr string, tagCount int) error {
+	var parent domain.TagEmbedding
+	result := db.Where("image_file_id = ?", imageFileID).First(&parent)
+	if result.Error == gorm.ErrRecordNotFound {
+		parent = domain.TagEmbedding{ImageFileID: imageFileID, TagCount: tagCount}
+		if err := db.Create(&parent).Error; err != nil {
+			return fmt.Errorf("failed to create parent embedding record: %w", err)
+		}
+	} else if result.Error != nil {
+		return fmt.Errorf("failed to query parent embedding record: %w", result.Error)
+	} else {
+		db.Model(&parent).Update("tag_count", tagCount)
+	}
+
+	// Atomic upsert: insert or update child embedding row
+	if err := db.Exec(fmt.Sprintf(
+		"INSERT INTO %s (tag_embeddings_id, dimensity, embedding) VALUES (?, ?, ?::vector) "+
+			"ON CONFLICT (tag_embeddings_id) DO UPDATE SET dimensity = EXCLUDED.dimensity, embedding = EXCLUDED.embedding",
+		childTable), parent.ID, dimension, vecStr).Error; err != nil {
+		return fmt.Errorf("failed to upsert child embedding row: %w", err)
+	}
+
+	return nil
+}
+
 // resolveEmbeddingClient loads LLM settings and creates an EmbeddingClient.
-// Shared by the backfill manager and the real-time embedding hook.
-func resolveEmbeddingClient(db *gorm.DB) (llm.EmbeddingClient, string, error) {
+// Returns the client, model name, embedding dimension, and any error.
+func resolveEmbeddingClient(db *gorm.DB) (llm.EmbeddingClient, string, int, error) {
 	var settings domain.LlmSettings
 	if err := db.First(&settings).Error; err != nil {
-		return nil, "", fmt.Errorf("LLM settings not found")
+		return nil, "", 0, fmt.Errorf("LLM settings not found")
 	}
 
 	providerAlias := settings.EmbeddingProviderAlias
@@ -239,7 +267,7 @@ func resolveEmbeddingClient(db *gorm.DB) (llm.EmbeddingClient, string, error) {
 
 	var provider domain.LlmProvider
 	if err := db.Where("alias = ?", providerAlias).First(&provider).Error; err != nil {
-		return nil, "", fmt.Errorf("embedding provider '%s' not found", providerAlias)
+		return nil, "", 0, fmt.Errorf("embedding provider '%s' not found", providerAlias)
 	}
 
 	modelName := settings.EmbeddingModel
@@ -247,11 +275,16 @@ func resolveEmbeddingClient(db *gorm.DB) (llm.EmbeddingClient, string, error) {
 		modelName = "qwen3-embedding:4b"
 	}
 
+	dimension := settings.EmbeddingDimension
+	if dimension == 0 {
+		dimension = 1024
+	}
+
 	client, err := llm.NewEmbeddingClient(provider.Name, provider.ApiUrl, provider.ApiKey, modelName)
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to create embedding client: %w", err)
+		return nil, "", 0, fmt.Errorf("failed to create embedding client: %w", err)
 	}
-	return client, modelName, nil
+	return client, modelName, dimension, nil
 }
 
 // setError updates the last error in progress.
@@ -268,13 +301,17 @@ func GenerateAndSaveEmbedding(db *gorm.DB, imageFileID uint, tags []string) {
 		return
 	}
 
-	embeddingClient, modelName, err := resolveEmbeddingClient(db)
+	embeddingClient, modelName, dimension, err := resolveEmbeddingClient(db)
 	if err != nil {
 		log.Printf("Embedding hook: %v", err)
 		return
 	}
 
-	// Build sorted, lowercased tag string
+	if err := database.EnsureEmbeddingTable(db, modelName, dimension); err != nil {
+		log.Printf("Embedding hook: failed to ensure embedding table: %v", err)
+		return
+	}
+
 	tagStrs := make([]string, len(tags))
 	for i, t := range tags {
 		tagStrs[i] = strings.ToLower(t)
@@ -293,16 +330,9 @@ func GenerateAndSaveEmbedding(db *gorm.DB, imageFileID uint, tags []string) {
 	}
 
 	vecStr := llm.Float32SliceToPgVector(embeddings[0])
+	childTable := domain.EmbeddingTableName(modelName)
 
-	// Upsert
-	db.Where("image_file_id = ?", imageFileID).Delete(&domain.TagEmbedding{})
-	embedding := domain.TagEmbedding{
-		ImageFileID: imageFileID,
-		Embedding:   vecStr,
-		TagCount:    len(tags),
-		ModelName:   modelName,
-	}
-	if err := db.Create(&embedding).Error; err != nil {
+	if err := upsertEmbedding(db, imageFileID, childTable, dimension, vecStr, len(tags)); err != nil {
 		log.Printf("Embedding hook: failed to save embedding for image %d: %v", imageFileID, err)
 	}
 }

@@ -492,6 +492,8 @@ export const translationsRu = {
   "llm_ocr.embeddingSettingsDescription": "Настройте модель эмбеддингов для умного поиска",
   "llm_ocr.embeddingProvider": "Провайдер эмбеддингов",
   "llm_ocr.embeddingModel": "Модель эмбеддингов",
+  "llm_ocr.embeddingDimension": "Размерность эмбеддингов",
+  "llm_ocr.embeddingDimensionDescription": "Размер вектора для модели эмбеддингов (например, 1024 для qwen3-embedding:4b, 2560 для qwen3-embedding:8b)",
   "llm_ocr.settingsSaved": "Настройки сохранены",
   "llm_ocr.settingsSaveFailed": "Ошибка сохранения настроек",
   "llm_ocr.notEnabled": "LLM распознавание не включено",

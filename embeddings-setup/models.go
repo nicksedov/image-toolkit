@@ -10,17 +10,24 @@ type ImageTag struct {
 	Tag         string `gorm:"not null"`
 }
 
-// TagEmbedding stores vector embeddings for semantic tag search (pgvector).
-// One embedding per image, generated from concatenated AI tags.
+// TagEmbedding is the parent table for per-image embedding metadata.
+// Actual vector data is stored in per-model child tables tag_embeddings_<model_name>.
 // Source: backend/internal/domain/media.go — TagEmbedding struct.
 type TagEmbedding struct {
 	ID          uint      `gorm:"primaryKey"`
-	ImageFileID uint      `gorm:"uniqueIndex;not null"`
-	Embedding   string    `gorm:"type:vector(1024);not null"`
+	ImageFileID uint      `gorm:"index;not null"`
 	TagCount    int       `gorm:"not null"`
-	ModelName   string    `gorm:"not null"`
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
+}
+
+// TagEmbeddingModel represents a row in a per-model child table tag_embeddings_<model_name>.
+// Source: backend/internal/domain/media.go — TagEmbeddingModel struct.
+type TagEmbeddingModel struct {
+	ID              uint   `gorm:"primaryKey"`
+	TagEmbeddingsID uint   `gorm:"not null"`
+	Dimensity       int    `gorm:"not null"`
+	Embedding       string `gorm:"type:vector;not null"`
 }
 
 // LlmSettings holds LLM provider and embedding configuration.
@@ -30,6 +37,7 @@ type LlmSettings struct {
 	ActiveProvider         string    `gorm:"default:ollama_1;not null"`
 	EmbeddingProviderAlias string    `gorm:"default:''"`
 	EmbeddingModel         string    `gorm:"default:'qwen3-embedding:4b'"`
+	EmbeddingDimension     int       `gorm:"default:1024"`
 	CreatedAt              time.Time
 	UpdatedAt              time.Time
 }

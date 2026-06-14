@@ -4,10 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"sort"
 	"strings"
 	"time"
 
+	"image-toolkit/internal/application/imaging"
 	"image-toolkit/internal/domain"
 	"image-toolkit/internal/infrastructure/llm"
 
@@ -631,117 +631,20 @@ func formatMetadataJSON(output ImageMetadataOutput) (string, error) {
 
 // querySemanticSearch performs semantic search using vector similarity.
 func (s *ImageToolkitMCPServer) querySemanticSearch(query string, limit int) (SemanticSearchOutput, error) {
-	if query == "" {
-		return SemanticSearchOutput{}, fmt.Errorf("query is required")
-	}
-
-	// Load embedding settings
-	var settings domain.LlmSettings
-	if err := s.db.First(&settings).Error; err != nil {
-		return SemanticSearchOutput{}, fmt.Errorf("LLM settings not found")
-	}
-
-	providerAlias := settings.EmbeddingProviderAlias
-	if providerAlias == "" {
-		providerAlias = settings.ActiveProvider
-	}
-
-	var provider domain.LlmProvider
-	if err := s.db.Where("alias = ?", providerAlias).First(&provider).Error; err != nil {
-		return SemanticSearchOutput{}, fmt.Errorf("embedding provider '%s' not found", providerAlias)
-	}
-
-	modelName := settings.EmbeddingModel
-	if modelName == "" {
-		modelName = "qwen3-embedding:4b"
-	}
-
-	embeddingClient, err := llm.NewEmbeddingClient(provider.Name, provider.ApiUrl, provider.ApiKey, modelName)
+	result, err := imaging.SearchByEmbedding(s.db, query, limit)
 	if err != nil {
-		return SemanticSearchOutput{}, fmt.Errorf("failed to create embedding client: %w", err)
+		return SemanticSearchOutput{}, err
 	}
 
-	// Embed the query
-	queryEmbeddings, err := embeddingClient.Embed([]string{strings.ToLower(query)})
-	if err != nil {
-		return SemanticSearchOutput{}, fmt.Errorf("failed to embed query: %w", err)
-	}
-	if len(queryEmbeddings) == 0 {
-		return SemanticSearchOutput{}, fmt.Errorf("empty embedding result")
-	}
-
-	// Convert to pgvector format
-	vecStr := llm.Float32SliceToPgVector(queryEmbeddings[0])
-
-	// Run nearest-neighbor search
-	type searchResult struct {
-		ImageFileID uint    `gorm:"column:image_file_id"`
-		Similarity  float64 `gorm:"column:similarity"`
-	}
-
-	var results []searchResult
-	if err := s.db.Raw(`
-		SELECT te.image_file_id, 1 - (te.embedding <=> ?::vector) AS similarity
-		FROM tag_embeddings te
-		ORDER BY te.embedding <=> ?::vector
-		LIMIT ?
-	`, vecStr, vecStr, limit).Scan(&results).Error; err != nil {
-		return SemanticSearchOutput{}, fmt.Errorf("semantic search query failed: %w", err)
-	}
-
-	if len(results) == 0 {
-		return SemanticSearchOutput{
-			Images: []SemanticSearchResult{},
-			Total:  0,
-			Query:  query,
-		}, nil
-	}
-
-	// Fetch image files
-	imageIDs := make([]uint, len(results))
-	similarityMap := make(map[uint]float64)
-	for i, r := range results {
-		imageIDs[i] = r.ImageFileID
-		similarityMap[r.ImageFileID] = r.Similarity
-	}
-
-	var files []domain.ImageFile
-	s.db.Where("id IN ?", imageIDs).Find(&files)
-
-	fileMap := make(map[uint]domain.ImageFile)
-	for _, f := range files {
-		fileMap[f.ID] = f
-	}
-
-	// Batch-fetch tags for all result images (avoids N+1)
-	var allTags []domain.ImageTag
-	s.db.Where("image_file_id IN ?", imageIDs).Find(&allTags)
-	tagsMap := make(map[uint][]string)
-	for _, t := range allTags {
-		tagsMap[t.ImageFileID] = append(tagsMap[t.ImageFileID], t.Tag)
-	}
-
-	// Build results
-	images := make([]SemanticSearchResult, 0, len(files))
-	for _, id := range imageIDs {
-		f, ok := fileMap[id]
-		if !ok {
-			continue
-		}
-
-		tagStrs := tagsMap[id]
-		if len(tagStrs) > 10 {
-			tagStrs = tagStrs[:10]
-		}
-		sort.Strings(tagStrs)
-
+	images := make([]SemanticSearchResult, 0, len(result.Images))
+	for _, img := range result.Images {
 		images = append(images, SemanticSearchResult{
-			ID:         f.ID,
-			Path:       f.Path,
-			FileName:   fileNameFromPath(f.Path),
-			ModTime:    f.ModTime.Format("2006-01-02 15:04:05"),
-			Similarity: similarityMap[id],
-			Tags:       tagStrs,
+			ID:         img.ImageFileID,
+			Path:       img.Path,
+			FileName:   fileNameFromPath(img.Path),
+			ModTime:    img.ModTime.Format("2006-01-02 15:04:05"),
+			Similarity: img.Similarity,
+			Tags:       img.Tags,
 		})
 	}
 

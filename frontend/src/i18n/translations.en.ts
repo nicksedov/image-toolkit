@@ -492,6 +492,8 @@ export const translationsEn = {
   "llm_ocr.embeddingSettingsDescription": "Configure embedding model for smart semantic search",
   "llm_ocr.embeddingProvider": "Embedding Provider",
   "llm_ocr.embeddingModel": "Embedding Model",
+  "llm_ocr.embeddingDimension": "Embedding Dimension",
+  "llm_ocr.embeddingDimensionDescription": "Vector dimension size for the embedding model (e.g., 1024 for qwen3-embedding:4b, 2560 for qwen3-embedding:8b)",
   "llm_ocr.settingsSaved": "Settings saved",
   "llm_ocr.settingsSaveFailed": "Failed to save settings",
   "llm_ocr.notEnabled": "LLM recognition not enabled",

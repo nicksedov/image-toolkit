@@ -2,6 +2,7 @@ package domain
 
 import (
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -162,6 +163,7 @@ type LlmSettings struct {
 	TagScanTimezoneOffset int       `gorm:"default:0" json:"tagScanTimezoneOffset"` // User's timezone offset in minutes (JS getTimezoneOffset: UTC+3 = -180)
 	EmbeddingProviderAlias string  `gorm:"default:''" json:"embeddingProviderAlias"` // empty = use active VL provider
 	EmbeddingModel         string  `gorm:"default:'qwen3-embedding:4b'" json:"embeddingModel"`
+	EmbeddingDimension     int     `gorm:"default:1024" json:"embeddingDimension"`
 	CreatedAt             time.Time `json:"createdAt"`
 	UpdatedAt             time.Time `json:"updatedAt"`
 }
@@ -173,16 +175,40 @@ type ImageTag struct {
 	Tag         string `gorm:"not null"`
 }
 
-// TagEmbedding stores vector embeddings for semantic tag search (pgvector).
-// One embedding per image, generated from concatenated AI tags.
+// TagEmbedding is the parent table for per-image embedding metadata.
+// Actual vector data is stored in per-model child tables tag_embeddings_<model_name>.
 type TagEmbedding struct {
 	ID          uint      `gorm:"primaryKey" json:"id"`
-	ImageFileID uint      `gorm:"uniqueIndex;not null" json:"imageFileId"`
-	Embedding   string    `gorm:"type:vector(1024);not null" json:"-"` // pgvector type, 1024 dims for qwen3-embedding:4b
+	ImageFileID uint      `gorm:"index;not null" json:"imageFileId"`
 	TagCount    int       `gorm:"not null" json:"tagCount"`
-	ModelName   string    `gorm:"not null" json:"modelName"`
 	CreatedAt   time.Time `json:"createdAt"`
 	UpdatedAt   time.Time `json:"updatedAt"`
+}
+
+// TagEmbeddingModel represents a row in a per-model child table tag_embeddings_<model_name>.
+// Not managed by GORM AutoMigrate; table lifecycle is handled via raw SQL in the database package.
+type TagEmbeddingModel struct {
+	ID              uint   `gorm:"primaryKey" json:"id"`
+	TagEmbeddingsID uint   `gorm:"not null" json:"tagEmbeddingsId"` // FK to tag_embeddings.id
+	Dimensity       int    `gorm:"not null" json:"dimensity"`
+	Embedding       string `gorm:"type:vector;not null" json:"-"` // pgvector
+}
+
+// nonAlphanumericUnderscore matches any character that is not a letter, digit, or underscore.
+var nonAlphanumericUnderscore = regexp.MustCompile(`[^a-zA-Z0-9_]`)
+var multipleUnderscores = regexp.MustCompile(`_+`)
+
+// SanitizeModelName converts an embedding model name to a valid PostgreSQL table name suffix.
+// Replaces ':', '/', '-', '.', and any other non-alphanumeric/underscore chars with '_'.
+func SanitizeModelName(modelName string) string {
+	sanitized := nonAlphanumericUnderscore.ReplaceAllString(modelName, "_")
+	sanitized = multipleUnderscores.ReplaceAllString(sanitized, "_")
+	return strings.Trim(sanitized, "_")
+}
+
+// EmbeddingTableName returns the per-model child table name for a given embedding model.
+func EmbeddingTableName(modelName string) string {
+	return "tag_embeddings_" + SanitizeModelName(modelName)
 }
 
 // OcrLlmRecognition stores VL LLM OCR recognition results

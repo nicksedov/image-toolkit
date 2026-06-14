@@ -2138,6 +2138,7 @@ func (s *Server) handleGetLlmSettings(c *gin.Context) {
 		TagScanTimezoneOffset: settings.TagScanTimezoneOffset,
 		EmbeddingProviderAlias: settings.EmbeddingProviderAlias,
 		EmbeddingModel:         settings.EmbeddingModel,
+		EmbeddingDimension:     settings.EmbeddingDimension,
 		Providers:             providerDTOs,
 	})
 }
@@ -2179,6 +2180,9 @@ func (s *Server) handleUpdateLlmSettings(c *gin.Context) {
 	if req.EmbeddingModel != nil {
 		globalUpdates["embedding_model"] = *req.EmbeddingModel
 	}
+	if req.EmbeddingDimension != nil {
+		globalUpdates["embedding_dimension"] = *req.EmbeddingDimension
+	}
 
 	if err == gorm.ErrRecordNotFound {
 		settings = domain.LlmSettings{
@@ -2215,6 +2219,9 @@ func (s *Server) handleUpdateLlmSettings(c *gin.Context) {
 		}
 		if req.EmbeddingModel != nil {
 			settings.EmbeddingModel = *req.EmbeddingModel
+		}
+		if req.EmbeddingDimension != nil {
+			settings.EmbeddingDimension = *req.EmbeddingDimension
 		}
 		if err := s.db.Create(&settings).Error; err != nil {
 			c.JSON(http.StatusInternalServerError, i18n.ErrorResponse(i18n.MsgLlmOcrSettingsSaveFailed))

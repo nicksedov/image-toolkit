@@ -31,6 +31,7 @@ const EMPTY_SETTINGS: LlmSettingsResponse = {
   tagScanEndMinute: 0,
   embeddingProviderAlias: "",
   embeddingModel: "qwen3-embedding:4b",
+  embeddingDimension: 1024,
   providers: [],
 }
 
@@ -72,6 +73,7 @@ export function AdminAnalysisTab() {
   const [embeddingShowModelInput, setEmbeddingShowModelInput] = useState(false)
   const [isEmbeddingFormDirty, setIsEmbeddingFormDirty] = useState(false)
   const [isEmbeddingSaving, setIsEmbeddingSaving] = useState(false)
+  const [embeddingDimension, setEmbeddingDimension] = useState(1024)
  
   // Helper to get current active provider
   const getCurrentProvider = useCallback(
@@ -267,6 +269,7 @@ export function AdminAnalysisTab() {
       const embAlias = settings.embeddingProviderAlias || settings.activeProvider
       setEmbeddingProviderAlias(embAlias)
       setEmbeddingModel(settings.embeddingModel || "qwen3-embedding:4b")
+      setEmbeddingDimension(settings.embeddingDimension || 1024)
       setIsEmbeddingFormDirty(false)
     } catch {
       setLlmSettings(EMPTY_SETTINGS)
@@ -330,6 +333,7 @@ export function AdminAnalysisTab() {
       await updateLlmSettings({
         embeddingProviderAlias,
         embeddingModel,
+        embeddingDimension,
       })
       // Also save embedding provider config (apiUrl, apiKey, model) if provider exists
       const embProvider = llmSettings.providers.find((p) => p.alias === embeddingProviderAlias)
@@ -352,7 +356,7 @@ export function AdminAnalysisTab() {
     } finally {
       setIsEmbeddingSaving(false)
     }
-  }, [embeddingProviderAlias, embeddingModel, llmSettings.providers, loadLlmSettings, t])
+  }, [embeddingProviderAlias, embeddingModel, embeddingDimension, llmSettings.providers, loadLlmSettings, t])
 
   // Update a field on a specific provider identified by alias
   const handleProviderFieldChange = useCallback((alias: string, field: keyof LlmProviderDTO, value: string | boolean) => {
@@ -617,6 +621,7 @@ export function AdminAnalysisTab() {
         const embAlias = settings.embeddingProviderAlias || settings.activeProvider
         setEmbeddingProviderAlias(embAlias)
         setEmbeddingModel(settings.embeddingModel || "qwen3-embedding:4b")
+        setEmbeddingDimension(settings.embeddingDimension || 1024)
         setIsEmbeddingFormDirty(false)
         if (embAlias) {
           loadEmbeddingModelsForProvider(embAlias)
@@ -1093,6 +1098,24 @@ export function AdminAnalysisTab() {
                   namePrefix="embedding"
                 />
               )}
+
+              {/* Embedding Dimension */}
+              <div className="space-y-2">
+                <Label htmlFor="embedding-dimension">{t("llm_ocr.embeddingDimension")}</Label>
+                <Input
+                  id="embedding-dimension"
+                  type="number"
+                  min={1}
+                  value={embeddingDimension}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value, 10)
+                    if (!isNaN(val) && val > 0) setEmbeddingDimension(val)
+                    setIsEmbeddingFormDirty(true)
+                  }}
+                  className="w-32"
+                />
+                <p className="text-xs text-muted-foreground">{t("llm_ocr.embeddingDimensionDescription")}</p>
+              </div>
 
               {/* No providers message */}
               {llmSettings.providers.length === 0 && (

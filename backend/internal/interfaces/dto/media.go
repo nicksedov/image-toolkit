@@ -459,6 +459,7 @@ type LlmSettingsResponse struct {
 	TagScanTimezoneOffset int              `json:"tagScanTimezoneOffset"`
 	EmbeddingProviderAlias string          `json:"embeddingProviderAlias"`
 	EmbeddingModel         string          `json:"embeddingModel"`
+	EmbeddingDimension     int             `json:"embeddingDimension"`
 	Providers             []LlmProviderDTO `json:"providers"`
 }
 
@@ -473,6 +474,7 @@ type UpdateLlmSettingsRequest struct {
 	TagScanTimezoneOffset *int    `json:"tagScanTimezoneOffset,omitempty"`
 	EmbeddingProviderAlias *string `json:"embeddingProviderAlias,omitempty"`
 	EmbeddingModel         *string `json:"embeddingModel,omitempty"`
+	EmbeddingDimension     *int    `json:"embeddingDimension,omitempty"`
 }
 
 // CreateLlmProviderRequest for POST /api/llm/providers
