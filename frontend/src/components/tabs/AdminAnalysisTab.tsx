@@ -1075,7 +1075,7 @@ export function AdminAnalysisTab() {
               {/* Embedding Provider Config */}
               {embeddingProvider && (
                 <ProviderConfigForm
-                  provider={embeddingProvider}
+                  provider={{ ...embeddingProvider, model: embeddingModel }}
                   providers={llmSettings.providers}
                   availableModels={embeddingAvailableModels}
                   isModelsLoading={embeddingIsModelsLoading}
