@@ -120,10 +120,18 @@ func (s *Server) SetupRouter(authMiddleware *middleware.AuthMiddleware, csrfProt
 			// Tag Search endpoint
 			protected.GET("/gallery/tag-search", s.handleSearchByTags)
 
+			// Smart Search (semantic search) endpoint
+			protected.GET("/gallery/smart-search", s.handleSmartSearch)
+
 			// Tag Scan endpoints
 			protected.GET("/tag-scan/status", s.handleTagScanStatus)
 			protected.POST("/tag-scan/pause", s.handleTagScanPause)
 			protected.POST("/tag-scan/resume", s.handleTagScanResume)
+
+			// Embedding backfill endpoints
+			protected.GET("/embedding/status", s.handleEmbeddingStatus)
+			protected.POST("/embedding/start", s.handleEmbeddingStart)
+			protected.POST("/embedding/stop", s.handleEmbeddingStop)
 
 			// Chat / Agent endpoints
 			protected.POST("/chat/conversations", s.handleCreateConversation)

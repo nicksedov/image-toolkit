@@ -456,6 +456,8 @@ func (s *LlmOcrService) StartAiActionAsync(taskID string, imageFileID uint, acti
 			if saveErr := s.SaveImageTags(imageFileID, result.Tags); saveErr != nil {
 				log.Printf("AI action: failed to persist tags for image %d: %v", imageFileID, saveErr)
 			}
+			// Generate embedding for the newly saved tags
+			go GenerateAndSaveEmbedding(s.db, imageFileID, result.Tags)
 		}
 
 		s.aiTaskMu.Lock()

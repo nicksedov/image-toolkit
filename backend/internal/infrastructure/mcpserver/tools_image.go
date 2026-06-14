@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"image-toolkit/internal/application/imaging"
 	"image-toolkit/internal/domain"
 	"image-toolkit/internal/infrastructure/llm"
 
@@ -329,6 +330,8 @@ func (s *ImageToolkitMCPServer) runImageAction(imagePath, action, question, lang
 				// Log but don't fail — tags were generated successfully
 				log.Printf("generate_tags: failed to save tags for image %d: %v", imageFile.ID, err)
 			}
+			// Generate embedding for the newly saved tags
+			go imaging.GenerateAndSaveEmbedding(s.db, imageFile.ID, tags)
 		}
 	} else {
 		result.Result = response

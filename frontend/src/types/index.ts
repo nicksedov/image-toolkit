@@ -515,6 +515,9 @@ export interface LlmSettingsResponse {
   tagScanEndHour?: number
   tagScanEndMinute?: number
   tagScanTimezoneOffset?: number // User's timezone offset in minutes (JS getTimezoneOffset: UTC+3 = -180)
+  embeddingProviderAlias?: string
+  embeddingModel?: string
+  embeddingDimension?: number
   providers: LlmProviderDTO[]
 }
 
@@ -533,6 +536,9 @@ export interface UpdateLlmSettingsRequest {
   tagScanEndHour?: number
   tagScanEndMinute?: number
   tagScanTimezoneOffset?: number // User's timezone offset in minutes (JS getTimezoneOffset: UTC+3 = -180)
+  embeddingProviderAlias?: string
+  embeddingModel?: string
+  embeddingDimension?: number
 }
 
 export interface TagScanStatusResponse {
@@ -801,4 +807,35 @@ export interface TagSearchResult {
 export interface TagSearchResponse {
   images: TagSearchResult[]
   total: number
+}
+
+// --- Smart Search Types ---
+
+export interface SmartSearchResult {
+  id: number
+  path: string
+  fileName: string
+  modTime?: string
+  similarity: number
+  tags: string[]
+}
+
+export interface SmartSearchResponse {
+  images: SmartSearchResult[]
+  total: number
+  query: string
+}
+
+// --- Embedding Backfill Types ---
+
+export interface EmbeddingBackfillProgress {
+  total: number
+  processed: number
+  remaining: number
+  lastError: string
+}
+
+export interface EmbeddingBackfillStatus {
+  running: boolean
+  progress: EmbeddingBackfillProgress
 }

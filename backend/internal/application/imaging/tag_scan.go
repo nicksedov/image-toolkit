@@ -520,5 +520,8 @@ func (tsm *TagScanManager) processImage(imageFile domain.ImageFile) {
 			return
 		}
 		log.Printf("Tag scan: saved %d tags for %s", len(result.Tags), imageFile.Path)
+
+		// Generate embedding for the newly saved tags
+		go GenerateAndSaveEmbedding(tsm.db, imageFile.ID, result.Tags)
 	}
 }

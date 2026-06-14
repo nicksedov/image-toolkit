@@ -237,6 +237,10 @@ func main() {
 
 	fmt.Printf("Tag scan: window %02d:%02d - %02d:%02d, tzOffset=%d, enabled=%v\n", tagScanStartHour, tagScanStartMinute, tagScanEndHour, tagScanEndMinute, tagScanTimezoneOffset, tagScanEnabled)
 
+	// Create embedding backfill manager
+	embeddingBackfill := imaging.NewEmbeddingBackfillManager(db)
+	fmt.Println("Embedding backfill manager initialized")
+
 	// Create MCP server
 	llmFactory := helpers.NewLLMFactory(db, cfg.LlmMaxImageMegapixels)
 	mcpSrv := mcpserver.NewImageToolkitMCPServer(db, llmFactory, llmOcrService, cfg.LlmMaxImageMegapixels)
@@ -250,7 +254,7 @@ func main() {
 	fmt.Println("AI agent initialized")
 
 	// Start web server
-	server := handler.NewServer(db, scanManager, ocrManager, llmOcrService, backgroundSync, tagScanManager, thumbnailService, cfg, geolocationService, nominatimClient, mcpSrv, ag, agCfg, convService)
+	server := handler.NewServer(db, scanManager, ocrManager, llmOcrService, backgroundSync, tagScanManager, embeddingBackfill, thumbnailService, cfg, geolocationService, nominatimClient, mcpSrv, ag, agCfg, convService)
 	router := server.SetupRouter(authMiddleware, csrfProtection, authHandlers)
 
 	// Start OCR health check if enabled

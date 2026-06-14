@@ -68,6 +68,8 @@ import type {
   CreateConversationRequest,
   SSEEvent,
   TagSearchResponse,
+  SmartSearchResponse,
+  EmbeddingBackfillStatus,
 } from "@/types"
 
 export function fetchDuplicates(page: number, pageSize: number): Promise<DuplicatesResponse> {
@@ -649,4 +651,27 @@ export function searchByTags(tags: string[], matchAll = false): Promise<TagSearc
     tags: tags.join(","),
     matchAll: matchAll ? "true" : "false",
   })
+}
+
+// --- Smart Search ---
+
+export function smartSearch(query: string, limit = 20, signal?: AbortSignal): Promise<SmartSearchResponse> {
+  return apiGet<SmartSearchResponse>("/api/gallery/smart-search", {
+    q: query,
+    limit: String(limit),
+  }, signal)
+}
+
+// --- Embedding Backfill ---
+
+export function fetchEmbeddingStatus(): Promise<EmbeddingBackfillStatus> {
+  return apiGet<EmbeddingBackfillStatus>("/api/embedding/status")
+}
+
+export function startEmbeddingBackfill(): Promise<{ message: string }> {
+  return apiPost<{ message: string }>("/api/embedding/start")
+}
+
+export function stopEmbeddingBackfill(): Promise<{ message: string }> {
+  return apiPost<{ message: string }>("/api/embedding/stop")
 }
