@@ -312,6 +312,11 @@ func (bsm *BackgroundSyncManager) syncFolder(folderPath string, thumbnailEnabled
 					bsm.invalidateOCRClassification(dbFile.ID)
 				}
 
+				// Invalidate AI tags and embeddings only if file content actually changed
+				if contentChanged {
+					bsm.invalidateTagsAndEmbeddings(dbFile.ID)
+				}
+
 				// Regenerate thumbnail for modified file (invalidate old one)
 				if thumbnailEnabled && contentChanged {
 					bsm.thumbnailService.Invalidate(diskPath)
@@ -372,10 +377,7 @@ func (bsm *BackgroundSyncManager) cleanupMissingFiles() int {
 		}
 
 		if _, err := os.Stat(file.Path); os.IsNotExist(err) {
-			if err := bsm.db.Delete(&file).Error; err != nil {
-				log.Printf("Background sync: failed to delete record for missing file %s: %v", file.Path, err)
-				continue
-			}
+			deleteImageFileCascade(bsm.db, file.ID)
 
 			// Clean up thumbnail if it exists
 			if bsm.thumbnailService != nil {
@@ -436,6 +438,15 @@ func (bsm *BackgroundSyncManager) invalidateOCRClassification(imageFileID uint) 
 	// Delete the classification
 	if result := bsm.db.Where("image_file_id = ?", imageFileID).Delete(&domain.OcrClassification{}); result.Error == nil && result.RowsAffected > 0 {
 		log.Printf("Background sync: invalidated OCR classification for image %d", imageFileID)
+	}
+}
+
+// invalidateTagsAndEmbeddings deletes AI-generated tags and vector embeddings for a file
+// so they are re-generated on the next tag scan or embedding backfill pass.
+func (bsm *BackgroundSyncManager) invalidateTagsAndEmbeddings(imageFileID uint) {
+	bsm.db.Where("image_file_id = ?", imageFileID).Delete(&domain.ImageTag{})
+	if result := bsm.db.Where("image_file_id = ?", imageFileID).Delete(&domain.TagEmbedding{}); result.Error == nil && result.RowsAffected > 0 {
+		log.Printf("Background sync: invalidated tags and embeddings for image %d", imageFileID)
 	}
 }
 

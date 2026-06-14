@@ -310,9 +310,9 @@ func fastScanGalleryDirectory(db *gorm.DB, dirPath string, progressChan chan<- s
 
 	for _, ef := range existingFilesInDir {
 		if !checkedIDs[ef.ID] {
-			// This file exists in DB but not on disk - delete it
+			// This file exists in DB but not on disk - cascade delete it and all children
 			progressChan <- "Removing missing file from DB: " + ef.Path
-			db.Delete(&ef)
+			deleteImageFileCascade(db, ef.ID)
 			stats.Deleted++
 		}
 	}
@@ -503,6 +503,20 @@ func FindDuplicatesPaginated(db *gorm.DB, offset, limit int) ([]domain.Duplicate
 	return groups, totalGroups, totalFiles, nil
 }
 
+// deleteImageFileCascade deletes an ImageFile and all its dependent records.
+// Must be used instead of a bare db.Delete(&imageFile) to prevent orphaned child rows.
+func deleteImageFileCascade(db *gorm.DB, imageFileID uint) {
+	db.Where("image_file_id = ?", imageFileID).Delete(&domain.ImageTag{})
+	db.Where("image_file_id = ?", imageFileID).Delete(&domain.OcrLlmRecognition{})
+	// Delete bounding boxes before their parent classifications
+	db.Where("classification_id IN (SELECT id FROM ocr_classifications WHERE image_file_id = ?)", imageFileID).
+		Delete(&domain.OcrBoundingBox{})
+	db.Where("image_file_id = ?", imageFileID).Delete(&domain.OcrClassification{})
+	db.Where("image_file_id = ?", imageFileID).Delete(&domain.TagEmbedding{})
+	db.Where("image_file_id = ?", imageFileID).Delete(&domain.ImageMetadata{})
+	db.Where("id = ?", imageFileID).Delete(&domain.ImageFile{})
+}
+
 // cleanupMissingFiles removes database entries for files that no longer exist
 func cleanupMissingFiles(db *gorm.DB, progressChan chan<- string) error {
 	var files []domain.ImageFile
@@ -511,7 +525,7 @@ func cleanupMissingFiles(db *gorm.DB, progressChan chan<- string) error {
 	for _, f := range files {
 		if _, err := os.Stat(f.Path); os.IsNotExist(err) {
 			progressChan <- fmt.Sprintf("Removing missing file from DB: %s", f.Path)
-			db.Delete(&f)
+			deleteImageFileCascade(db, f.ID)
 		}
 	}
 

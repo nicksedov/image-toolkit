@@ -350,3 +350,54 @@ func TestCleanupMissingFiles_RemovesDeleted(t *testing.T) {
 	db.Model(&domain.ImageFile{}).Count(&countAfter)
 	assert.Equal(t, int64(3), countAfter, "should have 3 records after cleanup")
 }
+
+func TestDeleteImageFileCascade_RemovesAllChildren(t *testing.T) {
+	db, cleanup := testutil.NewTestDB(t)
+	defer cleanup()
+
+	// Create an ImageFile
+	img := testutil.SeedImageFile(t, db, "/tmp/test/cascade.jpg", "abc123", 1024)
+
+	// Seed child records
+	db.Create(&domain.ImageMetadata{ImageFileID: img.ID, Width: 800, Height: 600})
+	db.Create(&domain.ImageTag{ImageFileID: img.ID, Tag: "landscape"})
+	db.Create(&domain.ImageTag{ImageFileID: img.ID, Tag: "nature"})
+	db.Create(&domain.OcrLlmRecognition{ImageFileID: img.ID, Language: "en", MarkdownContent: "text"})
+	classification := testutil.SeedOcrClassification(t, db, img.ID, true)
+	db.Create(&domain.OcrBoundingBox{ClassificationID: classification.ID, X: 0, Y: 0, Width: 100, Height: 50, Word: "hello"})
+	db.Create(&domain.TagEmbedding{ImageFileID: img.ID, TagCount: 2})
+
+	// Verify children exist
+	var tagCount, metaCount, ocrCount, bbCount, embCount, recogCount int64
+	db.Model(&domain.ImageTag{}).Where("image_file_id = ?", img.ID).Count(&tagCount)
+	db.Model(&domain.ImageMetadata{}).Where("image_file_id = ?", img.ID).Count(&metaCount)
+	db.Model(&domain.OcrClassification{}).Where("image_file_id = ?", img.ID).Count(&ocrCount)
+	db.Model(&domain.OcrBoundingBox{}).Count(&bbCount)
+	db.Model(&domain.TagEmbedding{}).Where("image_file_id = ?", img.ID).Count(&embCount)
+	db.Model(&domain.OcrLlmRecognition{}).Where("image_file_id = ?", img.ID).Count(&recogCount)
+	require.Equal(t, int64(2), tagCount)
+	require.Equal(t, int64(1), metaCount)
+	require.Equal(t, int64(1), ocrCount)
+	require.Equal(t, int64(1), bbCount)
+	require.Equal(t, int64(1), embCount)
+	require.Equal(t, int64(1), recogCount)
+
+	// Execute cascade delete
+	deleteImageFileCascade(db, img.ID)
+
+	// Verify all children and parent are deleted
+	db.Model(&domain.ImageFile{}).Where("id = ?", img.ID).Count(&metaCount)
+	assert.Equal(t, int64(0), metaCount, "ImageFile should be deleted")
+	db.Model(&domain.ImageTag{}).Where("image_file_id = ?", img.ID).Count(&tagCount)
+	assert.Equal(t, int64(0), tagCount, "ImageTags should be deleted")
+	db.Model(&domain.ImageMetadata{}).Where("image_file_id = ?", img.ID).Count(&metaCount)
+	assert.Equal(t, int64(0), metaCount, "ImageMetadata should be deleted")
+	db.Model(&domain.OcrClassification{}).Where("image_file_id = ?", img.ID).Count(&ocrCount)
+	assert.Equal(t, int64(0), ocrCount, "OcrClassification should be deleted")
+	db.Model(&domain.OcrBoundingBox{}).Count(&bbCount)
+	assert.Equal(t, int64(0), bbCount, "OcrBoundingBox should be deleted")
+	db.Model(&domain.TagEmbedding{}).Where("image_file_id = ?", img.ID).Count(&embCount)
+	assert.Equal(t, int64(0), embCount, "TagEmbedding should be deleted")
+	db.Model(&domain.OcrLlmRecognition{}).Where("image_file_id = ?", img.ID).Count(&recogCount)
+	assert.Equal(t, int64(0), recogCount, "OcrLlmRecognition should be deleted")
+}

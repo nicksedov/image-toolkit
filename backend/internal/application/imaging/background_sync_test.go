@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"image-toolkit/internal/domain"
 	"image-toolkit/internal/testutil"
 	"image-toolkit/internal/testutil/fixtures"
 
@@ -154,4 +155,65 @@ func TestBackgroundSyncManager_SyncFolder_DeletedFiles(t *testing.T) {
 	deletedCount := bsm.cleanupMissingFiles()
 
 	assert.Equal(t, 2, deletedCount, "should delete 2 missing file records")
+}
+
+func TestBackgroundSyncManager_InvalidateTagsAndEmbeddings(t *testing.T) {
+	bsm, cleanup := setupBackgroundSyncManager(t)
+	defer cleanup()
+
+	// Create an ImageFile
+	img := testutil.SeedImageFile(t, bsm.db, "/tmp/test/invalidate.jpg", "abc123", 1024)
+
+	// Seed tags and embeddings
+	bsm.db.Create(&domain.ImageTag{ImageFileID: img.ID, Tag: "landscape"})
+	bsm.db.Create(&domain.ImageTag{ImageFileID: img.ID, Tag: "nature"})
+	bsm.db.Create(&domain.TagEmbedding{ImageFileID: img.ID, TagCount: 2})
+
+	// Verify they exist
+	var tagCountBefore, embCountBefore int64
+	bsm.db.Model(&domain.ImageTag{}).Where("image_file_id = ?", img.ID).Count(&tagCountBefore)
+	bsm.db.Model(&domain.TagEmbedding{}).Where("image_file_id = ?", img.ID).Count(&embCountBefore)
+	require.Equal(t, int64(2), tagCountBefore)
+	require.Equal(t, int64(1), embCountBefore)
+
+	// Invalidate
+	bsm.invalidateTagsAndEmbeddings(img.ID)
+
+	// Verify deleted
+	var tagCountAfter, embCountAfter int64
+	bsm.db.Model(&domain.ImageTag{}).Where("image_file_id = ?", img.ID).Count(&tagCountAfter)
+	bsm.db.Model(&domain.TagEmbedding{}).Where("image_file_id = ?", img.ID).Count(&embCountAfter)
+	assert.Equal(t, int64(0), tagCountAfter, "tags should be invalidated")
+	assert.Equal(t, int64(0), embCountAfter, "embeddings should be invalidated")
+}
+
+func TestBackgroundSyncManager_CleanupMissingFiles_CascadeDeletesChildren(t *testing.T) {
+	bsm, cleanup := setupBackgroundSyncManager(t)
+	defer cleanup()
+
+	// Set running=true so cleanupMissingFiles doesn't exit early
+	bsm.mu.Lock()
+	bsm.running = true
+	bsm.mu.Unlock()
+
+	// Create an ImageFile with a non-existent path and seed children
+	img := testutil.SeedImageFile(t, bsm.db, "/tmp/nonexistent/deleted.jpg", "hash", 512)
+	bsm.db.Create(&domain.ImageMetadata{ImageFileID: img.ID, Width: 100, Height: 100})
+	bsm.db.Create(&domain.ImageTag{ImageFileID: img.ID, Tag: "tag1"})
+	bsm.db.Create(&domain.TagEmbedding{ImageFileID: img.ID, TagCount: 1})
+
+	// Run cleanup
+	deleted := bsm.cleanupMissingFiles()
+	assert.Equal(t, 1, deleted)
+
+	// Verify parent and all children are gone
+	var imgCount, metaCount, tagCount, embCount int64
+	bsm.db.Model(&domain.ImageFile{}).Where("id = ?", img.ID).Count(&imgCount)
+	bsm.db.Model(&domain.ImageMetadata{}).Where("image_file_id = ?", img.ID).Count(&metaCount)
+	bsm.db.Model(&domain.ImageTag{}).Where("image_file_id = ?", img.ID).Count(&tagCount)
+	bsm.db.Model(&domain.TagEmbedding{}).Where("image_file_id = ?", img.ID).Count(&embCount)
+	assert.Equal(t, int64(0), imgCount, "ImageFile should be deleted")
+	assert.Equal(t, int64(0), metaCount, "ImageMetadata should be deleted")
+	assert.Equal(t, int64(0), tagCount, "ImageTag should be deleted")
+	assert.Equal(t, int64(0), embCount, "TagEmbedding should be deleted")
 }
