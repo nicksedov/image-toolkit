@@ -17,6 +17,7 @@ type TagEmbedding struct {
 	ID          uint      `gorm:"primaryKey"`
 	ImageFileID uint      `gorm:"index;not null"`
 	TagCount    int       `gorm:"not null"`
+	TagHash     string    `gorm:"column:tag_hash;default:''"` // MD5 of sorted tag text, used for idempotency
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 }
