@@ -22,14 +22,14 @@ describe("i18n translation parity", () => {
 
   it("no EN translation value should be empty", () => {
     const emptyKeys = enKeys.filter(
-      (key) => translationsEn[key as keyof typeof translationsEn] === ""
+      (key) => String(translationsEn[key as keyof typeof translationsEn]) === ""
     )
     expect(emptyKeys).toEqual([])
   })
 
   it("no RU translation value should be empty", () => {
     const emptyKeys = ruKeys.filter(
-      (key) => translationsRu[key as keyof typeof translationsRu] === ""
+      (key) => String(translationsRu[key as keyof typeof translationsRu]) === ""
     )
     expect(emptyKeys).toEqual([])
   })
