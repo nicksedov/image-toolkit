@@ -23,7 +23,7 @@ func setupBackgroundSyncManager(t *testing.T) (*BackgroundSyncManager, func()) {
 func TestBackgroundSyncManager_Start(t *testing.T) {
 	bsm, _ := setupBackgroundSyncManager(t)
 
-	bsm.Start(true, 14, 0)
+	bsm.Start([]time.Weekday{time.Monday, time.Friday}, 14, 0, 0)
 
 	time.Sleep(50 * time.Millisecond)
 	assert.True(t, bsm.isRunning(), "sync should be running")
@@ -34,7 +34,7 @@ func TestBackgroundSyncManager_Start(t *testing.T) {
 func TestBackgroundSyncManager_Stop(t *testing.T) {
 	bsm, _ := setupBackgroundSyncManager(t)
 
-	bsm.Start(true, 14, 0)
+	bsm.Start([]time.Weekday{time.Monday}, 14, 0, 0)
 	bsm.Stop()
 
 	time.Sleep(50 * time.Millisecond)
@@ -46,18 +46,18 @@ func TestBackgroundSyncManager_isRunning(t *testing.T) {
 
 	assert.False(t, bsm.isRunning(), "should not be running initially")
 
-	bsm.Start(true, 14, 0)
+	bsm.Start([]time.Weekday{time.Monday}, 14, 0, 0)
 	assert.True(t, bsm.isRunning(), "should be running after start")
 
 	bsm.Stop()
 	assert.False(t, bsm.isRunning(), "should not be running after stop")
 }
 
-func TestBackgroundSyncManager_CalculateNextRunTime_Future(t *testing.T) {
+func TestBackgroundSyncManager_CalculateNextRunTime_FutureToday(t *testing.T) {
 	bsm, _ := setupBackgroundSyncManager(t)
 
-	// Schedule for a fixed hour:minute that is in the future
 	now := time.Now()
+	// Schedule for a time 5 minutes in the future today
 	scheduleHour := now.Hour()
 	scheduleMinute := now.Minute() + 5
 	if scheduleMinute >= 60 {
@@ -65,27 +65,99 @@ func TestBackgroundSyncManager_CalculateNextRunTime_Future(t *testing.T) {
 		scheduleHour = (scheduleHour + 1) % 24
 	}
 
-	nextRun := bsm.calculateNextRunTime(scheduleHour, scheduleMinute)
+	// Use today's weekday
+	syncDays := []time.Weekday{now.Weekday()}
+	nextRun := bsm.calculateNextRunTime(syncDays, scheduleHour, scheduleMinute, 0)
 
 	assert.True(t, nextRun.After(now), "next run should be in the future")
 	assert.Equal(t, scheduleHour, nextRun.Hour())
 	assert.Equal(t, scheduleMinute, nextRun.Minute())
 }
 
-func TestBackgroundSyncManager_CalculateNextRunTime_Past(t *testing.T) {
+func TestBackgroundSyncManager_CalculateNextRunTime_PastToday(t *testing.T) {
 	bsm, _ := setupBackgroundSyncManager(t)
 
-	// Schedule for a time that is definitely in the past (2 hours ago)
 	now := time.Now()
-	scheduleHour := (now.Hour() + 22) % 24 // 2 hours ago, safely wrapped
+	// Schedule for a time 2 hours in the past
+	scheduleHour := (now.Hour() + 22) % 24
 	scheduleMinute := now.Minute()
 
-	nextRun := bsm.calculateNextRunTime(scheduleHour, scheduleMinute)
+	// Only today's weekday - should skip to next week
+	syncDays := []time.Weekday{now.Weekday()}
+	nextRun := bsm.calculateNextRunTime(syncDays, scheduleHour, scheduleMinute, 0)
 
-	// Should be tomorrow at the scheduled time
-	assert.True(t, nextRun.After(now), "next run should be in the future (tomorrow)")
+	// Should be next week (7 days from now)
+	assert.True(t, nextRun.After(now), "next run should be in the future")
 	assert.Equal(t, scheduleHour, nextRun.Hour())
 	assert.Equal(t, scheduleMinute, nextRun.Minute())
+}
+
+func TestBackgroundSyncManager_CalculateNextRunTime_DifferentDay(t *testing.T) {
+	bsm, _ := setupBackgroundSyncManager(t)
+
+	// Schedule for a specific day and time
+	now := time.Now()
+	// Find the next Monday from now
+	daysUntilMonday := (int(time.Monday) - int(now.Weekday()) + 7) % 7
+	if daysUntilMonday == 0 {
+		daysUntilMonday = 7 // next Monday, not today
+	}
+
+	syncDays := []time.Weekday{time.Monday}
+	nextRun := bsm.calculateNextRunTime(syncDays, 10, 0, 0)
+
+	assert.True(t, nextRun.After(now), "next run should be in the future")
+	assert.Equal(t, time.Monday, nextRun.Weekday())
+	assert.Equal(t, 10, nextRun.Hour())
+	assert.Equal(t, 0, nextRun.Minute())
+}
+
+func TestBackgroundSyncManager_CalculateNextRunTime_EmptyDays(t *testing.T) {
+	bsm, _ := setupBackgroundSyncManager(t)
+
+	// With empty sync days, should not be called - but test the behavior
+	// It falls through to the fallback (now + 24h)
+	nextRun := bsm.calculateNextRunTime(nil, 3, 30, 0)
+
+	now := time.Now()
+	assert.True(t, nextRun.After(now), "fallback should be in the future")
+}
+
+func TestBackgroundSyncManager_CalculateNextRunTime_WithTimezone(t *testing.T) {
+	bsm, _ := setupBackgroundSyncManager(t)
+
+	// Test with UTC+3 (Moscow): timezoneOffset = -180 in JS convention
+	// User wants sync at 03:30 local Moscow time
+	tzOffset := -180 // UTC+3 in JS getTimezoneOffset convention
+
+	now := time.Now()
+	userTZ := time.FixedZone("UserTZ", -tzOffset*60) // = FixedZone("UserTZ", 10800) = UTC+3
+	nowUser := now.In(userTZ)
+
+	// Schedule for 5 min from now in user's local time
+	scheduleHour := nowUser.Hour()
+	scheduleMinute := nowUser.Minute() + 5
+	if scheduleMinute >= 60 {
+		scheduleMinute -= 60
+		scheduleHour = (scheduleHour + 1) % 24
+	}
+
+	syncDays := []time.Weekday{nowUser.Weekday()}
+	nextRun := bsm.calculateNextRunTime(syncDays, scheduleHour, scheduleMinute, tzOffset)
+
+	// The returned time should be in the user's timezone
+	assert.True(t, nextRun.After(now), "next run should be in the future")
+	assert.Equal(t, scheduleHour, nextRun.Hour())
+	assert.Equal(t, scheduleMinute, nextRun.Minute())
+}
+
+func TestBackgroundSyncManager_GetStatus(t *testing.T) {
+	bsm, _ := setupBackgroundSyncManager(t)
+
+	status := bsm.GetStatus()
+	assert.False(t, status.Running)
+	assert.Nil(t, status.NextRunAt)
+	assert.Nil(t, status.LastSyncAt)
 }
 
 func TestBackgroundSyncManager_SyncFolder_NewFiles(t *testing.T) {
@@ -216,4 +288,38 @@ func TestBackgroundSyncManager_CleanupMissingFiles_CascadeDeletesChildren(t *tes
 	assert.Equal(t, int64(0), metaCount, "ImageMetadata should be deleted")
 	assert.Equal(t, int64(0), tagCount, "ImageTag should be deleted")
 	assert.Equal(t, int64(0), embCount, "TagEmbedding should be deleted")
+}
+
+func TestParseSyncDays(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected []time.Weekday
+	}{
+		{"", nil},
+		{"0", []time.Weekday{time.Sunday}},
+		{"1,2,3,4,5", []time.Weekday{time.Monday, time.Tuesday, time.Wednesday, time.Thursday, time.Friday}},
+		{"0,6", []time.Weekday{time.Sunday, time.Saturday}},
+	}
+
+	for _, tt := range tests {
+		result := ParseSyncDays(tt.input)
+		assert.Equal(t, tt.expected, result, "input: %q", tt.input)
+	}
+}
+
+func TestFormatSyncDays(t *testing.T) {
+	tests := []struct {
+		input    []time.Weekday
+		expected string
+	}{
+		{nil, ""},
+		{[]time.Weekday{}, ""},
+		{[]time.Weekday{time.Monday, time.Friday}, "1,5"},
+		{[]time.Weekday{time.Sunday, time.Saturday}, "0,6"},
+	}
+
+	for _, tt := range tests {
+		result := FormatSyncDays(tt.input)
+		assert.Equal(t, tt.expected, result)
+	}
 }

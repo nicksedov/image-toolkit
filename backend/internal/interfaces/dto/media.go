@@ -1,5 +1,7 @@
 package dto
 
+import "time"
+
 // --- Duplicates API ---
 
 // DuplicatesResponse is the JSON response for GET /api/duplicates
@@ -190,13 +192,30 @@ type GalleryImagesResponse struct {
 
 // AppSettingsDTO is the JSON response for GET /api/settings
 type AppSettingsDTO struct {
-	TrashDir              string `json:"trashDir"`
-	ThumbnailCachePath    string `json:"thumbnailCachePath,omitempty"`
-	ThumbnailCacheSize    int    `json:"thumbnailCacheSize,omitempty"`
-	OcrConcurrentRequests int    `json:"ocrConcurrentRequests,omitempty"`
-	DailySyncEnabled      bool   `json:"dailySyncEnabled"`
-	DailySyncHour         int    `json:"dailySyncHour"`
-	DailySyncMinute       int    `json:"dailySyncMinute"`
+	TrashDir              string     `json:"trashDir"`
+	ThumbnailCachePath    string     `json:"thumbnailCachePath,omitempty"`
+	ThumbnailCacheSize    int        `json:"thumbnailCacheSize,omitempty"`
+	OcrConcurrentRequests int        `json:"ocrConcurrentRequests,omitempty"`
+	SyncDays              string     `json:"syncDays"`
+	DailySyncHour         int        `json:"dailySyncHour"`
+	DailySyncMinute       int        `json:"dailySyncMinute"`
+	SyncTimezoneOffset    int        `json:"syncTimezoneOffset"`
+	LastSyncAt            *time.Time `json:"lastSyncAt,omitempty"`
+	LastSyncNew           int        `json:"lastSyncNew"`
+	LastSyncUpdated       int        `json:"lastSyncUpdated"`
+	LastSyncDeleted       int        `json:"lastSyncDeleted"`
+	LastSyncThumbnails    int        `json:"lastSyncThumbnails"`
+}
+
+// SyncStatusResponse is the JSON response for GET /api/sync-status
+type SyncStatusResponse struct {
+	Running           bool       `json:"running"`
+	NextRunAt         *time.Time `json:"nextRunAt,omitempty"`
+	LastSyncAt        *time.Time `json:"lastSyncAt,omitempty"`
+	LastSyncNew       int        `json:"lastSyncNew"`
+	LastSyncUpdated   int        `json:"lastSyncUpdated"`
+	LastSyncDeleted   int        `json:"lastSyncDeleted"`
+	LastSyncThumbnails int       `json:"lastSyncThumbnails"`
 }
 
 // UserSettingsDTO is the JSON response for user settings
@@ -210,9 +229,10 @@ type UpdateSettingsRequest struct {
 	TrashDir              *string `json:"trashDir"`
 	ThumbnailCachePath    *string `json:"thumbnailCachePath,omitempty"`
 	OcrConcurrentRequests *int    `json:"ocrConcurrentRequests,omitempty"`
-	DailySyncEnabled      *bool   `json:"dailySyncEnabled,omitempty"`
+	SyncDays              *string `json:"syncDays,omitempty"`
 	DailySyncHour         *int    `json:"dailySyncHour,omitempty"`
 	DailySyncMinute       *int    `json:"dailySyncMinute,omitempty"`
+	SyncTimezoneOffset    *int    `json:"syncTimezoneOffset,omitempty"`
 }
 
 // UpdateUserSettingsRequest is the JSON request for PUT /api/user-settings

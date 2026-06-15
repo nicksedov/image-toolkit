@@ -148,23 +148,24 @@ func main() {
 	// Create background sync manager
 	backgroundSync := imaging.NewBackgroundSyncManager(db, thumbnailService, geolocationService)
 
-	// Read schedule from DB (default: enabled=true, hour=3, minute=30)
-	syncEnabled := cfg.BackgroundSyncEnabled
+	// Read schedule from DB (default: weekdays, 03:30, UTC)
 	syncHour := 3
 	syncMinute := 30
+	syncDays := []time.Weekday{time.Monday, time.Tuesday, time.Wednesday, time.Thursday, time.Friday}
+	syncTimezoneOffset := 0
 	var appSettings domain.AppSettings
 	if result := db.First(&appSettings, 1); result.Error == nil {
 		if appSettings.DailySyncHour > 0 || appSettings.DailySyncMinute > 0 {
 			syncHour = appSettings.DailySyncHour
 			syncMinute = appSettings.DailySyncMinute
 		}
-		// Use DB value for enabled flag if it has been set (default true)
-		syncEnabled = appSettings.DailySyncEnabled
+		syncDays = imaging.ParseSyncDays(appSettings.SyncDays)
+		syncTimezoneOffset = appSettings.SyncTimezoneOffset
 	}
 
-	backgroundSync.Start(syncEnabled, syncHour, syncMinute)
+	backgroundSync.Start(syncDays, syncHour, syncMinute, syncTimezoneOffset)
 	defer backgroundSync.Stop()
-	fmt.Printf("Background sync: daily at %02d:%02d, enabled=%v\n", syncHour, syncMinute, syncEnabled)
+	fmt.Printf("Background sync: days=%v at %02d:%02d, tzOffset=%d min\n", syncDays, syncHour, syncMinute, syncTimezoneOffset)
 
 	// Wire scan complete callback to trigger OCR classification
 	scanManager.OnScanComplete = func() {
@@ -305,7 +306,7 @@ func main() {
 	fmt.Printf("Scan workers: %d\n", cfg.ScanWorkers)
 	fmt.Printf("CORS allowed origins: %s\n", strings.Join(cfg.CORSOrigins, ", "))
 	fmt.Printf("Thumbnail cache: enabled=%v, path=%s\n", cfg.ThumbnailCacheEnabled, cachePath)
-	fmt.Printf("Background sync: daily at %02d:%02d, enabled=%v (configured in UI)\n", syncHour, syncMinute, syncEnabled)
+	fmt.Printf("Background sync: days=%v at %02d:%02d, tzOffset=%d min (configured in UI)\n", syncDays, syncHour, syncMinute, syncTimezoneOffset)
 	fmt.Println("Configure gallery folders via the web UI Settings tab.")
 	fmt.Println("Press Ctrl+C to stop the server")
 

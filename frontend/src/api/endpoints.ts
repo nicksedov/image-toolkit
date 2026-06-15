@@ -70,6 +70,7 @@ import type {
   TagSearchResponse,
   SmartSearchResponse,
   EmbeddingBackfillStatus,
+  SyncStatusResponse,
 } from "@/types"
 
 export function fetchDuplicates(page: number, pageSize: number): Promise<DuplicatesResponse> {
@@ -256,6 +257,10 @@ export function fetchSettings(): Promise<AppSettingsDTO> {
 
 export function updateSettings(req: UpdateSettingsRequest): Promise<AppSettingsDTO> {
   return apiPut<AppSettingsDTO>("/api/settings", req)
+}
+
+export function fetchSyncStatus(): Promise<SyncStatusResponse> {
+  return apiGet<SyncStatusResponse>("/api/sync-status")
 }
 
 // --- User Settings ---

@@ -11,10 +11,41 @@ import { FolderList } from "@/components/settings/FolderList"
 import { ScanProgressBanner } from "@/components/ScanProgressBanner"
 import { useGalleryFolders } from "@/hooks/useGalleryFolders"
 import { useScanStatus } from "@/hooks/useScanStatus"
-import { fetchTrashInfo, cleanTrash, fetchSettings, updateSettings, fetchThumbnailCacheStats, enableThumbnailCache, disableThumbnailCache, invalidateAllThumbnails, triggerScan, triggerFastScan } from "@/api/endpoints"
+import { fetchTrashInfo, cleanTrash, fetchSettings, updateSettings, fetchThumbnailCacheStats, enableThumbnailCache, disableThumbnailCache, invalidateAllThumbnails, triggerScan, triggerFastScan, fetchSyncStatus } from "@/api/endpoints"
 import { useSettings } from "@/providers/useSettings"
-import { RefreshCw, Trash2, Loader2, Zap, DatabaseZap, DatabaseBackup, Database } from "lucide-react"
+import { RefreshCw, Trash2, Loader2, Zap, DatabaseZap, DatabaseBackup, Database, Clock } from "lucide-react"
 import { useTranslation, type TranslationKey } from "@/i18n"
+import type { SyncStatusResponse } from "@/types"
+
+// Weekday order for UI: Mon, Tue, Wed, Thu, Fri, Sat, Sun (Go time.Weekday: 1,2,3,4,5,6,0)
+const WEEKDAY_ORDER = [1, 2, 3, 4, 5, 6, 0] as const
+const WEEKDAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const
+
+function parseSyncDaysString(s: string): boolean[] {
+  const days = new Array(7).fill(false) as boolean[]
+  if (!s) return days
+  for (const c of s) {
+    const n = Number(c)
+    if (n >= 0 && n <= 6) days[n] = true
+  }
+  return days
+}
+
+function syncDaysToString(days: boolean[]): string {
+  return days
+    .map((checked, i) => (checked ? String(i) : ""))
+    .filter(Boolean)
+    .join(",")
+}
+
+function formatDateTime(iso: string | null | undefined): string {
+  if (!iso) return ""
+  try {
+    return new Date(iso).toLocaleString()
+  } catch {
+    return iso
+  }
+}
 
 export function AdminGeneralTab() {
   const { folders, isLoading, add, remove, refetch } = useGalleryFolders()
@@ -35,10 +66,12 @@ export function AdminGeneralTab() {
   const [thumbnailCachePath, setThumbnailCachePath] = useState("")
 
   // Daily Sync Schedule state
-  const [dailySyncEnabled, setDailySyncEnabled] = useState(true)
+  const [syncDays, setSyncDays] = useState<boolean[]>([false, true, true, true, true, true, false]) // index 0=Sun,1=Mon..6=Sat
   const [dailySyncHour, setDailySyncHour] = useState(3)
   const [dailySyncMinute, setDailySyncMinute] = useState(30)
+  const [syncTimezoneOffset, setSyncTimezoneOffset] = useState(new Date().getTimezoneOffset())
   const [isSavingSchedule, setIsSavingSchedule] = useState(false)
+  const [syncStatus, setSyncStatus] = useState<SyncStatusResponse | null>(null)
 
   const loadTrashInfo = useCallback(() => {
     fetchTrashInfo()
@@ -71,13 +104,25 @@ export function AdminGeneralTab() {
       setTrashInput(settings.trashDir || "")
       setTrashDir(settings.trashDir || "")
       setThumbnailCachePath(settings.thumbnailCachePath || "")
-      setDailySyncEnabled(settings.dailySyncEnabled ?? true)
+      setSyncDays(parseSyncDaysString(settings.syncDays ?? "1,2,3,4,5"))
       setDailySyncHour(settings.dailySyncHour ?? 3)
       setDailySyncMinute(settings.dailySyncMinute ?? 30)
+      if (settings.syncTimezoneOffset !== undefined) {
+        setSyncTimezoneOffset(settings.syncTimezoneOffset)
+      }
     }).catch(() => {
       // Use local state values
     })
   }, [setTrashDir])
+
+  // Poll sync status
+  useEffect(() => {
+    let timer: ReturnType<typeof setInterval>
+    const load = () => fetchSyncStatus().then(setSyncStatus).catch(() => {})
+    load()
+    timer = setInterval(load, 30000)
+    return () => clearInterval(timer)
+  }, [])
 
   useEffect(() => {
     loadTrashInfo()
@@ -136,17 +181,28 @@ export function AdminGeneralTab() {
     setIsSavingSchedule(true)
     try {
       await updateSettings({
-        dailySyncEnabled,
+        syncDays: syncDaysToString(syncDays),
         dailySyncHour,
         dailySyncMinute,
+        syncTimezoneOffset,
       })
       toast.success(t("settings.dailySync.saved"))
+      // Refresh status after saving
+      fetchSyncStatus().then(setSyncStatus).catch(() => {})
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t("settings.dailySync.saveFailed"))
     } finally {
       setIsSavingSchedule(false)
     }
-  }, [dailySyncEnabled, dailySyncHour, dailySyncMinute, t])
+  }, [syncDays, dailySyncHour, dailySyncMinute, syncTimezoneOffset, t])
+
+  const toggleDay = useCallback((dayIndex: number) => {
+    setSyncDays((prev) => {
+      const next = [...prev]
+      next[dayIndex] = !next[dayIndex]
+      return next
+    })
+  }, [])
 
   const handleSaveTrashDir = useCallback(async () => {
     setIsSavingTrash(true)
@@ -307,73 +363,116 @@ export function AdminGeneralTab() {
         </CardContent>
       </Card>
 
-      {/* Daily Sync Schedule */}
+      {/* Sync Schedule */}
       <Card>
         <CardHeader>
           <CardTitle>{t("settings.dailySync.title")}</CardTitle>
           <CardDescription>{t("settings.dailySync.description")}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="daily-sync-enabled"
-              checked={dailySyncEnabled}
-              onCheckedChange={(checked) => setDailySyncEnabled(checked as boolean)}
-            />
-            <Label htmlFor="daily-sync-enabled">{t("settings.dailySync.enabled")}</Label>
+          {/* Day checkboxes */}
+          <div className="space-y-2">
+            <Label>{t("settings.dailySync.days")}</Label>
+            <div className="flex flex-wrap gap-3">
+              {WEEKDAY_ORDER.map((dayIdx, uiIdx) => (
+                <div key={dayIdx} className="flex items-center space-x-1.5">
+                  <Checkbox
+                    id={`sync-day-${dayIdx}`}
+                    checked={syncDays[dayIdx]}
+                    onCheckedChange={() => toggleDay(dayIdx)}
+                  />
+                  <Label htmlFor={`sync-day-${dayIdx}`} className="text-sm cursor-pointer">
+                    {t(`settings.dailySync.day.${WEEKDAY_KEYS[uiIdx]}` as TranslationKey)}
+                  </Label>
+                </div>
+              ))}
+            </div>
           </div>
 
-          {dailySyncEnabled && (
-            <div className="flex items-center gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="daily-sync-hour">{t("settings.dailySync.hour")}</Label>
-                <Select
-                  value={String(dailySyncHour)}
-                  onValueChange={(val) => setDailySyncHour(Number(val))}
-                >
-                  <SelectTrigger id="daily-sync-hour" className="w-24">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {hourOptions.map((h) => (
-                      <SelectItem key={h} value={String(h)}>
-                        {String(h).padStart(2, "0")}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="daily-sync-minute">{t("settings.dailySync.minute")}</Label>
-                <Select
-                  value={String(dailySyncMinute)}
-                  onValueChange={(val) => setDailySyncMinute(Number(val))}
-                >
-                  <SelectTrigger id="daily-sync-minute" className="w-24">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {minuteOptions.map((m) => (
-                      <SelectItem key={m} value={String(m)}>
-                        {String(m).padStart(2, "0")}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="flex items-end">
-                <Button
-                  onClick={handleSaveSchedule}
-                  disabled={isSavingSchedule}
-                  size="sm"
-                >
-                  {isSavingSchedule ? t("common.saving") : t("settings.dailySync.save")}
-                </Button>
-              </div>
+          {/* Time selectors */}
+          <div className="flex items-center gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="daily-sync-hour">{t("settings.dailySync.hour")}</Label>
+              <Select
+                value={String(dailySyncHour)}
+                onValueChange={(val) => setDailySyncHour(Number(val))}
+              >
+                <SelectTrigger id="daily-sync-hour" className="w-24">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {hourOptions.map((h) => (
+                    <SelectItem key={h} value={String(h)}>
+                      {String(h).padStart(2, "0")}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-          )}
+
+            <div className="space-y-2">
+              <Label htmlFor="daily-sync-minute">{t("settings.dailySync.minute")}</Label>
+              <Select
+                value={String(dailySyncMinute)}
+                onValueChange={(val) => setDailySyncMinute(Number(val))}
+              >
+                <SelectTrigger id="daily-sync-minute" className="w-24">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {minuteOptions.map((m) => (
+                    <SelectItem key={m} value={String(m)}>
+                      {String(m).padStart(2, "0")}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex items-end">
+              <Button
+                onClick={handleSaveSchedule}
+                disabled={isSavingSchedule}
+                size="sm"
+              >
+                {isSavingSchedule ? t("common.saving") : t("settings.dailySync.save")}
+              </Button>
+            </div>
+          </div>
+
+          {/* Sync Status */}
+          <div className="rounded-md border p-3 space-y-2">
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <Clock className="h-4 w-4" />
+              {t("settings.dailySync.status")}
+            </div>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-muted-foreground">
+              <div>
+                <span className="font-medium text-foreground">{t("settings.dailySync.lastRun")}: </span>
+                {syncStatus?.lastSyncAt
+                  ? formatDateTime(syncStatus.lastSyncAt)
+                  : t("settings.dailySync.lastRunNever")}
+              </div>
+              <div>
+                <span className="font-medium text-foreground">{t("settings.dailySync.nextRun")}: </span>
+                {syncStatus?.nextRunAt
+                  ? formatDateTime(syncStatus.nextRunAt)
+                  : syncStatus?.running
+                    ? t("settings.dailySync.statusRunning")
+                    : "—"}
+              </div>
+              {syncStatus?.lastSyncAt && (
+                <div className="col-span-2">
+                  {t("settings.dailySync.lastStats", {
+                    newFiles: syncStatus.lastSyncNew,
+                    updatedFiles: syncStatus.lastSyncUpdated,
+                    deletedFiles: syncStatus.lastSyncDeleted,
+                    thumbnails: syncStatus.lastSyncThumbnails,
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
         </CardContent>
       </Card>
 

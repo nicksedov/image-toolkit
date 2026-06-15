@@ -1,6 +1,7 @@
 package imaging
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -14,8 +15,19 @@ import (
 	"gorm.io/gorm"
 )
 
+// SyncStatus holds the current status of the background sync manager.
+type SyncStatus struct {
+	Running            bool       `json:"running"`
+	NextRunAt          *time.Time `json:"nextRunAt,omitempty"`
+	LastSyncAt         *time.Time `json:"lastSyncAt,omitempty"`
+	LastSyncNew        int        `json:"lastSyncNew"`
+	LastSyncUpdated    int        `json:"lastSyncUpdated"`
+	LastSyncDeleted    int        `json:"lastSyncDeleted"`
+	LastSyncThumbnails int        `json:"lastSyncThumbnails"`
+}
+
 // BackgroundSyncManager manages background synchronization of gallery files
-// and thumbnail cache. It runs daily at a configured time.
+// and thumbnail cache. It runs on configured weekdays at a configured time (in the user's timezone).
 type BackgroundSyncManager struct {
 	mu                 sync.Mutex
 	running            bool
@@ -24,9 +36,17 @@ type BackgroundSyncManager struct {
 	db                 *gorm.DB
 	thumbnailService   *thumbnail.Service
 	geolocationService *geocoder.GeolocationService
-	enabled            bool
+	syncDays           []time.Weekday
 	hour               int
 	minute             int
+	timezoneOffset     int // minutes from UTC (JS getTimezoneOffset sign: UTC+3 = -180)
+	// Status tracking
+	nextRunAt          *time.Time
+	lastSyncAt         *time.Time
+	lastSyncNew        int
+	lastSyncUpdated    int
+	lastSyncDeleted    int
+	lastSyncThumbnails int
 }
 
 // NewBackgroundSyncManager creates a new background sync manager
@@ -35,16 +55,17 @@ func NewBackgroundSyncManager(db *gorm.DB, thumbnailService *thumbnail.Service, 
 		db:                 db,
 		thumbnailService:   thumbnailService,
 		geolocationService: geoService,
-		enabled:            true,
+		syncDays:           []time.Weekday{time.Monday, time.Tuesday, time.Wednesday, time.Thursday, time.Friday},
 		hour:               3,
 		minute:             30,
+		timezoneOffset:     0,
 		stopCh:             make(chan struct{}),
 		scheduleCh:         make(chan struct{}),
 	}
 }
 
 // Start begins the background synchronization loop with the given schedule
-func (bsm *BackgroundSyncManager) Start(enabled bool, hour int, minute int) {
+func (bsm *BackgroundSyncManager) Start(syncDays []time.Weekday, hour int, minute int, timezoneOffset int) {
 	bsm.mu.Lock()
 	if bsm.running {
 		bsm.mu.Unlock()
@@ -52,14 +73,15 @@ func (bsm *BackgroundSyncManager) Start(enabled bool, hour int, minute int) {
 		return
 	}
 	bsm.running = true
-	bsm.enabled = enabled
+	bsm.syncDays = syncDays
 	bsm.hour = hour
 	bsm.minute = minute
+	bsm.timezoneOffset = timezoneOffset
 	bsm.stopCh = make(chan struct{})
 	bsm.scheduleCh = make(chan struct{})
 	bsm.mu.Unlock()
 
-	log.Printf("Starting background gallery sync (daily at %02d:%02d, enabled=%v)", hour, minute, enabled)
+	log.Printf("Starting background gallery sync (days=%v at %02d:%02d, tzOffset=%d min)", syncDays, hour, minute, timezoneOffset)
 	go bsm.scheduleLoop()
 }
 
@@ -78,15 +100,16 @@ func (bsm *BackgroundSyncManager) Stop() {
 }
 
 // UpdateSchedule updates the schedule at runtime and restarts the loop
-func (bsm *BackgroundSyncManager) UpdateSchedule(enabled bool, hour int, minute int) {
+func (bsm *BackgroundSyncManager) UpdateSchedule(syncDays []time.Weekday, hour int, minute int, timezoneOffset int) {
 	bsm.mu.Lock()
 	wasRunning := bsm.running
-	bsm.enabled = enabled
+	bsm.syncDays = syncDays
 	bsm.hour = hour
 	bsm.minute = minute
+	bsm.timezoneOffset = timezoneOffset
 	bsm.mu.Unlock()
 
-	log.Printf("Background sync schedule updated: daily at %02d:%02d, enabled=%v", hour, minute, enabled)
+	log.Printf("Background sync schedule updated: days=%v at %02d:%02d, tzOffset=%d min", syncDays, hour, minute, timezoneOffset)
 
 	// Signal the schedule loop to restart with new settings
 	if wasRunning {
@@ -97,20 +120,42 @@ func (bsm *BackgroundSyncManager) UpdateSchedule(enabled bool, hour int, minute 
 	}
 }
 
-// scheduleLoop runs the synchronization daily at the configured time
+// GetStatus returns the current sync status.
+func (bsm *BackgroundSyncManager) GetStatus() SyncStatus {
+	bsm.mu.Lock()
+	defer bsm.mu.Unlock()
+	return SyncStatus{
+		Running:            bsm.running,
+		NextRunAt:          bsm.nextRunAt,
+		LastSyncAt:         bsm.lastSyncAt,
+		LastSyncNew:        bsm.lastSyncNew,
+		LastSyncUpdated:    bsm.lastSyncUpdated,
+		LastSyncDeleted:    bsm.lastSyncDeleted,
+		LastSyncThumbnails: bsm.lastSyncThumbnails,
+	}
+}
+
+// scheduleLoop runs the synchronization on configured weekdays at the configured time
 func (bsm *BackgroundSyncManager) scheduleLoop() {
 	for {
 		bsm.mu.Lock()
-		enabled := bsm.enabled
+		syncDays := bsm.syncDays
 		hour := bsm.hour
 		minute := bsm.minute
+		timezoneOffset := bsm.timezoneOffset
 		stopCh := bsm.stopCh
 		bsm.mu.Unlock()
 
-		if enabled {
-			// Calculate time until next run
-			nextRun := bsm.calculateNextRunTime(hour, minute)
-			log.Printf("Background sync: next run at %s", nextRun.Format("15:04:05"))
+		if len(syncDays) > 0 {
+			// Calculate next run time
+			nextRun := bsm.calculateNextRunTime(syncDays, hour, minute, timezoneOffset)
+
+			bsm.mu.Lock()
+			bsm.nextRunAt = &nextRun
+			bsm.mu.Unlock()
+
+			userTZ := time.FixedZone("UserTZ", -timezoneOffset*60)
+			log.Printf("Background sync: next run at %s (user local: %s)", nextRun.Format("2006-01-02 15:04:05"), nextRun.In(userTZ).Format("Mon 15:04"))
 
 			select {
 			case <-time.After(time.Until(nextRun)):
@@ -123,7 +168,12 @@ func (bsm *BackgroundSyncManager) scheduleLoop() {
 				continue
 			}
 		} else {
-			log.Println("Background sync: disabled, waiting for schedule change or stop")
+			log.Println("Background sync: no days selected, waiting for schedule change or stop")
+
+			bsm.mu.Lock()
+			bsm.nextRunAt = nil
+			bsm.mu.Unlock()
+
 			select {
 			case <-stopCh:
 				return
@@ -135,17 +185,34 @@ func (bsm *BackgroundSyncManager) scheduleLoop() {
 	}
 }
 
-// calculateNextRunTime calculates the next time the sync should run
-func (bsm *BackgroundSyncManager) calculateNextRunTime(hour, minute int) time.Time {
-	now := time.Now()
-	next := time.Date(now.Year(), now.Month(), now.Day(), hour, minute, 0, 0, now.Location())
+// calculateNextRunTime calculates the next time the sync should run based on the user's timezone.
+func (bsm *BackgroundSyncManager) calculateNextRunTime(syncDays []time.Weekday, hour, minute, timezoneOffset int) time.Time {
+	userTZ := time.FixedZone("UserTZ", -timezoneOffset*60)
+	now := time.Now().In(userTZ)
 
-	// If the time has already passed today, schedule for tomorrow
-	if !next.After(now) {
-		next = next.Add(24 * time.Hour)
+	daySet := make(map[time.Weekday]bool)
+	for _, d := range syncDays {
+		daySet[d] = true
 	}
 
-	return next
+	// Check today first: if it's a sync day and the scheduled time hasn't passed
+	if daySet[now.Weekday()] {
+		candidate := time.Date(now.Year(), now.Month(), now.Day(), hour, minute, 0, 0, userTZ)
+		if candidate.After(now) {
+			return candidate
+		}
+	}
+
+	// Check the next 7 days
+	for i := 1; i <= 7; i++ {
+		future := now.AddDate(0, 0, i)
+		if daySet[future.Weekday()] {
+			return time.Date(future.Year(), future.Month(), future.Day(), hour, minute, 0, 0, userTZ)
+		}
+	}
+
+	// Fallback: should not happen if syncDays is non-empty
+	return now.Add(24 * time.Hour)
 }
 
 // syncOnce performs a single synchronization pass
@@ -191,6 +258,25 @@ func (bsm *BackgroundSyncManager) syncOnce() {
 
 	log.Printf("Background sync: complete - %d new, %d updated, %d deleted, %d thumbnails generated",
 		newFiles, updatedFiles, deletedFiles, thumbnailGenerated)
+
+	// Update status tracking and persist to DB
+	now := time.Now()
+	bsm.mu.Lock()
+	bsm.lastSyncAt = &now
+	bsm.lastSyncNew = newFiles
+	bsm.lastSyncUpdated = updatedFiles
+	bsm.lastSyncDeleted = deletedFiles
+	bsm.lastSyncThumbnails = thumbnailGenerated
+	bsm.mu.Unlock()
+
+	// Persist last sync stats to AppSettings
+	bsm.db.Model(&domain.AppSettings{}).Where("id = ?", 1).Updates(map[string]interface{}{
+		"last_sync_at":         now,
+		"last_sync_new":        newFiles,
+		"last_sync_updated":    updatedFiles,
+		"last_sync_deleted":    deletedFiles,
+		"last_sync_thumbnails": thumbnailGenerated,
+	})
 }
 
 // syncFolder synchronizes a single folder sequentially
@@ -463,5 +549,35 @@ func (bsm *BackgroundSyncManager) InvalidateTagsAndEmbeddings(imageFileID uint) 
 	if result := bsm.db.Where("image_file_id = ?", imageFileID).Delete(&domain.TagEmbedding{}); result.Error == nil && result.RowsAffected > 0 {
 		log.Printf("Background sync: invalidated tags and embeddings for image %d", imageFileID)
 	}
+}
+
+// ParseSyncDays converts a comma-separated string of weekday numbers to a slice of time.Weekday.
+// Returns nil if the input is empty.
+func ParseSyncDays(s string) []time.Weekday {
+	if s == "" {
+		return nil
+	}
+	var days []time.Weekday
+	for _, c := range s {
+		if c >= '0' && c <= '6' {
+			days = append(days, time.Weekday(c-'0'))
+		}
+	}
+	return days
+}
+
+// FormatSyncDays converts a slice of time.Weekday to a comma-separated string.
+func FormatSyncDays(days []time.Weekday) string {
+	if len(days) == 0 {
+		return ""
+	}
+	result := ""
+	for i, d := range days {
+		if i > 0 {
+			result += ","
+		}
+		result += fmt.Sprintf("%d", d)
+	}
+	return result
 }
 

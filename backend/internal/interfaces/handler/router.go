@@ -81,6 +81,7 @@ func (s *Server) SetupRouter(authMiddleware *middleware.AuthMiddleware, csrfProt
 			protected.GET("/ocr-image", s.handleServeOcrImage)
 			protected.GET("/settings", s.handleGetSettings)
 			protected.PUT("/settings", s.handleUpdateSettings)
+			protected.GET("/sync-status", s.handleGetSyncStatus)
 			protected.GET("/user-settings", s.handleGetUserSettings)
 			protected.PUT("/user-settings", s.handleUpdateUserSettings)
 			protected.GET("/trash-info", s.handleGetTrashInfo)

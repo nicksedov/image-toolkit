@@ -561,9 +561,15 @@ func (s *Server) handleGetSettings(c *gin.Context) {
 		ThumbnailCachePath:    settings.ThumbnailCachePath,
 		ThumbnailCacheSize:    settings.ThumbnailCacheSize,
 		OcrConcurrentRequests: settings.OcrConcurrentRequests,
-		DailySyncEnabled:      settings.DailySyncEnabled,
+		SyncDays:              settings.SyncDays,
 		DailySyncHour:         settings.DailySyncHour,
 		DailySyncMinute:       settings.DailySyncMinute,
+		SyncTimezoneOffset:    settings.SyncTimezoneOffset,
+		LastSyncAt:            settings.LastSyncAt,
+		LastSyncNew:           settings.LastSyncNew,
+		LastSyncUpdated:       settings.LastSyncUpdated,
+		LastSyncDeleted:       settings.LastSyncDeleted,
+		LastSyncThumbnails:    settings.LastSyncThumbnails,
 	})
 }
 
@@ -642,8 +648,10 @@ func (s *Server) handleUpdateSettings(c *gin.Context) {
 		}
 	}
 
-	if req.DailySyncEnabled != nil {
-		settings.DailySyncEnabled = *req.DailySyncEnabled
+	scheduleChanged := false
+	if req.SyncDays != nil {
+		settings.SyncDays = *req.SyncDays
+		scheduleChanged = true
 	}
 	if req.DailySyncHour != nil {
 		hour := *req.DailySyncHour
@@ -652,6 +660,7 @@ func (s *Server) handleUpdateSettings(c *gin.Context) {
 			return
 		}
 		settings.DailySyncHour = hour
+		scheduleChanged = true
 	}
 	if req.DailySyncMinute != nil {
 		minute := *req.DailySyncMinute
@@ -660,11 +669,17 @@ func (s *Server) handleUpdateSettings(c *gin.Context) {
 			return
 		}
 		settings.DailySyncMinute = minute
+		scheduleChanged = true
+	}
+	if req.SyncTimezoneOffset != nil {
+		settings.SyncTimezoneOffset = *req.SyncTimezoneOffset
+		scheduleChanged = true
 	}
 
 	// Apply schedule changes to background sync manager in real-time
-	if s.backgroundSync != nil && (req.DailySyncEnabled != nil || req.DailySyncHour != nil || req.DailySyncMinute != nil) {
-		s.backgroundSync.UpdateSchedule(settings.DailySyncEnabled, settings.DailySyncHour, settings.DailySyncMinute)
+	if s.backgroundSync != nil && scheduleChanged {
+		syncDays := imaging.ParseSyncDays(settings.SyncDays)
+		s.backgroundSync.UpdateSchedule(syncDays, settings.DailySyncHour, settings.DailySyncMinute, settings.SyncTimezoneOffset)
 	}
 
 	s.db.Save(&settings)
@@ -674,9 +689,33 @@ func (s *Server) handleUpdateSettings(c *gin.Context) {
 		ThumbnailCachePath:    settings.ThumbnailCachePath,
 		ThumbnailCacheSize:    settings.ThumbnailCacheSize,
 		OcrConcurrentRequests: settings.OcrConcurrentRequests,
-		DailySyncEnabled:      settings.DailySyncEnabled,
+		SyncDays:              settings.SyncDays,
 		DailySyncHour:         settings.DailySyncHour,
 		DailySyncMinute:       settings.DailySyncMinute,
+		SyncTimezoneOffset:    settings.SyncTimezoneOffset,
+		LastSyncAt:            settings.LastSyncAt,
+		LastSyncNew:           settings.LastSyncNew,
+		LastSyncUpdated:       settings.LastSyncUpdated,
+		LastSyncDeleted:       settings.LastSyncDeleted,
+		LastSyncThumbnails:    settings.LastSyncThumbnails,
+	})
+}
+
+// handleGetSyncStatus returns the current background sync status
+func (s *Server) handleGetSyncStatus(c *gin.Context) {
+	if s.backgroundSync == nil {
+		c.JSON(http.StatusOK, dto.SyncStatusResponse{Running: false})
+		return
+	}
+	status := s.backgroundSync.GetStatus()
+	c.JSON(http.StatusOK, dto.SyncStatusResponse{
+		Running:            status.Running,
+		NextRunAt:          status.NextRunAt,
+		LastSyncAt:         status.LastSyncAt,
+		LastSyncNew:        status.LastSyncNew,
+		LastSyncUpdated:    status.LastSyncUpdated,
+		LastSyncDeleted:    status.LastSyncDeleted,
+		LastSyncThumbnails: status.LastSyncThumbnails,
 	})
 }
 

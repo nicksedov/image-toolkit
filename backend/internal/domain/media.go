@@ -91,10 +91,20 @@ type AppSettings struct {
 	ThumbnailCachePath    string    `gorm:"default:''" json:"thumbnailCachePath"`
 	ThumbnailCacheSize    int       `gorm:"default:0" json:"thumbnailCacheSize"`
 	OcrConcurrentRequests int       `gorm:"default:4" json:"ocrConcurrentRequests"`
-	DailySyncEnabled      bool      `gorm:"default:true" json:"dailySyncEnabled"`
+	// SyncDays: comma-separated weekday numbers (time.Weekday: 0=Sunday,1=Monday,...,6=Saturday)
+	// Empty string means sync is disabled for all days.
+	SyncDays              string    `gorm:"default:'1,2,3,4,5'" json:"syncDays"`
 	DailySyncHour         int       `gorm:"default:3" json:"dailySyncHour"`
 	DailySyncMinute       int       `gorm:"default:30" json:"dailySyncMinute"`
-	UpdatedAt             time.Time `json:"updatedAt"`
+	// SyncTimezoneOffset: user's timezone offset in minutes from UTC (same sign as JS getTimezoneOffset: UTC+3 = -180)
+	SyncTimezoneOffset    int       `gorm:"default:0" json:"syncTimezoneOffset"`
+	// Last sync status fields
+	LastSyncAt            *time.Time `json:"lastSyncAt"`
+	LastSyncNew           int        `gorm:"default:0" json:"lastSyncNew"`
+	LastSyncUpdated       int        `gorm:"default:0" json:"lastSyncUpdated"`
+	LastSyncDeleted       int        `gorm:"default:0" json:"lastSyncDeleted"`
+	LastSyncThumbnails    int        `gorm:"default:0" json:"lastSyncThumbnails"`
+	UpdatedAt             time.Time  `json:"updatedAt"`
 }
 
 // OcrClassification stores OCR classification results for an image
