@@ -11,6 +11,7 @@ import (
 	"image-toolkit/internal/application/imaging"
 	"image-toolkit/internal/domain"
 	"image-toolkit/internal/infrastructure/llm"
+	"image-toolkit/internal/infrastructure/llm/prompts"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -300,9 +301,9 @@ func (s *ImageToolkitMCPServer) runImageAction(imagePath, action, question, lang
 		return nil, err
 	}
 
-	// Build prompts (same logic as imaging.buildAiActionPrompt)
-	systemPrompt := buildActionPrompt(action, question, language)
-	userMessage := buildActionUserMessage(action)
+	// Build prompts
+	systemPrompt := prompts.BuildActionPrompt(action, question, language)
+	userMessage := prompts.BuildActionUserMessage(action)
 
 	// Call LLM
 	startTime := time.Now()
@@ -320,7 +321,7 @@ func (s *ImageToolkitMCPServer) runImageAction(imagePath, action, question, lang
 	}
 
 	if action == "tags" {
-		rawTags := parseTags(response)
+		rawTags := prompts.ParseTags(response)
 		tags, err := imaging.PostProcessTags(rawTags)
 		if err != nil {
 			return nil, fmt.Errorf("tag post-processing failed: %w", err)
@@ -352,20 +353,4 @@ func (s *ImageToolkitMCPServer) runImageAction(imagePath, action, question, lang
 	return result, nil
 }
 
-// parseTags parses a comma-separated or newline-separated list of tags.
-func parseTags(input string) []string {
-	parts := strings.Split(input, ",")
-	if len(parts) == 1 {
-		parts = strings.Split(input, "\n")
-	}
 
-	var tags []string
-	for _, part := range parts {
-		tag := strings.TrimSpace(part)
-		tag = strings.Trim(tag, `"'`)
-		if tag != "" {
-			tags = append(tags, tag)
-		}
-	}
-	return tags
-}

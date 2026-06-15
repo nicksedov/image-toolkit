@@ -1,9 +1,10 @@
-package mcpserver
+package prompts
 
 import (
 	"bytes"
 	"embed"
 	"fmt"
+	"strings"
 	"text/template"
 	"unicode"
 )
@@ -11,7 +12,7 @@ import (
 //go:embed prompts/*.txt
 var promptsFS embed.FS
 
-// promptTemplates holds parsed templates for MCP tool prompts.
+// promptTemplates holds parsed templates for prompts with placeholders.
 var promptTemplates = make(map[string]*template.Template)
 
 func init() {
@@ -36,8 +37,8 @@ func init() {
 	}
 }
 
-// renderPrompt renders a templated prompt with the given data.
-func renderPrompt(name string, data any) string {
+// RenderPrompt renders a templated prompt with the given data.
+func RenderPrompt(name string, data any) string {
 	tmpl, ok := promptTemplates[name]
 	if !ok {
 		panic(fmt.Sprintf("prompt template not found: %s", name))
@@ -50,8 +51,8 @@ func renderPrompt(name string, data any) string {
 	return buf.String()
 }
 
-// loadPrompt reads a static prompt file (no template rendering).
-func loadPrompt(name string) string {
+// LoadPrompt reads a static prompt file (no template rendering).
+func LoadPrompt(name string) string {
 	content, err := promptsFS.ReadFile(name)
 	if err != nil {
 		panic(fmt.Sprintf("failed to read embedded prompt %s: %v", name, err))
@@ -59,8 +60,8 @@ func loadPrompt(name string) string {
 	return string(content)
 }
 
-// languageCodeToName converts a language code (e.g. "en", "ru") to a full language name.
-func languageCodeToName(code string) string {
+// LanguageCodeToName converts a language code (e.g. "en", "ru") to a full language name.
+func LanguageCodeToName(code string) string {
 	switch code {
 	case "ru":
 		return "Russian"
@@ -69,8 +70,8 @@ func languageCodeToName(code string) string {
 	}
 }
 
-// detectQuestionLanguage determines the language of a user question based on character analysis.
-func detectQuestionLanguage(text string) string {
+// DetectQuestionLanguage determines the language of a user question based on character analysis.
+func DetectQuestionLanguage(text string) string {
 	cyrillicCount := 0
 	latinCount := 0
 
@@ -88,50 +89,50 @@ func detectQuestionLanguage(text string) string {
 	return "English"
 }
 
-// actionPromptData holds template data for action prompts.
-type actionPromptData struct {
+// ActionPromptData holds template data for action prompts.
+type ActionPromptData struct {
 	ResponseLanguage string
 }
 
-// recognizeTextPromptData holds template data for OCR prompts.
-type recognizeTextPromptData struct {
+// RecognizeTextPromptData holds template data for OCR prompts.
+type RecognizeTextPromptData struct {
 	NoTextMessage string
 }
 
-// askQuestionPromptData holds template data for question prompts.
-type askQuestionPromptData struct {
+// AskQuestionPromptData holds template data for question prompts.
+type AskQuestionPromptData struct {
 	Question         string
 	QuestionLanguage string
 }
 
-// buildActionPrompt creates the system prompt for an AI action.
-func buildActionPrompt(action, question, language string) string {
-	responseLang := languageCodeToName(language)
+// BuildActionPrompt creates the system prompt for an AI action.
+func BuildActionPrompt(action, question, language string) string {
+	responseLang := LanguageCodeToName(language)
 
 	switch action {
 	case "describe":
-		return renderPrompt("prompts/action_describe.txt", actionPromptData{ResponseLanguage: responseLang})
+		return RenderPrompt("prompts/action_describe.txt", ActionPromptData{ResponseLanguage: responseLang})
 	case "tags":
-		return loadPrompt("prompts/action_tags.txt")
+		return LoadPrompt("prompts/action_tags.txt")
 	case "recognizeText":
 		noTextMsg := "No text detected."
 		if language == "ru" {
 			noTextMsg = "Текст не обнаружен."
 		}
-		return renderPrompt("prompts/action_recognize_text.txt", recognizeTextPromptData{NoTextMessage: noTextMsg})
+		return RenderPrompt("prompts/action_recognize_text.txt", RecognizeTextPromptData{NoTextMessage: noTextMsg})
 	case "askQuestion":
-		questionLang := detectQuestionLanguage(question)
-		return renderPrompt("prompts/action_ask_question.txt", askQuestionPromptData{
+		questionLang := DetectQuestionLanguage(question)
+		return RenderPrompt("prompts/action_ask_question.txt", AskQuestionPromptData{
 			Question:         question,
 			QuestionLanguage: questionLang,
 		})
 	default:
-		return loadPrompt("prompts/action_default.txt")
+		return LoadPrompt("prompts/action_default.txt")
 	}
 }
 
-// buildActionUserMessage returns the user message for the LLM based on action type.
-func buildActionUserMessage(action string) string {
+// BuildActionUserMessage returns the user message for the LLM based on action type.
+func BuildActionUserMessage(action string) string {
 	switch action {
 	case "describe":
 		return "Describe this image in detail."
@@ -144,4 +145,22 @@ func buildActionUserMessage(action string) string {
 	default:
 		return "Analyze this image."
 	}
+}
+
+// ParseTags parses a comma-separated or newline-separated list of tags.
+func ParseTags(input string) []string {
+	parts := strings.Split(input, ",")
+	if len(parts) == 1 {
+		parts = strings.Split(input, "\n")
+	}
+
+	var tags []string
+	for _, part := range parts {
+		tag := strings.TrimSpace(part)
+		tag = strings.Trim(tag, `"'`)
+		if tag != "" {
+			tags = append(tags, tag)
+		}
+	}
+	return tags
 }

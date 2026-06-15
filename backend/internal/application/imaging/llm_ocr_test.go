@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"image-toolkit/internal/domain"
+	"image-toolkit/internal/infrastructure/llm/prompts"
 	"image-toolkit/internal/testutil"
 	"image-toolkit/internal/testutil/fixtures"
 	"image-toolkit/internal/testutil/mocks"
@@ -64,7 +65,7 @@ func TestDetectLanguage_Russian(t *testing.T) {
 func TestParseTags_CommaSeparated(t *testing.T) {
 	input := "cat, dog, bird"
 
-	tags := parseTags(input)
+	tags := prompts.ParseTags(input)
 
 	assert.Equal(t, []string{"cat", "dog", "bird"}, tags)
 }

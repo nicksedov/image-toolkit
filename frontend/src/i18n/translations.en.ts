@@ -10,8 +10,8 @@ export const translationsEn = {
   "tabs.gallery": "Gallery",
   "tabs.tools": "Tools",
   "tabs.deduplication": "Deduplication",
-  "tabs.ocr": "OCR",
-  "tabs.exif": "EXIF",
+  "tabs.ocr": "Text Recognition",
+  "tabs.exif": "Metadata",
   "tabs.trash": "Trash",
   "tabs.smartSearch": "Smart Search",
 

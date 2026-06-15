@@ -10,8 +10,8 @@ export const translationsRu = {
   "tabs.gallery": "Галерея",
   "tabs.tools": "Инструменты",
   "tabs.deduplication": "Дедупликация",
-  "tabs.ocr": "OCR",
-  "tabs.exif": "EXIF",
+  "tabs.ocr": "Распознавание текста",
+  "tabs.exif": "Метаданные",
   "tabs.trash": "Корзина",
   "tabs.smartSearch": "Умный поиск",
 
