@@ -41,7 +41,18 @@ function syncDaysToString(days: boolean[]): string {
 function formatDateTime(iso: string | null | undefined): string {
   if (!iso) return ""
   try {
-    return new Date(iso).toLocaleString()
+    // If the string has no timezone offset (naive ISO from backend pre-formatted
+    // in user's timezone), parse as local time to avoid double-conversion.
+    let d: Date
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/.test(iso)) {
+      const [datePart, timePart] = iso.split("T")
+      const [y, m, day] = datePart.split("-").map(Number)
+      const [h, min, s] = timePart.split(":").map(Number)
+      d = new Date(y, m - 1, day, h, min, s)
+    } else {
+      d = new Date(iso)
+    }
+    return d.toLocaleString()
   } catch {
     return iso
   }

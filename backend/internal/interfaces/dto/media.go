@@ -207,15 +207,17 @@ type AppSettingsDTO struct {
 	LastSyncThumbnails    int        `json:"lastSyncThumbnails"`
 }
 
-// SyncStatusResponse is the JSON response for GET /api/sync-status
+// SyncStatusResponse is the JSON response for GET /api/sync-status.
+// NextRunAt and LastSyncAt are formatted as ISO 8601 strings in the user's timezone
+// to avoid browser timezone double-conversion.
 type SyncStatusResponse struct {
-	Running           bool       `json:"running"`
-	NextRunAt         *time.Time `json:"nextRunAt,omitempty"`
-	LastSyncAt        *time.Time `json:"lastSyncAt,omitempty"`
-	LastSyncNew       int        `json:"lastSyncNew"`
-	LastSyncUpdated   int        `json:"lastSyncUpdated"`
-	LastSyncDeleted   int        `json:"lastSyncDeleted"`
-	LastSyncThumbnails int       `json:"lastSyncThumbnails"`
+	Running            bool   `json:"running"`
+	NextRunAt          string `json:"nextRunAt,omitempty"`
+	LastSyncAt         string `json:"lastSyncAt,omitempty"`
+	LastSyncNew        int    `json:"lastSyncNew"`
+	LastSyncUpdated    int    `json:"lastSyncUpdated"`
+	LastSyncDeleted    int    `json:"lastSyncDeleted"`
+	LastSyncThumbnails int    `json:"lastSyncThumbnails"`
 }
 
 // UserSettingsDTO is the JSON response for user settings

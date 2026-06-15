@@ -195,10 +195,12 @@ func (bsm *BackgroundSyncManager) calculateNextRunTime(syncDays []time.Weekday, 
 		daySet[d] = true
 	}
 
-	// Check today first: if it's a sync day and the scheduled time hasn't passed
+	// Check today first: if it's a sync day and the scheduled time hasn't passed.
+	// Compare in UTC to avoid timezone-related comparison issues when server and user
+	// share the same timezone.
 	if daySet[now.Weekday()] {
 		candidate := time.Date(now.Year(), now.Month(), now.Day(), hour, minute, 0, 0, userTZ)
-		if candidate.After(now) {
+		if candidate.UTC().After(now.UTC()) {
 			return candidate
 		}
 	}

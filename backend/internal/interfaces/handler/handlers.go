@@ -708,15 +708,26 @@ func (s *Server) handleGetSyncStatus(c *gin.Context) {
 		return
 	}
 	status := s.backgroundSync.GetStatus()
+	settings := s.settingsLoader.AppSettings()
 	c.JSON(http.StatusOK, dto.SyncStatusResponse{
 		Running:            status.Running,
-		NextRunAt:          status.NextRunAt,
-		LastSyncAt:         status.LastSyncAt,
+		NextRunAt:          formatTimeInUserTZ(status.NextRunAt, settings.SyncTimezoneOffset),
+		LastSyncAt:         formatTimeInUserTZ(status.LastSyncAt, settings.SyncTimezoneOffset),
 		LastSyncNew:        status.LastSyncNew,
 		LastSyncUpdated:    status.LastSyncUpdated,
 		LastSyncDeleted:    status.LastSyncDeleted,
 		LastSyncThumbnails: status.LastSyncThumbnails,
 	})
+}
+
+// formatTimeInUserTZ formats a time pointer as an ISO 8601 string in the user's configured timezone.
+// This prevents browser double-conversion: the string is already in the user's local time.
+func formatTimeInUserTZ(t *time.Time, timezoneOffset int) string {
+	if t == nil {
+		return ""
+	}
+	userTZ := time.FixedZone("UserTZ", -timezoneOffset*60)
+	return t.In(userTZ).Format("2006-01-02T15:04:05")
 }
 
 // --- User Settings Handlers ---
