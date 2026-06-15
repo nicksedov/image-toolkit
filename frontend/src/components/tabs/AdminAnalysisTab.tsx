@@ -32,6 +32,7 @@ const EMPTY_SETTINGS: LlmSettingsResponse = {
   embeddingProviderAlias: "",
   embeddingModel: "qwen3-embedding:4b",
   embeddingDimension: 1024,
+  embeddingBatchSize: 50,
   providers: [],
 }
 
@@ -74,6 +75,7 @@ export function AdminAnalysisTab() {
   const [isEmbeddingFormDirty, setIsEmbeddingFormDirty] = useState(false)
   const [isEmbeddingSaving, setIsEmbeddingSaving] = useState(false)
   const [embeddingDimension, setEmbeddingDimension] = useState<number | null>(null)
+  const [embeddingBatchSize, setEmbeddingBatchSize] = useState<number>(50)
   const [isEmbeddingProbing, setIsEmbeddingProbing] = useState(false)
   const [embeddingProbeError, setEmbeddingProbeError] = useState<string | null>(null)
  
@@ -288,6 +290,7 @@ export function AdminAnalysisTab() {
       setEmbeddingProviderAlias(embAlias)
       setEmbeddingModel(settings.embeddingModel || "qwen3-embedding:4b")
       setEmbeddingDimension(settings.embeddingDimension || 1024)
+      setEmbeddingBatchSize(settings.embeddingBatchSize || 50)
       setIsEmbeddingFormDirty(false)
     } catch {
       setLlmSettings(EMPTY_SETTINGS)
@@ -361,6 +364,7 @@ export function AdminAnalysisTab() {
       await updateLlmSettings({
         embeddingProviderAlias,
         embeddingModel,
+        embeddingBatchSize,
       })
       // Also save embedding provider config (apiUrl, apiKey, model) if provider exists
       const embProvider = llmSettings.providers.find((p) => p.alias === embeddingProviderAlias)
@@ -383,7 +387,7 @@ export function AdminAnalysisTab() {
     } finally {
       setIsEmbeddingSaving(false)
     }
-  }, [embeddingProviderAlias, embeddingModel, llmSettings.providers, loadLlmSettings, t])
+  }, [embeddingProviderAlias, embeddingModel, embeddingBatchSize, llmSettings.providers, loadLlmSettings, t])
 
   // Update a field on a specific provider identified by alias
   const handleProviderFieldChange = useCallback((alias: string, field: keyof LlmProviderDTO, value: string | boolean) => {
@@ -649,6 +653,7 @@ export function AdminAnalysisTab() {
         setEmbeddingProviderAlias(embAlias)
         setEmbeddingModel(settings.embeddingModel || "qwen3-embedding:4b")
         setEmbeddingDimension(settings.embeddingDimension || 1024)
+        setEmbeddingBatchSize(settings.embeddingBatchSize || 50)
         setIsEmbeddingFormDirty(false)
         if (embAlias) {
           loadEmbeddingModelsForProvider(embAlias)
@@ -1144,6 +1149,29 @@ export function AdminAnalysisTab() {
                   )}
                 </div>
                 <p className="text-xs text-muted-foreground">{t("llm_ocr.embeddingDimensionDescription")}</p>
+              </div>
+
+              {/* Embedding Batch Size */}
+              <div className="space-y-2">
+                <Label htmlFor="embedding-batch-size">{t("llm_ocr.embeddingBatchSize")}</Label>
+                <Input
+                  id="embedding-batch-size"
+                  type="number"
+                  min={1}
+                  max={500}
+                  value={embeddingBatchSize}
+                  onChange={(e) => {
+                    const num = parseInt(e.target.value, 10)
+                    if (!isNaN(num) && num >= 1) {
+                      setEmbeddingBatchSize(num)
+                      setIsEmbeddingFormDirty(true)
+                    } else if (e.target.value === "") {
+                      setEmbeddingBatchSize(0)
+                    }
+                  }}
+                  className="w-32"
+                />
+                <p className="text-xs text-muted-foreground">{t("llm_ocr.embeddingBatchSizeDescription")}</p>
               </div>
 
               {/* No providers message */}

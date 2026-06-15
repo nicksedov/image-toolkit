@@ -538,6 +538,7 @@ export interface LlmSettingsResponse {
   embeddingProviderAlias?: string
   embeddingModel?: string
   embeddingDimension?: number
+  embeddingBatchSize?: number
   providers: LlmProviderDTO[]
 }
 
@@ -559,6 +560,7 @@ export interface UpdateLlmSettingsRequest {
   embeddingProviderAlias?: string
   embeddingModel?: string
   embeddingDimension?: number
+  embeddingBatchSize?: number
 }
 
 export interface TagScanStatusResponse {

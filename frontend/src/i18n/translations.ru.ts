@@ -514,6 +514,8 @@ export const translationsRu = {
   "llm_ocr.embeddingDimensionProbing": "Определение размерности…",
   "llm_ocr.embeddingDimensionProbeFailed": "Не удалось определить размерность. Проверьте доступность модели.",
   "llm_ocr.embeddingDimensionUnknown": "Неизвестно — выберите модель для определения",
+    "llm_ocr.embeddingBatchSize": "Размер батча эмбеддингов",
+    "llm_ocr.embeddingBatchSizeDescription": "Количество изображений за один вызов API эмбеддингов. Большие значения ускоряют обработку, но потребляют больше памяти.",
   "llm_ocr.settingsSaved": "Настройки сохранены",
   "llm_ocr.settingsSaveFailed": "Ошибка сохранения настроек",
   "llm_ocr.notEnabled": "LLM распознавание не включено",

@@ -282,9 +282,12 @@ func main() {
 	embeddingBackfill := imaging.NewEmbeddingBackfillManager(db)
 	fmt.Println("Embedding backfill manager initialized")
 
+	// Wire embedding backfill to tag scan manager (triggered after tags are saved)
+	tagScanManager.SetEmbeddingBackfill(embeddingBackfill)
+
 	// Create MCP server
 	llmFactory := helpers.NewLLMFactory(db, cfg.LlmMaxImageMegapixels)
-	mcpSrv := mcpserver.NewImageToolkitMCPServer(db, llmFactory, llmOcrService, cfg.LlmMaxImageMegapixels)
+	mcpSrv := mcpserver.NewImageToolkitMCPServer(db, llmFactory, llmOcrService, cfg.LlmMaxImageMegapixels, embeddingBackfill)
 	fmt.Println("MCP server initialized with image analysis and search tools")
 
 	// Create conversation service and agent

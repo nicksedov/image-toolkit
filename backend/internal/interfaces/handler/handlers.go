@@ -2192,6 +2192,7 @@ func (s *Server) handleGetLlmSettings(c *gin.Context) {
 		EmbeddingProviderAlias: settings.EmbeddingProviderAlias,
 		EmbeddingModel:         settings.EmbeddingModel,
 		EmbeddingDimension:     settings.EmbeddingDimension,
+		EmbeddingBatchSize:     settings.EmbeddingBatchSize,
 		Providers:             providerDTOs,
 	})
 }
@@ -2236,6 +2237,9 @@ func (s *Server) handleUpdateLlmSettings(c *gin.Context) {
 	if req.EmbeddingDimension != nil {
 		globalUpdates["embedding_dimension"] = *req.EmbeddingDimension
 	}
+	if req.EmbeddingBatchSize != nil {
+		globalUpdates["embedding_batch_size"] = *req.EmbeddingBatchSize
+	}
 
 	if err == gorm.ErrRecordNotFound {
 		settings = domain.LlmSettings{
@@ -2275,6 +2279,9 @@ func (s *Server) handleUpdateLlmSettings(c *gin.Context) {
 		}
 		if req.EmbeddingDimension != nil {
 			settings.EmbeddingDimension = *req.EmbeddingDimension
+		}
+		if req.EmbeddingBatchSize != nil {
+			settings.EmbeddingBatchSize = *req.EmbeddingBatchSize
 		}
 		if err := s.db.Create(&settings).Error; err != nil {
 			c.JSON(http.StatusInternalServerError, i18n.ErrorResponse(i18n.MsgLlmOcrSettingsSaveFailed))

@@ -174,6 +174,7 @@ type LlmSettings struct {
 	EmbeddingProviderAlias string  `gorm:"default:''" json:"embeddingProviderAlias"` // empty = use active VL provider
 	EmbeddingModel         string  `gorm:"default:'qwen3-embedding:4b'" json:"embeddingModel"`
 	EmbeddingDimension     int     `gorm:"default:1024" json:"embeddingDimension"`
+	EmbeddingBatchSize     int     `gorm:"default:50" json:"embeddingBatchSize"`
 	CreatedAt             time.Time `json:"createdAt"`
 	UpdatedAt             time.Time `json:"updatedAt"`
 }

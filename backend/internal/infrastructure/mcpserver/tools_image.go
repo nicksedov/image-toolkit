@@ -334,8 +334,14 @@ func (s *ImageToolkitMCPServer) runImageAction(imagePath, action, question, lang
 				// Log but don't fail — tags were generated successfully
 				log.Printf("generate_tags: failed to save tags for image %d: %v", imageFile.ID, err)
 			}
-			// Generate embedding for the newly saved tags
-			go imaging.GenerateAndSaveEmbedding(s.db, imageFile.ID, tags)
+			// Trigger embedding backfill for all images with tags but no embeddings
+			if s.embeddingBackfill != nil {
+				go func() {
+					if err := s.embeddingBackfill.Start(); err != nil {
+						log.Printf("generate_tags: embedding backfill not started: %v", err)
+					}
+				}()
+			}
 		}
 	} else {
 		result.Result = response

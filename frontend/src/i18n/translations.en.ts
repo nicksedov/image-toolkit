@@ -604,6 +604,8 @@ export const translationsEn = {
   "llm_ocr.embeddingDimensionProbing": "Detecting dimension…",
   "llm_ocr.embeddingDimensionProbeFailed": "Failed to detect dimension. Check that the model is available.",
   "llm_ocr.embeddingDimensionUnknown": "Unknown — select a model to detect",
+    "llm_ocr.embeddingBatchSize": "Embedding Batch Size",
+    "llm_ocr.embeddingBatchSizeDescription": "Number of images processed per embedding API call. Higher values speed up backfill but use more memory.",
   "llm_ocr.settingsSaved": "Settings saved",
   "llm_ocr.settingsSaveFailed": "Failed to save settings",
   "llm_ocr.notEnabled": "LLM recognition not enabled",

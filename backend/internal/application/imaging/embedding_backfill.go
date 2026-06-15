@@ -137,7 +137,13 @@ func (m *EmbeddingBackfillManager) run() {
 	m.progress.Remaining = int(total)
 	m.mu.Unlock()
 
-	const batchSize = 100
+	// Read batch size from LLM settings (default 50)
+	batchSize := 50
+	var settings domain.LlmSettings
+	if err := m.db.First(&settings).Error; err == nil && settings.EmbeddingBatchSize > 0 {
+		batchSize = settings.EmbeddingBatchSize
+	}
+
 	cursor := uint(0)
 
 	for {

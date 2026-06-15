@@ -485,6 +485,7 @@ type LlmSettingsResponse struct {
 	EmbeddingProviderAlias string          `json:"embeddingProviderAlias"`
 	EmbeddingModel         string          `json:"embeddingModel"`
 	EmbeddingDimension     int             `json:"embeddingDimension"`
+	EmbeddingBatchSize     int             `json:"embeddingBatchSize"`
 	Providers             []LlmProviderDTO `json:"providers"`
 }
 
@@ -500,6 +501,7 @@ type UpdateLlmSettingsRequest struct {
 	EmbeddingProviderAlias *string `json:"embeddingProviderAlias,omitempty"`
 	EmbeddingModel         *string `json:"embeddingModel,omitempty"`
 	EmbeddingDimension     *int    `json:"embeddingDimension,omitempty"`
+	EmbeddingBatchSize     *int    `json:"embeddingBatchSize,omitempty"`
 }
 
 // ProbeEmbeddingDimensionRequest for POST /api/llm/embedding/probe
