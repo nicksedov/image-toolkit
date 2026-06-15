@@ -202,7 +202,7 @@ type TagEmbeddingModel struct {
 	ID              uint   `gorm:"primaryKey" json:"id"`
 	TagEmbeddingsID uint   `gorm:"not null" json:"tagEmbeddingsId"` // FK to tag_embeddings.id
 	Dimensity       int    `gorm:"not null" json:"dimensity"`
-	Embedding       string `gorm:"type:vector;not null" json:"-"` // pgvector
+	Embedding       string `gorm:"type:halfvec;not null" json:"-"` // pgvector halfvec (fp16)
 }
 
 // nonAlphanumericUnderscore matches any character that is not a letter, digit, or underscore.

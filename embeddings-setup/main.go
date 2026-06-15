@@ -79,21 +79,21 @@ func main() {
 
 	// Ensure the per-model child table exists with the correct dimension
 	childTable := embeddingTableName(modelName)
-	log.Printf("Ensuring child table %s exists with vector(%d)...", childTable, actualDim)
+	log.Printf("Ensuring child table %s exists with halfvec(%d)...", childTable, actualDim)
 
 	createSQL := fmt.Sprintf(`
 		CREATE TABLE IF NOT EXISTS %s (
 			id BIGSERIAL PRIMARY KEY,
 			tag_embeddings_id BIGINT NOT NULL REFERENCES tag_embeddings(id) ON DELETE CASCADE,
 			dimensity INT NOT NULL DEFAULT %d,
-			embedding vector(%d) NOT NULL
+			embedding halfvec(%d) NOT NULL
 		)`, childTable, actualDim, actualDim)
 	if err := db.Exec(createSQL).Error; err != nil {
 		log.Fatalf("Failed to create child table %s: %v", childTable, err)
 	}
 
 	// Create HNSW index on the child table
-	db.Exec(fmt.Sprintf("CREATE INDEX IF NOT EXISTS idx_%s_vector ON %s USING hnsw (embedding vector_cosine_ops)", childTable, childTable))
+	db.Exec(fmt.Sprintf("CREATE INDEX IF NOT EXISTS idx_%s_vector ON %s USING hnsw (embedding halfvec_cosine_ops)", childTable, childTable))
 	// Unique constraint on tag_embeddings_id
 	db.Exec(fmt.Sprintf("CREATE UNIQUE INDEX IF NOT EXISTS idx_%s_tag_embeddings_id ON %s (tag_embeddings_id)", childTable, childTable))
 	log.Println("Child table and indexes ensured")
@@ -309,7 +309,7 @@ func upsertEmbedding(db *gorm.DB, imageFileID uint, childTable string, dimension
 
 	// Atomic upsert: insert or update child embedding row
 	if err := db.Exec(fmt.Sprintf(
-		"INSERT INTO %s (tag_embeddings_id, dimensity, embedding) VALUES (?, ?, ?::vector) "+
+		"INSERT INTO %s (tag_embeddings_id, dimensity, embedding) VALUES (?, ?, ?::halfvec) "+
 			"ON CONFLICT (tag_embeddings_id) DO UPDATE SET dimensity = EXCLUDED.dimensity, embedding = EXCLUDED.embedding",
 		childTable), parent.ID, dimension, vecStr).Error; err != nil {
 		return fmt.Errorf("failed to upsert child embedding row: %w", err)

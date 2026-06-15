@@ -14,6 +14,7 @@ var validTableName = regexp.MustCompile(`^tag_embeddings_[a-zA-Z0-9_]+$`)
 
 // EnsureEmbeddingTable creates the per-model child table and indexes if they don't exist.
 // The child table stores vector embeddings for a specific model and references tag_embeddings.
+// Uses pgvector's halfvec type (fp16) which supports HNSW indexing up to 4000 dimensions.
 func EnsureEmbeddingTable(db *gorm.DB, modelName string, dimension int) error {
 	tableName := domain.EmbeddingTableName(modelName)
 
@@ -27,16 +28,16 @@ func EnsureEmbeddingTable(db *gorm.DB, modelName string, dimension int) error {
 			id BIGSERIAL PRIMARY KEY,
 			tag_embeddings_id BIGINT NOT NULL REFERENCES tag_embeddings(id) ON DELETE CASCADE,
 			dimensity INT NOT NULL DEFAULT %d,
-			embedding vector(%d) NOT NULL
+			embedding halfvec(%d) NOT NULL
 		)`, tableName, dimension, dimension)
 
 	if err := db.Exec(createSQL).Error; err != nil {
 		return fmt.Errorf("failed to create embedding table %s: %w", tableName, err)
 	}
 
-	// Create HNSW index for fast vector similarity search
+	// Create HNSW index for fast vector similarity search (halfvec_cosine_ops for fp16)
 	indexSQL := fmt.Sprintf(
-		"CREATE INDEX IF NOT EXISTS idx_%s_vector ON %s USING hnsw (embedding vector_cosine_ops)",
+		"CREATE INDEX IF NOT EXISTS idx_%s_vector ON %s USING hnsw (embedding halfvec_cosine_ops)",
 		tableName, tableName)
 	if err := db.Exec(indexSQL).Error; err != nil {
 		return fmt.Errorf("failed to create HNSW index on %s: %w", tableName, err)

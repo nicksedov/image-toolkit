@@ -249,7 +249,7 @@ func upsertEmbedding(db *gorm.DB, imageFileID uint, childTable string, dimension
 
 	// Atomic upsert: insert or update child embedding row
 	if err := db.Exec(fmt.Sprintf(
-		"INSERT INTO %s (tag_embeddings_id, dimensity, embedding) VALUES (?, ?, ?::vector) "+
+		"INSERT INTO %s (tag_embeddings_id, dimensity, embedding) VALUES (?, ?, ?::halfvec) "+
 			"ON CONFLICT (tag_embeddings_id) DO UPDATE SET dimensity = EXCLUDED.dimensity, embedding = EXCLUDED.embedding",
 		childTable), parent.ID, dimension, vecStr).Error; err != nil {
 		return fmt.Errorf("failed to upsert child embedding row: %w", err)

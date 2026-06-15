@@ -93,10 +93,10 @@ func SearchByEmbedding(db *gorm.DB, query string, limit int) (SmartSearchRespons
 	}
 
 	querySQL := fmt.Sprintf(`
-		SELECT te.image_file_id, 1 - (m.embedding <=> ?::vector) AS similarity
+		SELECT te.image_file_id, 1 - (m.embedding <=> ?::halfvec) AS similarity
 		FROM %s m
 		INNER JOIN tag_embeddings te ON te.id = m.tag_embeddings_id
-		ORDER BY m.embedding <=> ?::vector
+		ORDER BY m.embedding <=> ?::halfvec
 		LIMIT ?
 	`, childTable)
 
