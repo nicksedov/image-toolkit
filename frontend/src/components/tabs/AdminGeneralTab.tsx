@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -126,14 +126,21 @@ export function AdminGeneralTab() {
     })
   }, [setTrashDir])
 
-  // Poll sync status
+  // Poll sync status — fast (1s) during sync, slow (30s) when idle.
+  // Uses a ref to avoid restarting the timer when the in-progress flag
+  // transitions from undefined (initial null) to false on first fetch.
+  const syncInProgressRef = useRef<boolean | undefined>(undefined)
   useEffect(() => {
-    let timer: ReturnType<typeof setInterval>
+    const inProgress = syncStatus?.syncInProgress ?? false
+    if (syncInProgressRef.current === inProgress) return // no actual change, skip
+    syncInProgressRef.current = inProgress
+
+    const interval = inProgress ? 3000 : 30000
     const load = () => fetchSyncStatus().then(setSyncStatus).catch(() => {})
     load()
-    timer = setInterval(load, 30000)
+    const timer = setInterval(load, interval)
     return () => clearInterval(timer)
-  }, [])
+  }, [syncStatus?.syncInProgress])
 
   useEffect(() => {
     loadTrashInfo()
