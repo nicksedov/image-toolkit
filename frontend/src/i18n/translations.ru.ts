@@ -107,6 +107,7 @@ export const translationsRu = {
   "settings.dailySync.lastRun": "Последняя синхронизация",
   "settings.dailySync.lastRunNever": "Никогда",
   "settings.dailySync.lastStats": "{newFiles} новых, {updatedFiles} обновлено, {deletedFiles} удалено, {thumbnails} миниатюр",
+  "settings.dailySync.syncProgress": "Обработано {processed} из {total} файлов",
   "settings.dailySync.enabled": "Включить ежедневную синхронизацию",
 
   // Trash settings

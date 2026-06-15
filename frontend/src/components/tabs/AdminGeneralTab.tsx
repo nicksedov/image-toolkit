@@ -456,7 +456,32 @@ export function AdminGeneralTab() {
             <div className="flex items-center gap-2 text-sm font-medium">
               <Clock className="h-4 w-4" />
               {t("settings.dailySync.status")}
+              {syncStatus?.syncInProgress && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  {t("settings.dailySync.statusRunning")}
+                </span>
+              )}
             </div>
+
+            {/* Progress bar during sync */}
+            {syncStatus?.syncInProgress && syncStatus.totalFiles > 0 && (
+              <div className="space-y-1">
+                <div className="h-2 w-full rounded-full bg-muted">
+                  <div
+                    className="h-2 rounded-full bg-blue-500 transition-all duration-300"
+                    style={{ width: `${Math.round((syncStatus.processedFiles / syncStatus.totalFiles) * 100)}%` }}
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {t("settings.dailySync.syncProgress", {
+                    processed: syncStatus.processedFiles,
+                    total: syncStatus.totalFiles,
+                  })}
+                </p>
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-muted-foreground">
               <div>
                 <span className="font-medium text-foreground">{t("settings.dailySync.lastRun")}: </span>
@@ -466,13 +491,14 @@ export function AdminGeneralTab() {
               </div>
               <div>
                 <span className="font-medium text-foreground">{t("settings.dailySync.nextRun")}: </span>
-                {syncStatus?.nextRunAt
-                  ? formatDateTime(syncStatus.nextRunAt)
-                  : syncStatus?.running
-                    ? t("settings.dailySync.statusRunning")
+                {syncStatus?.syncInProgress
+                  ? t("settings.dailySync.statusRunning")
+                  : syncStatus?.nextRunAt
+                    ? formatDateTime(syncStatus.nextRunAt)
                     : "—"}
               </div>
-              {syncStatus?.lastSyncAt && (
+              {/* Show stats when sync is in progress or after last sync completed */}
+              {(syncStatus?.syncInProgress || syncStatus?.lastSyncAt) && (
                 <div className="col-span-2">
                   {t("settings.dailySync.lastStats", {
                     newFiles: syncStatus.lastSyncNew,

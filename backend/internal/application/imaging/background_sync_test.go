@@ -173,12 +173,13 @@ func TestBackgroundSyncManager_SyncFolder_NewFiles(t *testing.T) {
 	fixtures.CreateMultipleTestJPEGs(t, tmpDir, 3)
 
 	// Sync folder with empty DB
-	newCount, updatedCount, deletedCount, thumbCount := bsm.syncFolder(tmpDir, false)
+	newCount, updatedCount, deletedCount, thumbCount, totalDisk := bsm.syncFolder(tmpDir, false)
 
 	assert.Equal(t, 3, newCount, "should add 3 new files")
 	assert.Equal(t, 0, updatedCount)
 	assert.Equal(t, 0, deletedCount)
 	assert.Equal(t, 0, thumbCount) // Thumbnails disabled
+	assert.Equal(t, 3, totalDisk, "should report 3 total disk files")
 }
 
 func TestBackgroundSyncManager_SyncFolder_Unchanged(t *testing.T) {
@@ -197,10 +198,11 @@ func TestBackgroundSyncManager_SyncFolder_Unchanged(t *testing.T) {
 	bsm.syncFolder(tmpDir, false)
 
 	// Second sync - all should be unchanged
-	newCount, updatedCount, _, _ := bsm.syncFolder(tmpDir, false)
+	newCount, updatedCount, _, _, totalDisk := bsm.syncFolder(tmpDir, false)
 
 	assert.Equal(t, 0, newCount)
 	assert.Equal(t, 0, updatedCount, "no files should be updated")
+	assert.Equal(t, 3, totalDisk, "should report 3 total disk files")
 }
 
 func TestBackgroundSyncManager_SyncFolder_DeletedFiles(t *testing.T) {
@@ -224,9 +226,10 @@ func TestBackgroundSyncManager_SyncFolder_DeletedFiles(t *testing.T) {
 	fixtures.DeleteTestFile(t, paths[1])
 
 	// Cleanup should remove them
-	deletedCount := bsm.cleanupMissingFiles()
+	deletedCount, cleanupTotal := bsm.cleanupMissingFiles()
 
 	assert.Equal(t, 2, deletedCount, "should delete 2 missing file records")
+	assert.Equal(t, 5, cleanupTotal, "should have checked 5 total DB records")
 }
 
 func TestBackgroundSyncManager_InvalidateTagsAndEmbeddings(t *testing.T) {
@@ -275,8 +278,9 @@ func TestBackgroundSyncManager_CleanupMissingFiles_CascadeDeletesChildren(t *tes
 	bsm.db.Create(&domain.TagEmbedding{ImageFileID: img.ID, TagCount: 1})
 
 	// Run cleanup
-	deleted := bsm.cleanupMissingFiles()
+	deleted, cleanupTotal := bsm.cleanupMissingFiles()
 	assert.Equal(t, 1, deleted)
+	assert.Equal(t, 1, cleanupTotal, "should have checked 1 total DB record")
 
 	// Verify parent and all children are gone
 	var imgCount, metaCount, tagCount, embCount int64

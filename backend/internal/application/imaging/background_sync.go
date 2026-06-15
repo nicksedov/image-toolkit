@@ -18,12 +18,15 @@ import (
 // SyncStatus holds the current status of the background sync manager.
 type SyncStatus struct {
 	Running            bool       `json:"running"`
+	SyncInProgress     bool       `json:"syncInProgress"`
 	NextRunAt          *time.Time `json:"nextRunAt,omitempty"`
 	LastSyncAt         *time.Time `json:"lastSyncAt,omitempty"`
 	LastSyncNew        int        `json:"lastSyncNew"`
 	LastSyncUpdated    int        `json:"lastSyncUpdated"`
 	LastSyncDeleted    int        `json:"lastSyncDeleted"`
 	LastSyncThumbnails int        `json:"lastSyncThumbnails"`
+	ProcessedFiles     int        `json:"processedFiles"`
+	TotalFiles         int        `json:"totalFiles"`
 }
 
 // BackgroundSyncManager manages background synchronization of gallery files
@@ -47,6 +50,9 @@ type BackgroundSyncManager struct {
 	lastSyncUpdated    int
 	lastSyncDeleted    int
 	lastSyncThumbnails int
+	syncInProgress     bool
+	processedFiles     int
+	totalFiles         int
 }
 
 // NewBackgroundSyncManager creates a new background sync manager
@@ -126,12 +132,15 @@ func (bsm *BackgroundSyncManager) GetStatus() SyncStatus {
 	defer bsm.mu.Unlock()
 	return SyncStatus{
 		Running:            bsm.running,
+		SyncInProgress:     bsm.syncInProgress,
 		NextRunAt:          bsm.nextRunAt,
 		LastSyncAt:         bsm.lastSyncAt,
 		LastSyncNew:        bsm.lastSyncNew,
 		LastSyncUpdated:    bsm.lastSyncUpdated,
 		LastSyncDeleted:    bsm.lastSyncDeleted,
 		LastSyncThumbnails: bsm.lastSyncThumbnails,
+		ProcessedFiles:     bsm.processedFiles,
+		TotalFiles:         bsm.totalFiles,
 	}
 }
 
@@ -221,6 +230,19 @@ func (bsm *BackgroundSyncManager) calculateNextRunTime(syncDays []time.Weekday, 
 func (bsm *BackgroundSyncManager) syncOnce() {
 	log.Println("Background sync: starting gallery synchronization")
 
+	// Mark sync as in-progress
+	bsm.mu.Lock()
+	bsm.syncInProgress = true
+	bsm.processedFiles = 0
+	bsm.totalFiles = 0
+	bsm.mu.Unlock()
+
+	defer func() {
+		bsm.mu.Lock()
+		bsm.syncInProgress = false
+		bsm.mu.Unlock()
+	}()
+
 	// Get all gallery folders
 	var folders []domain.GalleryFolder
 	if err := bsm.db.Find(&folders).Error; err != nil {
@@ -240,6 +262,7 @@ func (bsm *BackgroundSyncManager) syncOnce() {
 	updatedFiles := 0
 	deletedFiles := 0
 	thumbnailGenerated := 0
+	totalDiskFiles := 0
 
 	for _, folder := range folders {
 		absPath, err := filepath.Abs(folder.Path)
@@ -248,15 +271,22 @@ func (bsm *BackgroundSyncManager) syncOnce() {
 			continue
 		}
 
-		folderNew, folderUpdated, folderDeleted, folderThumbGenerated := bsm.syncFolder(absPath, thumbnailEnabled)
+		folderNew, folderUpdated, folderDeleted, folderThumbGenerated, folderTotal := bsm.syncFolder(absPath, thumbnailEnabled)
 		newFiles += folderNew
 		updatedFiles += folderUpdated
 		deletedFiles += folderDeleted
 		thumbnailGenerated += folderThumbGenerated
+		totalDiskFiles += folderTotal
 	}
 
 	// Clean up records for files that no longer exist
-	deletedFiles += bsm.cleanupMissingFiles()
+	deletedFromCleanup, cleanupTotal := bsm.cleanupMissingFiles()
+	deletedFiles += deletedFromCleanup
+
+	// Update total to include cleanup phase
+	bsm.mu.Lock()
+	bsm.totalFiles = totalDiskFiles + cleanupTotal
+	bsm.mu.Unlock()
 
 	log.Printf("Background sync: complete - %d new, %d updated, %d deleted, %d thumbnails generated",
 		newFiles, updatedFiles, deletedFiles, thumbnailGenerated)
@@ -282,7 +312,7 @@ func (bsm *BackgroundSyncManager) syncOnce() {
 }
 
 // syncFolder synchronizes a single folder sequentially
-func (bsm *BackgroundSyncManager) syncFolder(folderPath string, thumbnailEnabled bool) (newCount, updatedCount, deletedCount, thumbCount int) {
+func (bsm *BackgroundSyncManager) syncFolder(folderPath string, thumbnailEnabled bool) (newCount, updatedCount, deletedCount, thumbCount, totalDiskFiles int) {
 	log.Printf("Background sync: scanning folder %s", folderPath)
 
 	// Collect all image files from disk
@@ -307,6 +337,8 @@ func (bsm *BackgroundSyncManager) syncFolder(folderPath string, thumbnailEnabled
 		log.Printf("Background sync: failed to walk folder %s: %v", folderPath, err)
 		return
 	}
+
+	totalDiskFiles = len(diskFiles)
 
 	// Get all existing DB records for this folder
 	var dbFiles []domain.ImageFile
@@ -337,6 +369,7 @@ func (bsm *BackgroundSyncManager) syncFolder(folderPath string, thumbnailEnabled
 			hash, err := calculateFileHash(diskPath)
 			if err != nil {
 				log.Printf("Background sync: failed to hash new file %s: %v", diskPath, err)
+				bsm.incrementProcessed()
 				continue
 			}
 
@@ -349,6 +382,7 @@ func (bsm *BackgroundSyncManager) syncFolder(folderPath string, thumbnailEnabled
 
 			if err := bsm.db.Create(&newFile).Error; err != nil {
 				log.Printf("Background sync: failed to create record for %s: %v", diskPath, err)
+				bsm.incrementProcessed()
 				continue
 			}
 
@@ -373,6 +407,7 @@ func (bsm *BackgroundSyncManager) syncFolder(folderPath string, thumbnailEnabled
 				hash, err := calculateFileHash(diskPath)
 				if err != nil {
 					log.Printf("Background sync: failed to hash modified file %s: %v", diskPath, err)
+					bsm.incrementProcessed()
 					continue
 				}
 
@@ -384,6 +419,7 @@ func (bsm *BackgroundSyncManager) syncFolder(folderPath string, thumbnailEnabled
 
 				if err := bsm.db.Save(&dbFile).Error; err != nil {
 					log.Printf("Background sync: failed to update record for %s: %v", diskPath, err)
+					bsm.incrementProcessed()
 					continue
 				}
 
@@ -421,6 +457,8 @@ func (bsm *BackgroundSyncManager) syncFolder(folderPath string, thumbnailEnabled
 				}
 			}
 		}
+
+		bsm.incrementProcessed()
 	}
 
 	return
@@ -449,15 +487,17 @@ func (bsm *BackgroundSyncManager) ensureThumbnail(filePath string) bool {
 	return true
 }
 
-// cleanupMissingFiles removes DB records for files that no longer exist on disk
-func (bsm *BackgroundSyncManager) cleanupMissingFiles() int {
+// cleanupMissingFiles removes DB records for files that no longer exist on disk.
+// Returns the count of deleted records and the total number of DB records checked.
+func (bsm *BackgroundSyncManager) cleanupMissingFiles() (deletedCount int, totalChecked int) {
 	var files []domain.ImageFile
 	if err := bsm.db.Find(&files).Error; err != nil {
 		log.Printf("Background sync: failed to query all files for cleanup: %v", err)
-		return 0
+		return 0, 0
 	}
 
-	deletedCount := 0
+	totalChecked = len(files)
+
 	for _, file := range files {
 		if !bsm.isRunning() {
 			log.Println("Background sync: stopped during cleanup")
@@ -475,9 +515,11 @@ func (bsm *BackgroundSyncManager) cleanupMissingFiles() int {
 			deletedCount++
 			log.Printf("Background sync: removed missing file record %s", file.Path)
 		}
+
+		bsm.incrementProcessed()
 	}
 
-	return deletedCount
+	return
 }
 
 // isRunning checks if the sync manager is currently running
@@ -485,6 +527,13 @@ func (bsm *BackgroundSyncManager) isRunning() bool {
 	bsm.mu.Lock()
 	defer bsm.mu.Unlock()
 	return bsm.running
+}
+
+// incrementProcessed atomically increments the processed file counter.
+func (bsm *BackgroundSyncManager) incrementProcessed() {
+	bsm.mu.Lock()
+	bsm.processedFiles++
+	bsm.mu.Unlock()
 }
 
 // ExtractAndSaveMetadata extracts EXIF and geo metadata for a file and saves to the database.

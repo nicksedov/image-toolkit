@@ -212,12 +212,15 @@ type AppSettingsDTO struct {
 // to avoid browser timezone double-conversion.
 type SyncStatusResponse struct {
 	Running            bool   `json:"running"`
+	SyncInProgress     bool   `json:"syncInProgress"`
 	NextRunAt          string `json:"nextRunAt,omitempty"`
 	LastSyncAt         string `json:"lastSyncAt,omitempty"`
 	LastSyncNew        int    `json:"lastSyncNew"`
 	LastSyncUpdated    int    `json:"lastSyncUpdated"`
 	LastSyncDeleted    int    `json:"lastSyncDeleted"`
 	LastSyncThumbnails int    `json:"lastSyncThumbnails"`
+	ProcessedFiles     int    `json:"processedFiles"`
+	TotalFiles         int    `json:"totalFiles"`
 }
 
 // UserSettingsDTO is the JSON response for user settings

@@ -711,12 +711,15 @@ func (s *Server) handleGetSyncStatus(c *gin.Context) {
 	settings := s.settingsLoader.AppSettings()
 	c.JSON(http.StatusOK, dto.SyncStatusResponse{
 		Running:            status.Running,
+		SyncInProgress:     status.SyncInProgress,
 		NextRunAt:          formatTimeInUserTZ(status.NextRunAt, settings.SyncTimezoneOffset),
 		LastSyncAt:         formatTimeInUserTZ(status.LastSyncAt, settings.SyncTimezoneOffset),
 		LastSyncNew:        status.LastSyncNew,
 		LastSyncUpdated:    status.LastSyncUpdated,
 		LastSyncDeleted:    status.LastSyncDeleted,
 		LastSyncThumbnails: status.LastSyncThumbnails,
+		ProcessedFiles:     status.ProcessedFiles,
+		TotalFiles:         status.TotalFiles,
 	})
 }
 

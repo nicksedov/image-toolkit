@@ -107,6 +107,7 @@ export const translationsEn = {
   "settings.dailySync.lastRun": "Last sync",
   "settings.dailySync.lastRunNever": "Never",
   "settings.dailySync.lastStats": "{newFiles} new, {updatedFiles} updated, {deletedFiles} deleted, {thumbnails} thumbnails",
+  "settings.dailySync.syncProgress": "{processed} of {total} files processed",
   "settings.dailySync.enabled": "Enable daily sync",
 
   // Trash settings

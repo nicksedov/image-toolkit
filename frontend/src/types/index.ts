@@ -195,12 +195,15 @@ export interface UpdateSettingsRequest {
 
 export interface SyncStatusResponse {
   running: boolean
+  syncInProgress: boolean
   nextRunAt?: string | null
   lastSyncAt?: string | null
   lastSyncNew: number
   lastSyncUpdated: number
   lastSyncDeleted: number
   lastSyncThumbnails: number
+  processedFiles: number
+  totalFiles: number
 }
 
 export interface UpdateUserSettingsRequest {
