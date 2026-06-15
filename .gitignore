@@ -59,9 +59,9 @@ debug
 frontend/node_modules/
 frontend/dist/
 
-# Qoder
+# Services
 .qoder/
 .roo/
 .serena/
-.supabase/
+.backup/
 .service/
