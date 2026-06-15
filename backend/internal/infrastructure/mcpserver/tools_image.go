@@ -320,9 +320,13 @@ func (s *ImageToolkitMCPServer) runImageAction(imagePath, action, question, lang
 	}
 
 	if action == "tags" {
-		tags := parseTags(response)
+		rawTags := parseTags(response)
+		tags, err := imaging.PostProcessTags(rawTags)
+		if err != nil {
+			return nil, fmt.Errorf("tag post-processing failed: %w", err)
+		}
 		result.Tags = tags
-		result.Result = response
+		result.Result = strings.Join(tags, ", ")
 
 		// Save generated tags to DB cache for future requests
 		if len(tags) > 0 {

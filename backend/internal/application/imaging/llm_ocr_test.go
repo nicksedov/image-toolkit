@@ -1,6 +1,8 @@
 package imaging
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -65,6 +67,141 @@ func TestParseTags_CommaSeparated(t *testing.T) {
 	tags := parseTags(input)
 
 	assert.Equal(t, []string{"cat", "dog", "bird"}, tags)
+}
+
+// --- PostProcessTags tests ---
+
+// generateValidTags returns n unique English tags for testing.
+func generateValidTags(n int) []string {
+	base := []string{
+		"sunset", "mountain", "river", "forest", "ocean",
+		"cityscape", "portrait", "wildlife", "architecture", "flower",
+		"sky", "cloud", "rain", "snow", "desert",
+		"beach", "lake", "waterfall", "valley", "island",
+		"bridge", "castle", "temple", "garden", "meadow",
+		"canyon", "cave", "cliff", "reef", "aurora",
+	}
+	if n > len(base) {
+		out := make([]string, n)
+		copy(out, base)
+		for i := len(base); i < n; i++ {
+			out[i] = fmt.Sprintf("tag_%d", i)
+		}
+		return out
+	}
+	return base[:n]
+}
+
+func TestPostProcessTags_ValidCount(t *testing.T) {
+	raw := generateValidTags(30)
+	result, err := PostProcessTags(raw)
+
+	require.NoError(t, err)
+	assert.Len(t, result, 30)
+}
+
+func TestPostProcessTags_FiltersChineseCharacters(t *testing.T) {
+	raw := generateValidTags(25)
+	raw = append(raw, "\u5c71\u6c34", "\u98ce\u666f", "beautiful \u82b1") // Chinese tags, mixed
+
+	result, err := PostProcessTags(raw)
+
+	require.NoError(t, err)
+	assert.Len(t, result, 25)
+	for _, tag := range result {
+		assert.NotContains(t, tag, "\u5c71")
+	}
+}
+
+func TestPostProcessTags_RemovesDuplicates_CaseInsensitive(t *testing.T) {
+	raw := generateValidTags(22)
+	raw = append(raw, "Sunset", "SUNSET", "MOUNTAIN") // duplicates of existing tags
+
+	result, err := PostProcessTags(raw)
+
+	require.NoError(t, err)
+	assert.Len(t, result, 22)
+}
+
+func TestPostProcessTags_FiltersHallucinationPrefixes(t *testing.T) {
+	raw := generateValidTags(25)
+	raw = append(raw,
+		"\u0420\u0443\u0441\u0441\u043a\u0438\u0439 \u0442\u0435\u0433: \u043a\u043e\u0442",   // "Русский тег: кот"
+		"English tag: cat",
+		"Russian tag: dog",
+	)
+
+	result, err := PostProcessTags(raw)
+
+	require.NoError(t, err)
+	assert.Len(t, result, 25)
+	for _, tag := range result {
+		lower := strings.ToLower(tag)
+		assert.False(t, strings.HasPrefix(lower, "\u0440\u0443\u0441\u0441\u043a\u0438\u0439 \u0442\u0435\u0433"), "unexpected русский тег: %s", tag)
+		assert.False(t, strings.HasPrefix(lower, "english tag"), "unexpected english tag: %s", tag)
+		assert.False(t, strings.HasPrefix(lower, "russian tag"), "unexpected russian tag: %s", tag)
+	}
+}
+
+func TestPostProcessTags_TooFewTags_ReturnsError(t *testing.T) {
+	raw := generateValidTags(10)
+
+	_, err := PostProcessTags(raw)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "tag count out of range")
+}
+
+func TestPostProcessTags_TooManyTags_ReturnsError(t *testing.T) {
+	raw := generateValidTags(130)
+
+	_, err := PostProcessTags(raw)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "tag count out of range")
+}
+
+func TestPostProcessTags_BoundaryMin20(t *testing.T) {
+	raw := generateValidTags(20)
+
+	result, err := PostProcessTags(raw)
+
+	require.NoError(t, err)
+	assert.Len(t, result, 20)
+}
+
+func TestPostProcessTags_BoundaryMax120(t *testing.T) {
+	raw := generateValidTags(120)
+
+	result, err := PostProcessTags(raw)
+
+	require.NoError(t, err)
+	assert.Len(t, result, 120)
+}
+
+func TestPostProcessTags_EmptyAndWhitespaceSkipped(t *testing.T) {
+	raw := generateValidTags(25)
+	raw = append(raw, "", "   ", "\t")
+
+	result, err := PostProcessTags(raw)
+
+	require.NoError(t, err)
+	assert.Len(t, result, 25)
+}
+
+func TestPostProcessTags_CombinedFilters(t *testing.T) {
+	// 22 valid + 3 Chinese + 3 duplicates + 3 hallucination = 22 kept
+	raw := generateValidTags(22)
+	raw = append(raw,
+		"\u5c71", "\u6c34", "\u82b1",                         // Chinese — filtered
+		"Sunset", "Ocean", "FOREST",                          // duplicates — filtered
+		"\u0420\u0443\u0441\u0441\u043a\u0438\u0439 \u0442\u0435\u0433 abc", "English tag xyz", "Russian tag qrs", // hallucination — filtered
+	)
+
+	result, err := PostProcessTags(raw)
+
+	require.NoError(t, err)
+	assert.Len(t, result, 22)
 }
 
 func TestLlmOcrService_Recognize_Success(t *testing.T) {
@@ -276,8 +413,10 @@ func TestLlmOcrService_ExecuteAiAction_Tags(t *testing.T) {
 	imgPath := fixtures.CreateMinimalJPEG(t, tmpDir, "test.jpg", 100, 100)
 	imgFile := testutil.SeedImageFileNoT(service.db, imgPath, "hash123", 1000)
 
+	// Build a valid tag string with 20+ tags to pass PostProcessTags validation
+	validTags := strings.Join(generateValidTags(25), ", ")
 	mockClient := &mocks.MockLlmClient{
-		RecognizeFunc: mocks.TextResponse("cat, dog, bird"),
+		RecognizeFunc: mocks.TextResponse(validTags),
 	}
 	provider := domain.LlmProvider{Name: "ollama", Model: "minicpm-v"}
 
@@ -285,7 +424,8 @@ func TestLlmOcrService_ExecuteAiAction_Tags(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.True(t, result.Success)
-	assert.Equal(t, []string{"cat", "dog", "bird"}, result.Tags)
+	assert.Len(t, result.Tags, 25)
+	assert.Equal(t, "sunset", result.Tags[0])
 }
 
 func TestLlmOcrService_StoreCachedTagsResult(t *testing.T) {
@@ -361,8 +501,10 @@ func TestLlmOcrService_StartAiActionAsync_SavesTagsToDB(t *testing.T) {
 	imgPath := fixtures.CreateMinimalJPEG(t, tmpDir, "test.jpg", 100, 100)
 	imgFile := testutil.SeedImageFileNoT(service.db, imgPath, "hash123", 1000)
 
+	// Build a valid tag string with 20+ tags to pass PostProcessTags validation
+	validTags := strings.Join(generateValidTags(25), ", ")
 	mockClient := &mocks.MockLlmClient{
-		RecognizeFunc: mocks.TextResponse("cat, dog, bird"),
+		RecognizeFunc: mocks.TextResponse(validTags),
 	}
 	provider := domain.LlmProvider{Name: "ollama", Model: "minicpm-v"}
 
@@ -377,7 +519,7 @@ func TestLlmOcrService_StartAiActionAsync_SavesTagsToDB(t *testing.T) {
 	// Verify tags were saved to DB
 	var tags []domain.ImageTag
 	service.db.Where("image_file_id = ?", imgFile.ID).Find(&tags)
-	assert.Len(t, tags, 3)
+	assert.Len(t, tags, 25)
 }
 
 func setupLlmOcrService(t *testing.T) (*LlmOcrService, func()) {
