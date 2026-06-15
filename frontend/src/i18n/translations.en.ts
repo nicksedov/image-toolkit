@@ -779,4 +779,5 @@ export const translationsEn = {
   "smartSearch.stopBackfill": "Stop",
   "smartSearch.backfillRunning": "Generating embeddings...",
   "smartSearch.backfillProgress": "{processed} of {total} images processed",
+  "smartSearch.limitLabel": "Results:",
  } as const
