@@ -529,7 +529,10 @@ func (tsm *TagScanManager) processImage(imageFile domain.ImageFile) {
 		}
 		log.Printf("Tag scan: saved %d tags for %s", len(result.Tags), imageFile.Path)
 
-		// Trigger embedding backfill for all images with tags but no embeddings
+		// Generate embedding immediately for the just-tagged image
+		go GenerateAndSaveEmbedding(tsm.db, imageFile.ID, result.Tags)
+
+		// Also trigger batch backfill for any other images missing embeddings
 		tsm.mu.Lock()
 		eb := tsm.embeddingBackfill
 		tsm.mu.Unlock()
