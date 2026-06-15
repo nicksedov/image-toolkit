@@ -175,6 +175,46 @@ func main() {
 		}
 	}
 
+	// Wire per-file post-processor for EXIF extraction, thumbnail generation, and invalidation
+	scanManager.OnFileProcessed = func(event imaging.FileEvent) {
+		switch event.Type {
+		case imaging.FileCreated:
+			// Extract EXIF/geo metadata for new files
+			backgroundSync.ExtractAndSaveMetadataAsync(event.Path, event.ImageFileID)
+			// Generate thumbnail for new files
+			if thumbnailService != nil {
+				go func() {
+					if _, err := thumbnailService.GetOrGenerate(event.Path); err != nil {
+						log.Printf("Post-processor: failed to generate thumbnail for %s: %v", event.Path, err)
+					}
+				}()
+			}
+		case imaging.FileModified:
+			if event.ContentChanged {
+				// Re-extract EXIF/geo metadata
+				backgroundSync.ExtractAndSaveMetadataAsync(event.Path, event.ImageFileID)
+				// Invalidate OCR classification
+				backgroundSync.InvalidateOCRClassificationAsync(event.ImageFileID)
+				// Invalidate AI tags and embeddings
+				backgroundSync.InvalidateTagsAndEmbeddingsAsync(event.ImageFileID)
+				// Regenerate thumbnail
+				if thumbnailService != nil {
+					go func() {
+						thumbnailService.Invalidate(event.Path)
+						if _, err := thumbnailService.GetOrGenerate(event.Path); err != nil {
+							log.Printf("Post-processor: failed to regenerate thumbnail for %s: %v", event.Path, err)
+						}
+					}()
+				}
+			}
+		case imaging.FileDeleted:
+			// Clean up thumbnail cache
+			if thumbnailService != nil {
+				thumbnailService.Invalidate(event.Path)
+			}
+		}
+	}
+
 	// Initialize i18n service
 	i18nSvc, err := i18n.NewService()
 	if err != nil {

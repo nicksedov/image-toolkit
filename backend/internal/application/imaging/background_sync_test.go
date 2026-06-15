@@ -177,7 +177,7 @@ func TestBackgroundSyncManager_InvalidateTagsAndEmbeddings(t *testing.T) {
 	require.Equal(t, int64(1), embCountBefore)
 
 	// Invalidate
-	bsm.invalidateTagsAndEmbeddings(img.ID)
+	bsm.InvalidateTagsAndEmbeddings(img.ID)
 
 	// Verify deleted
 	var tagCountAfter, embCountAfter int64

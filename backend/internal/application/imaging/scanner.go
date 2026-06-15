@@ -47,9 +47,63 @@ type hashResult struct {
 	existing *domain.ImageFile
 }
 
+// batchTracker collects file events during DB batch writes and emits them via callback.
+type batchTracker struct {
+	onFileProcessed func(FileEvent)
+	sem             chan struct{}
+}
+
+// flush writes accumulated create/update records to the database, resets the slices,
+// and emits FileCreated/FileModified events for each affected record.
+func (bt *batchTracker) flush(db *gorm.DB, toCreate *[]domain.ImageFile, toUpdate *[]domain.ImageFile) {
+	var events []FileEvent
+
+	if len(*toCreate) > 0 {
+		db.Create(toCreate)
+		for _, f := range *toCreate {
+			events = append(events, FileEvent{
+				Type:        FileCreated,
+				ImageFileID: f.ID,
+				Path:        f.Path,
+			})
+		}
+		*toCreate = (*toCreate)[:0]
+	}
+	for _, f := range *toUpdate {
+		contentChanged := true // safe default: treat as content-changed
+		if f.Hash != "" {
+			var oldHash string
+			db.Model(&domain.ImageFile{}).Select("hash").Where("id = ?", f.ID).Scan(&oldHash)
+			contentChanged = oldHash != f.Hash
+		}
+		db.Save(&f)
+		events = append(events, FileEvent{
+			Type:           FileModified,
+			ImageFileID:    f.ID,
+			Path:           f.Path,
+			ContentChanged: contentChanged,
+		})
+	}
+	*toUpdate = (*toUpdate)[:0]
+
+	// Emit events asynchronously via callback
+	if bt.onFileProcessed != nil {
+		for _, event := range events {
+			if bt.sem != nil {
+				bt.sem <- struct{}{}
+			}
+			e := event
+			go func() {
+				defer func() { <-bt.sem }()
+				bt.onFileProcessed(e)
+			}()
+		}
+	}
+}
+
 // scanDirectory scans a directory for image files and updates the database.
 // numWorkers controls the number of parallel goroutines used for file hashing.
-func scanDirectory(db *gorm.DB, dirPath string, progressChan chan<- string, numWorkers int) error {
+func scanDirectory(db *gorm.DB, dirPath string, progressChan chan<- string, numWorkers int, onFileProcessed func(FileEvent), postProcessSem chan struct{}) error {
 	absPath, err := filepath.Abs(dirPath)
 	if err != nil {
 		return fmt.Errorf("failed to get absolute path: %w", err)
@@ -166,6 +220,7 @@ func scanDirectory(db *gorm.DB, dirPath string, progressChan chan<- string, numW
 	const writeBatchSize = 50
 	var toCreate []domain.ImageFile
 	var toUpdate []domain.ImageFile
+	tracker := &batchTracker{onFileProcessed: onFileProcessed, sem: postProcessSem}
 
 	for result := range results {
 		if result.err != nil {
@@ -190,17 +245,18 @@ func scanDirectory(db *gorm.DB, dirPath string, progressChan chan<- string, numW
 		}
 
 		if len(toCreate)+len(toUpdate) >= writeBatchSize {
-			flushDBBatch(db, &toCreate, &toUpdate)
+			tracker.flush(db, &toCreate, &toUpdate)
 		}
 	}
 
 	// Flush remaining
-	flushDBBatch(db, &toCreate, &toUpdate)
+	tracker.flush(db, &toCreate, &toUpdate)
 
 	return nil
 }
 
-// flushDBBatch writes accumulated create/update records to the database and resets the slices
+// flushDBBatch writes accumulated create/update records to the database and resets the slices.
+// Deprecated: use batchTracker.flush for event-emitting scans.
 func flushDBBatch(db *gorm.DB, toCreate *[]domain.ImageFile, toUpdate *[]domain.ImageFile) {
 	if len(*toCreate) > 0 {
 		db.Create(toCreate)
@@ -217,7 +273,7 @@ func flushDBBatch(db *gorm.DB, toCreate *[]domain.ImageFile, toUpdate *[]domain.
 // It also cleans up records for files that no longer exist on disk.
 // Returns statistics about the scan operation.
 // numWorkers controls the number of parallel goroutines used for file hashing.
-func fastScanGalleryDirectory(db *gorm.DB, dirPath string, progressChan chan<- string, numWorkers int) FastScanResult {
+func fastScanGalleryDirectory(db *gorm.DB, dirPath string, progressChan chan<- string, numWorkers int, onFileProcessed func(FileEvent), postProcessSem chan struct{}) FastScanResult {
 	stats := FastScanResult{}
 
 	absPath, err := filepath.Abs(dirPath)
@@ -314,6 +370,19 @@ func fastScanGalleryDirectory(db *gorm.DB, dirPath string, progressChan chan<- s
 			progressChan <- "Removing missing file from DB: " + ef.Path
 			deleteImageFileCascade(db, ef.ID)
 			stats.Deleted++
+			// Emit FileDeleted event for post-processing
+			if onFileProcessed != nil {
+				event := FileEvent{Type: FileDeleted, ImageFileID: ef.ID, Path: ef.Path}
+				if postProcessSem != nil {
+					postProcessSem <- struct{}{}
+				}
+				go func() {
+					if postProcessSem != nil {
+						defer func() { <-postProcessSem }()
+					}
+					onFileProcessed(event)
+				}()
+			}
 		}
 	}
 
@@ -364,6 +433,7 @@ func fastScanGalleryDirectory(db *gorm.DB, dirPath string, progressChan chan<- s
 	const writeBatchSize = 50
 	var toCreate []domain.ImageFile
 	var toUpdate []domain.ImageFile
+	tracker := &batchTracker{onFileProcessed: onFileProcessed, sem: postProcessSem}
 
 	for result := range results {
 		if result.err != nil {
@@ -390,12 +460,12 @@ func fastScanGalleryDirectory(db *gorm.DB, dirPath string, progressChan chan<- s
 		}
 
 		if len(toCreate)+len(toUpdate) >= writeBatchSize {
-			flushDBBatch(db, &toCreate, &toUpdate)
+			tracker.flush(db, &toCreate, &toUpdate)
 		}
 	}
 
 	// Flush remaining
-	flushDBBatch(db, &toCreate, &toUpdate)
+	tracker.flush(db, &toCreate, &toUpdate)
 
 	// Update total checked count (modified + created)
 	stats.TotalChecked = stats.Modified + stats.Created
@@ -518,7 +588,7 @@ func deleteImageFileCascade(db *gorm.DB, imageFileID uint) {
 }
 
 // cleanupMissingFiles removes database entries for files that no longer exist
-func cleanupMissingFiles(db *gorm.DB, progressChan chan<- string) error {
+func cleanupMissingFiles(db *gorm.DB, progressChan chan<- string, onFileProcessed func(FileEvent), postProcessSem chan struct{}) error {
 	var files []domain.ImageFile
 	db.Find(&files)
 
@@ -526,6 +596,19 @@ func cleanupMissingFiles(db *gorm.DB, progressChan chan<- string) error {
 		if _, err := os.Stat(f.Path); os.IsNotExist(err) {
 			progressChan <- fmt.Sprintf("Removing missing file from DB: %s", f.Path)
 			deleteImageFileCascade(db, f.ID)
+			// Emit FileDeleted event for post-processing
+			if onFileProcessed != nil {
+				event := FileEvent{Type: FileDeleted, ImageFileID: f.ID, Path: f.Path}
+				if postProcessSem != nil {
+					postProcessSem <- struct{}{}
+				}
+				go func() {
+					if postProcessSem != nil {
+						defer func() { <-postProcessSem }()
+					}
+					onFileProcessed(event)
+				}()
+			}
 		}
 	}
 

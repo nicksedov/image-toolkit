@@ -268,7 +268,7 @@ func (bsm *BackgroundSyncManager) syncFolder(folderPath string, thumbnailEnabled
 			log.Printf("Background sync: added new file %s", diskPath)
 
 			// Extract EXIF/geo metadata for new file
-			bsm.extractAndSaveMetadata(diskPath, newFile.ID)
+			bsm.ExtractAndSaveMetadata(diskPath, newFile.ID)
 
 			// Generate thumbnail for new file
 			if thumbnailEnabled {
@@ -304,17 +304,17 @@ func (bsm *BackgroundSyncManager) syncFolder(folderPath string, thumbnailEnabled
 
 				// Re-extract EXIF/geo metadata only if file content actually changed
 				if contentChanged {
-					bsm.extractAndSaveMetadata(diskPath, dbFile.ID)
+					bsm.ExtractAndSaveMetadata(diskPath, dbFile.ID)
 				}
 
 				// Invalidate OCR classification only if file content actually changed
 				if contentChanged {
-					bsm.invalidateOCRClassification(dbFile.ID)
+					bsm.InvalidateOCRClassification(dbFile.ID)
 				}
 
 				// Invalidate AI tags and embeddings only if file content actually changed
 				if contentChanged {
-					bsm.invalidateTagsAndEmbeddings(dbFile.ID)
+					bsm.InvalidateTagsAndEmbeddings(dbFile.ID)
 				}
 
 				// Regenerate thumbnail for modified file (invalidate old one)
@@ -399,8 +399,8 @@ func (bsm *BackgroundSyncManager) isRunning() bool {
 	return bsm.running
 }
 
-// extractAndSaveMetadata extracts EXIF and geo metadata for a file and saves to the database.
-func (bsm *BackgroundSyncManager) extractAndSaveMetadata(filePath string, imageFileID uint) {
+// ExtractAndSaveMetadata extracts EXIF and geo metadata for a file and saves to the database.
+func (bsm *BackgroundSyncManager) ExtractAndSaveMetadata(filePath string, imageFileID uint) {
 	meta, err := extractMetadata(filePath)
 	if err != nil {
 		log.Printf("Background sync: failed to extract metadata for %s: %v", filePath, err)
@@ -430,9 +430,9 @@ func (bsm *BackgroundSyncManager) extractAndSaveMetadata(filePath string, imageF
 	}
 }
 
-// invalidateOCRClassification deletes existing OCR classification for a file
+// InvalidateOCRClassification deletes existing OCR classification for a file
 // so it gets re-classified on the next OCR pass.
-func (bsm *BackgroundSyncManager) invalidateOCRClassification(imageFileID uint) {
+func (bsm *BackgroundSyncManager) InvalidateOCRClassification(imageFileID uint) {
 	// Delete bounding boxes first (foreign key dependency)
 	bsm.db.Where("classification_id IN (SELECT id FROM ocr_classifications WHERE image_file_id = ?)", imageFileID).Delete(&domain.OcrBoundingBox{})
 	// Delete the classification
@@ -441,9 +441,24 @@ func (bsm *BackgroundSyncManager) invalidateOCRClassification(imageFileID uint) 
 	}
 }
 
+// ExtractAndSaveMetadataAsync extracts EXIF/geo metadata in a background goroutine.
+func (bsm *BackgroundSyncManager) ExtractAndSaveMetadataAsync(filePath string, imageFileID uint) {
+	go bsm.ExtractAndSaveMetadata(filePath, imageFileID)
+}
+
+// InvalidateOCRClassificationAsync invalidates OCR classification in a background goroutine.
+func (bsm *BackgroundSyncManager) InvalidateOCRClassificationAsync(imageFileID uint) {
+	go bsm.InvalidateOCRClassification(imageFileID)
+}
+
+// InvalidateTagsAndEmbeddingsAsync invalidates AI tags and embeddings in a background goroutine.
+func (bsm *BackgroundSyncManager) InvalidateTagsAndEmbeddingsAsync(imageFileID uint) {
+	go bsm.InvalidateTagsAndEmbeddings(imageFileID)
+}
+
 // invalidateTagsAndEmbeddings deletes AI-generated tags and vector embeddings for a file
 // so they are re-generated on the next tag scan or embedding backfill pass.
-func (bsm *BackgroundSyncManager) invalidateTagsAndEmbeddings(imageFileID uint) {
+func (bsm *BackgroundSyncManager) InvalidateTagsAndEmbeddings(imageFileID uint) {
 	bsm.db.Where("image_file_id = ?", imageFileID).Delete(&domain.ImageTag{})
 	if result := bsm.db.Where("image_file_id = ?", imageFileID).Delete(&domain.TagEmbedding{}); result.Error == nil && result.RowsAffected > 0 {
 		log.Printf("Background sync: invalidated tags and embeddings for image %d", imageFileID)
