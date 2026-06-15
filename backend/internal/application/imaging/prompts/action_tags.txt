@@ -12,7 +12,7 @@ Requirements:
 - Output ONLY tags, no explanations or extra text
 - Use lowercase
 - Use single words or short phrases (max 3 words per tag)
-- Avoid duplicates and near-synonyms
+- Avoid duplicates and synonyms
 - Avoid overly generic tags (e.g., "image", "photo")
 - Prefer concrete and visually verifiable elements; do not guess uncertain details
 
