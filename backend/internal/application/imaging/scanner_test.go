@@ -52,7 +52,7 @@ func TestScanDirectory_NewFiles(t *testing.T) {
 
 	progressChan := make(chan string, 100)
 
-	err := scanDirectory(db, tmpDir, progressChan, 2, nil, nil)
+	_, err := scanDirectory(db, tmpDir, progressChan, 2)
 
 	require.NoError(t, err)
 
@@ -70,12 +70,12 @@ func TestScanDirectory_CachedFiles(t *testing.T) {
 
 	// First scan - should create record
 	progressChan := make(chan string, 100)
-	err := scanDirectory(db, tmpDir, progressChan, 1, nil, nil)
+	_, err := scanDirectory(db, tmpDir, progressChan, 1)
 	require.NoError(t, err)
 
 	// Second scan - should skip (cached)
 	progressChan2 := make(chan string, 100)
-	err = scanDirectory(db, tmpDir, progressChan2, 1, nil, nil)
+	_, err = scanDirectory(db, tmpDir, progressChan2, 1)
 	require.NoError(t, err)
 
 	// Count should still be 1
@@ -93,7 +93,7 @@ func TestScanDirectory_ModifiedFiles(t *testing.T) {
 
 	// First scan
 	progressChan := make(chan string, 100)
-	err := scanDirectory(db, tmpDir, progressChan, 1, nil, nil)
+	_, err := scanDirectory(db, tmpDir, progressChan, 1)
 	require.NoError(t, err)
 
 	// Get initial size
@@ -106,7 +106,7 @@ func TestScanDirectory_ModifiedFiles(t *testing.T) {
 
 	// Second scan - should detect modification
 	progressChan2 := make(chan string, 100)
-	err = scanDirectory(db, tmpDir, progressChan2, 1, nil, nil)
+	_, err = scanDirectory(db, tmpDir, progressChan2, 1)
 	require.NoError(t, err)
 
 	// Size should have changed
@@ -124,7 +124,7 @@ func TestScanDirectory_NoImageFiles(t *testing.T) {
 	fixtures.CreateTestFile(t, tmpDir, "document.pdf", []byte("pdf content"))
 
 	progressChan := make(chan string, 100)
-	err := scanDirectory(db, tmpDir, progressChan, 1, nil, nil)
+	_, err := scanDirectory(db, tmpDir, progressChan, 1)
 
 	require.NoError(t, err)
 
@@ -140,7 +140,7 @@ func TestScanDirectory_InvalidPath(t *testing.T) {
 	// scanDirectory gracefully handles invalid paths by reporting errors
 	// through the progress channel rather than returning an error
 	progressChan := make(chan string, 100)
-	err := scanDirectory(db, "/nonexistent/path/that/does/not/exist", progressChan, 1, nil, nil)
+	_, err := scanDirectory(db, "/nonexistent/path/that/does/not/exist", progressChan, 1)
 
 	// scanDirectory returns nil even for invalid root (errors reported via channel)
 	require.NoError(t, err)
@@ -166,11 +166,11 @@ func TestFastScanGalleryDirectory_Unchanged(t *testing.T) {
 
 	// First scan to populate DB
 	progressChan := make(chan string, 100)
-	scanDirectory(db, tmpDir, progressChan, 1, nil, nil)
+	scanDirectory(db, tmpDir, progressChan, 1)
 
 	// Fast scan - all should be unchanged
 	progressChan2 := make(chan string, 100)
-	result := fastScanGalleryDirectory(db, tmpDir, progressChan2, 1, nil, nil)
+	result, _ := fastScanGalleryDirectory(db, tmpDir, progressChan2, 1)
 
 	assert.Equal(t, 3, result.Unchanged)
 	assert.Equal(t, 0, result.Created)
@@ -186,7 +186,7 @@ func TestFastScanGalleryDirectory_NewAndModified(t *testing.T) {
 
 	// First scan
 	progressChan := make(chan string, 100)
-	scanDirectory(db, tmpDir, progressChan, 1, nil, nil)
+	scanDirectory(db, tmpDir, progressChan, 1)
 
 	// Add a new file and modify existing one
 	fixtures.CreateMinimalJPEG(t, tmpDir, "new.jpg", 150, 150)
@@ -194,7 +194,7 @@ func TestFastScanGalleryDirectory_NewAndModified(t *testing.T) {
 
 	// Fast scan
 	progressChan2 := make(chan string, 100)
-	result := fastScanGalleryDirectory(db, tmpDir, progressChan2, 1, nil, nil)
+	result, _ := fastScanGalleryDirectory(db, tmpDir, progressChan2, 1)
 
 	assert.GreaterOrEqual(t, result.Created, 1, "should detect at least 1 new file")
 	assert.GreaterOrEqual(t, result.Modified, 1, "should detect at least 1 modified file")
@@ -211,7 +211,7 @@ func TestFastScanGalleryDirectory_MissingFiles(t *testing.T) {
 
 	// Scan to populate DB
 	progressChan := make(chan string, 100)
-	scanDirectory(db, tmpDir, progressChan, 1, nil, nil)
+	scanDirectory(db, tmpDir, progressChan, 1)
 
 	// Delete 2 files
 	os.Remove(paths[0])
@@ -219,7 +219,7 @@ func TestFastScanGalleryDirectory_MissingFiles(t *testing.T) {
 
 	// Fast scan - should detect missing files
 	progressChan2 := make(chan string, 100)
-	result := fastScanGalleryDirectory(db, tmpDir, progressChan2, 1, nil, nil)
+	result, _ := fastScanGalleryDirectory(db, tmpDir, progressChan2, 1)
 
 	assert.Equal(t, 2, result.Deleted, "should detect 2 deleted files")
 }
@@ -238,7 +238,7 @@ func TestFindDuplicates_SingleGroup(t *testing.T) {
 
 	// Scan directory
 	progressChan := make(chan string, 100)
-	scanDirectory(db, tmpDir, progressChan, 1, nil, nil)
+	scanDirectory(db, tmpDir, progressChan, 1)
 
 	groups, err := findDuplicates(db)
 
@@ -260,7 +260,7 @@ func TestFindDuplicates_NoDuplicates(t *testing.T) {
 	}
 
 	progressChan := make(chan string, 100)
-	scanDirectory(db, tmpDir, progressChan, 1, nil, nil)
+	scanDirectory(db, tmpDir, progressChan, 1)
 
 	groups, err := findDuplicates(db)
 
@@ -284,7 +284,7 @@ func TestFindDuplicatesPaginated_FirstPage(t *testing.T) {
 	}
 
 	progressChan := make(chan string, 100)
-	scanDirectory(db, tmpDir, progressChan, 1, nil, nil)
+	scanDirectory(db, tmpDir, progressChan, 1)
 
 	groups, totalGroups, totalFiles, err := FindDuplicatesPaginated(db, 0, 3)
 
@@ -310,7 +310,7 @@ func TestFindDuplicatesPaginated_BeyondEnd(t *testing.T) {
 	}
 
 	progressChan := make(chan string, 100)
-	scanDirectory(db, tmpDir, progressChan, 1, nil, nil)
+	scanDirectory(db, tmpDir, progressChan, 1)
 
 	groups, totalGroups, _, err := FindDuplicatesPaginated(db, 20, 5)
 
@@ -330,7 +330,7 @@ func TestCleanupMissingFiles_RemovesDeleted(t *testing.T) {
 
 	// Scan to populate DB
 	progressChan := make(chan string, 100)
-	scanDirectory(db, tmpDir, progressChan, 1, nil, nil)
+	scanDirectory(db, tmpDir, progressChan, 1)
 
 	var countBefore int64
 	db.Model(&domain.ImageFile{}).Count(&countBefore)
@@ -342,7 +342,7 @@ func TestCleanupMissingFiles_RemovesDeleted(t *testing.T) {
 
 	// Cleanup
 	progressChan2 := make(chan string, 100)
-	err := cleanupMissingFiles(db, progressChan2, nil, nil)
+	_, err := cleanupMissingFiles(db, progressChan2)
 
 	require.NoError(t, err)
 
