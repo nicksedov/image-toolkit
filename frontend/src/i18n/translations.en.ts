@@ -4,6 +4,11 @@ export const translationsEn = {
   "header.subtitle": "All-in-one toolkit for image management",
   "header.toggleTheme": "Toggle theme",
   "header.toggleLanguage": "Toggle language",
+  "header.menu": "Menu",
+
+  // Sidebar
+  "sidebar.collapse": "Collapse sidebar",
+  "sidebar.expand": "Expand sidebar",
 
   // Tabs
   "tabs.preferences": "Preferences",

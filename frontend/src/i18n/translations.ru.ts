@@ -4,6 +4,11 @@ export const translationsRu = {
   "header.subtitle": "Универсальный набор инструментов для работы с изображениями",
   "header.toggleTheme": "Переключить тему",
   "header.toggleLanguage": "Переключить язык",
+  "header.menu": "Меню",
+
+  // Sidebar
+  "sidebar.collapse": "Свернуть панель",
+  "sidebar.expand": "Развернуть панель",
 
   // Tabs
   "tabs.preferences": "Настройки",

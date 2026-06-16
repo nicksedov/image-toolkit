@@ -1,4 +1,4 @@
-import { useEffect, useState, lazy, Suspense } from "react"
+import { useEffect, useState, lazy, Suspense, useCallback } from "react"
 import { Toaster } from "sonner"
 import { Tabs, TabsContent } from "@/components/ui/tabs"
 import { Sidebar } from "@/components/layout/Sidebar"
@@ -28,6 +28,8 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<TabValue>("gallery-folders")
   const [isCheckingGallery, setIsCheckingGallery] = useState(true)
   const [forceLogout, setForceLogout] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const { t } = useTranslation()
   const { isLoading: isLoadingSettings } = useSettings()
   const { user, isAuthenticated, isBootstrapMode, isBootstrapVerified, isLoading: isLoadingAuth } = useAuth()
@@ -101,12 +103,31 @@ export default function App() {
     setActiveTab(tab as TabValue)
   }
 
+  const handleToggleCollapse = useCallback(() => {
+    setSidebarCollapsed((v) => !v)
+  }, [])
+
+  const handleMobileMenuToggle = useCallback(() => {
+    setMobileMenuOpen((v) => !v)
+  }, [])
+
+  const handleMobileMenuClose = useCallback(() => {
+    setMobileMenuOpen(false)
+  }, [])
+
   return (
     <div className="flex min-h-screen bg-background">
-      <Sidebar activeTab={activeTab} onTabChange={handleTabChange} />
+      <Sidebar
+        activeTab={activeTab}
+        onTabChange={handleTabChange}
+        collapsed={sidebarCollapsed}
+        onToggleCollapse={handleToggleCollapse}
+        mobileOpen={mobileMenuOpen}
+        onMobileClose={handleMobileMenuClose}
+      />
 
       <div className="flex flex-1 flex-col overflow-hidden">
-        <Header onTabChange={handleTabChange} />
+        <Header onTabChange={handleTabChange} onMobileMenuToggle={handleMobileMenuToggle} />
 
         <main className={`flex-1 overflow-auto ${activeTab === "gallery-geolocation" ? "px-3 py-3" : "px-8 py-6"}`}>
           <div className={activeTab === "gallery-geolocation" ? "mx-auto" : "mx-auto max-w-7xl"}>
