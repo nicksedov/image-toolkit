@@ -15,7 +15,10 @@ export function Header({ onTabChange, onMobileMenuToggle }: HeaderProps) {
   const { user, logout } = useAuth()
 
   return (
-    <header className="sticky top-0 z-10 border-b bg-header px-4 sm:px-6 py-3">
+    <header
+      className="sticky top-0 z-10 border-b px-4 sm:px-6 py-3"
+      style={{ backgroundColor: 'var(--color-header)' }}
+    >
       <div className="flex items-center justify-between gap-3">
         {/* Mobile menu button */}
         <button
