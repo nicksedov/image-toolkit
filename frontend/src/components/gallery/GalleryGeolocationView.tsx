@@ -5,7 +5,7 @@ import { GalleryImageGrid } from "@/components/gallery/GalleryImageGrid"
 import { useGeoClusters } from "@/hooks/useGeoClusters"
 import { useGeoImages } from "@/hooks/useGeoImages"
 import { useTranslation } from "@/i18n"
-import { ArrowLeft, MapPin, ImageIcon, Loader2 } from "lucide-react"
+import { ArrowLeft, MapPin, ImageIcon } from "lucide-react"
 import { useIntersectionObserver } from "@/hooks/useIntersectionObserver"
 import { PaginationFooter } from "@/components/ui/pagination-footer"
 import { ViewHeader } from "@/components/ui/view-header"
@@ -229,16 +229,12 @@ export function GalleryGeolocationView({ onImageClick, onImageDownload, onImageD
   // Map view
   return (
     <div className="space-y-2">
-      {(totalImages > 0 || !clustersInitialized) && (
+      {totalImages > 0 && clustersInitialized && (
         <div className="flex items-center gap-2">
           <MapPin className="h-5 w-5 text-muted-foreground" />
-          {!clustersInitialized ? (
-            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-          ) : (
-            <span className="text-sm text-muted-foreground">
-              {t("geolocation.totalGeoImages", { count: totalImages.toString() })}
-            </span>
-          )}
+          <span className="text-sm text-muted-foreground">
+            {t("geolocation.totalGeoImages", { count: totalImages.toString() })}
+          </span>
         </div>
       )}
 
@@ -290,11 +286,6 @@ export function GalleryGeolocationView({ onImageClick, onImageDownload, onImageD
         </div>
       )}
 
-      {clustersLoading && (
-        <div className="flex justify-center py-4">
-          <div className="text-sm text-muted-foreground">{t("geolocation.loadingClusters")}</div>
-        </div>
-      )}
     </div>
   )
 }
