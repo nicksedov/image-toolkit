@@ -7,8 +7,8 @@ export const translationsEn = {
   "header.menu": "Menu",
 
   // Sidebar
-  "sidebar.collapse": "Collapse sidebar",
-  "sidebar.expand": "Expand sidebar",
+  "sidebar.collapse": "Collapse",
+  "sidebar.expand": "Expand",
 
   // Tabs
   "tabs.preferences": "Preferences",

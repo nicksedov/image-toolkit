@@ -7,8 +7,8 @@ export const translationsRu = {
   "header.menu": "Меню",
 
   // Sidebar
-  "sidebar.collapse": "Свернуть панель",
-  "sidebar.expand": "Развернуть панель",
+  "sidebar.collapse": "Свернуть",
+  "sidebar.expand": "Развернуть",
 
   // Tabs
   "tabs.preferences": "Настройки",
