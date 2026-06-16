@@ -1,11 +1,20 @@
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
+import { useState } from "react"
 import { Settings, Brain } from "lucide-react"
 import { useTranslation } from "@/i18n"
+import { UnderlineTabs } from "@/components/ui/underline-tabs"
 import { AdminGeneralTab } from "./AdminGeneralTab"
 import { AdminAnalysisTab } from "./AdminAnalysisTab"
 
+type AdminTab = "general" | "analysis"
+
+const TABS = [
+  { id: "general" as const, labelKey: "adminSettings.tabs.general" as const, icon: Settings },
+  { id: "analysis" as const, labelKey: "adminSettings.tabs.analysis" as const, icon: Brain },
+]
+
 export function AdminSettingsTab() {
   const { t } = useTranslation()
+  const [activeTab, setActiveTab] = useState<AdminTab>("general")
 
   return (
     <div className="space-y-6">
@@ -16,26 +25,14 @@ export function AdminSettingsTab() {
         </p>
       </div>
 
-      <Tabs defaultValue="general" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="general" className="flex items-center gap-2">
-            <Settings className="h-4 w-4" />
-            {t("adminSettings.tabs.general")}
-          </TabsTrigger>
-          <TabsTrigger value="analysis" className="flex items-center gap-2">
-            <Brain className="h-4 w-4" />
-            {t("adminSettings.tabs.analysis")}
-          </TabsTrigger>
-        </TabsList>
+      <div>
+        <UnderlineTabs tabs={TABS} value={activeTab} onValueChange={setActiveTab} />
 
-        <TabsContent value="general" className="mt-6">
-          <AdminGeneralTab />
-        </TabsContent>
-
-        <TabsContent value="analysis" className="mt-6">
-          <AdminAnalysisTab />
-        </TabsContent>
-      </Tabs>
+        <div className="mt-6">
+          {activeTab === "general" && <AdminGeneralTab />}
+          {activeTab === "analysis" && <AdminAnalysisTab />}
+        </div>
+      </div>
     </div>
   )
 }

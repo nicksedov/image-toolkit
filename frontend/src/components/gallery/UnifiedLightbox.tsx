@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react"
 import { Sparkles, Info, ScanText } from "lucide-react"
+import type { LucideIcon } from "lucide-react"
 import { useTranslation } from "@/i18n"
 import { LightboxDialog } from "./lightbox/LightboxDialog"
 import { buildImageUrl } from "@/utils/buildImageUrl"
@@ -15,6 +16,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
 import { Camera, MapPin, MapPinPlus, Image as ImageIcon, Pencil } from "lucide-react"
 import { GeoSearchForm } from "./GeoSearchForm"
+import { UnderlineTabs } from "@/components/ui/underline-tabs"
 import type { ImageMetadataDTO } from "@/types"
 
 export type LightboxMode = "ai" | "exif" | "ocr"
@@ -27,10 +29,10 @@ interface UnifiedLightboxProps {
   onShowGeoFormChange?: (show: boolean) => void
 }
 
-const TAB_CONFIG: { mode: LightboxMode; labelKey: "lightbox.tab.ai" | "lightbox.tab.exif" | "lightbox.tab.ocr"; icon: typeof Sparkles }[] = [
-  { mode: "ai", labelKey: "lightbox.tab.ai", icon: Sparkles },
-  { mode: "exif", labelKey: "lightbox.tab.exif", icon: Info },
-  { mode: "ocr", labelKey: "lightbox.tab.ocr", icon: ScanText },
+const TAB_CONFIG: { id: LightboxMode; labelKey: "lightbox.tab.ai" | "lightbox.tab.exif" | "lightbox.tab.ocr"; icon: LucideIcon }[] = [
+  { id: "ai", labelKey: "lightbox.tab.ai", icon: Sparkles },
+  { id: "exif", labelKey: "lightbox.tab.exif", icon: Info },
+  { id: "ocr", labelKey: "lightbox.tab.ocr", icon: ScanText },
 ]
 
 export function UnifiedLightbox({
@@ -192,24 +194,7 @@ export function UnifiedLightbox({
 
         {/* Right: Panel with mode tabs */}
         <div className="w-full md:w-[400px] lg:w-[450px] md:min-w-[320px] border-t md:border-t-0 md:border-l bg-card h-full shrink-0 flex flex-col">
-          {/* Tab bar */}
-          <div className="flex pt-2 shrink-0">
-            {TAB_CONFIG.map(({ mode, labelKey, icon: Icon }) => (
-              <button
-                key={mode}
-                type="button"
-                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors ${
-                  activeMode === mode
-                    ? "text-primary border-b-2 border-primary"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-                onClick={() => setActiveMode(mode)}
-              >
-                <Icon className="h-3.5 w-3.5" />
-                {t(labelKey)}
-              </button>
-            ))}
-          </div>
+          <UnderlineTabs tabs={TAB_CONFIG} value={activeMode} onValueChange={setActiveMode} />
 
           {/* Panel content */}
           <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
