@@ -16,7 +16,7 @@ export function Header({ onTabChange, onMobileMenuToggle }: HeaderProps) {
 
   return (
     <header
-      className="sticky top-0 z-10 border-b px-4 sm:px-6 py-3"
+      className="sticky top-0 z-10 px-4 sm:px-6 py-3"
       style={{ backgroundColor: 'var(--color-header)' }}
     >
       <div className="flex items-center justify-between gap-3">

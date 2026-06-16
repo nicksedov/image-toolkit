@@ -369,7 +369,7 @@ export function Sidebar({
       {/* Sidebar */}
       <aside
         className={cn(
-          "sidebar-transition sticky top-0 flex h-screen flex-shrink-0 flex-col border-r z-50",
+          "sidebar-transition sticky top-0 flex h-screen flex-shrink-0 flex-col z-50",
           // Desktop width
           collapsed ? "hidden md:flex md:w-16" : "hidden md:flex md:w-64",
           // Mobile: overlay
