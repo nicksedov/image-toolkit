@@ -14,10 +14,9 @@ type ImageTag struct {
 // Actual vector data is stored in per-model child tables tag_embeddings_<model_name>.
 // Source: backend/internal/domain/media.go — TagEmbedding struct.
 type TagEmbedding struct {
-	ID          uint      `gorm:"primaryKey"`
-	ImageFileID uint      `gorm:"index;not null"`
-	TagCount    int       `gorm:"not null"`
-	TagHash     string    `gorm:"column:tag_hash;default:''"` // MD5 of sorted tag text, used for idempotency
+	ID          uint `gorm:"primaryKey"`
+	ImageFileID uint `gorm:"index;not null"`
+	TagCount    int  `gorm:"not null"`
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 }
@@ -31,14 +30,26 @@ type TagEmbeddingModel struct {
 	Embedding       string `gorm:"type:halfvec;not null"`
 }
 
+// EmbeddingSetupHash stores MD5 hashes of tag content for idempotency tracking
+// during the embedding-setup migration utility. Lives in a separate table
+// so it does not pollute the production tag_embeddings schema.
+// Source: extracted from tag_embeddings.tag_hash.
+type EmbeddingSetupHash struct {
+	ID          uint   `gorm:"primaryKey"`
+	ImageFileID uint   `gorm:"uniqueIndex;not null"`
+	TagHash     string `gorm:"column:tag_hash;default:''"` // MD5 of sorted tag text
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+}
+
 // LlmSettings holds LLM provider and embedding configuration.
 // Source: backend/internal/domain/media.go — LlmSettings struct.
 type LlmSettings struct {
-	ID                     uint      `gorm:"primaryKey"`
-	ActiveProvider         string    `gorm:"default:ollama_1;not null"`
-	EmbeddingProviderAlias string    `gorm:"default:''"`
-	EmbeddingModel         string    `gorm:"default:'qwen3-embedding:4b'"`
-	EmbeddingDimension     int       `gorm:"default:1024"`
+	ID                     uint   `gorm:"primaryKey"`
+	ActiveProvider         string `gorm:"default:ollama_1;not null"`
+	EmbeddingProviderAlias string `gorm:"default:''"`
+	EmbeddingModel         string `gorm:"default:'qwen3-embedding:4b'"`
+	EmbeddingDimension     int    `gorm:"default:1024"`
 	CreatedAt              time.Time
 	UpdatedAt              time.Time
 }
@@ -46,12 +57,12 @@ type LlmSettings struct {
 // LlmProvider represents a configured LLM provider instance.
 // Source: backend/internal/domain/media.go — LlmProvider struct.
 type LlmProvider struct {
-	ID        uint      `gorm:"primaryKey"`
-	Name      string    `gorm:"index;not null"`
-	Alias     string    `gorm:"not null"`
-	ApiUrl    string    `gorm:"not null"`
-	ApiKey    string    `gorm:"default:''"`
-	Model     string    `gorm:"not null"`
+	ID        uint   `gorm:"primaryKey"`
+	Name      string `gorm:"index;not null"`
+	Alias     string `gorm:"not null"`
+	ApiUrl    string `gorm:"not null"`
+	ApiKey    string `gorm:"default:''"`
+	Model     string `gorm:"not null"`
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }

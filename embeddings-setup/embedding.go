@@ -116,9 +116,7 @@ type openAIEmbedClient struct {
 
 func newOpenAIEmbedClient(baseURL, apiKey, model string) *openAIEmbedClient {
 	baseURL = strings.TrimRight(baseURL, "/")
-	if strings.HasSuffix(baseURL, "/v1") {
-		baseURL = strings.TrimSuffix(baseURL, "/v1")
-	}
+	baseURL = strings.TrimSuffix(baseURL, "/v1")
 	return &openAIEmbedClient{
 		BaseURL: baseURL,
 		APIKey:  apiKey,

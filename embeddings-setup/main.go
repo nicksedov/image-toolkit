@@ -1,8 +1,9 @@
 // embeddings-setup is a standalone CLI utility that populates the
 // tag_embeddings table from existing image_tags records.
 //
-// Idempotent by design: on restart, skips images whose embeddings already
-// exist and whose tag content has not changed (detected via MD5 hash).
+// Idempotent by design: tracks tag content changes via MD5 hashes stored
+// in a separate embedding_setup_hashes table. On restart, skips images
+// whose embeddings already exist and whose tag content has not changed.
 //
 // Usage:
 //
@@ -58,8 +59,8 @@ func main() {
 	}
 	log.Println("Connected to database")
 
-	// Ensure tag_hash column exists on tag_embeddings for idempotency tracking
-	db.Exec("ALTER TABLE tag_embeddings ADD COLUMN IF NOT EXISTS tag_hash VARCHAR(32) NOT NULL DEFAULT ''")
+	// Ensure the embedding_setup_hashes table exists for idempotency tracking
+	ensureSetupHashesTable(db)
 
 	// Resolve embedding provider and model from llm_settings + llm_providers
 	embeddingClient, modelName, _, err := resolveEmbeddingClient(db)
@@ -105,7 +106,7 @@ func main() {
 	// Count total images that need embeddings for this model.
 	// Without --force, an image is "needing" embeddings when:
 	//   1. No child table row exists for this model, OR
-	//   2. The tag_hash on tag_embeddings differs from the current tag content.
+	//   2. The tag_hash in embedding_setup_hashes differs from the current tag content.
 	total := countNeedingEmbeddings(db, childTable, *force)
 
 	if total == 0 {
@@ -154,7 +155,7 @@ func main() {
 		// (they may appear in the query if tag_embeddings exists but child doesn't,
 		// yet the hash proves content is unchanged — rare edge case after schema migration).
 		if !*force {
-			filtered := filterUnchanged(db, imageIDs, tagTexts, tagHashes)
+			filtered := filterUnchanged(db, imageIDs, tagHashes)
 			if len(filtered) == 0 {
 				skipped += len(imageIDs)
 				cursor = imageIDs[len(imageIDs)-1]
@@ -193,11 +194,13 @@ func main() {
 				tagCount = strings.Count(tagTexts[i], ",") + 1
 			}
 
-			if err := upsertEmbedding(db, imgID, childTable, actualDim, vecStr, tagCount, tagHashes[i]); err != nil {
+			if err := upsertEmbedding(db, imgID, childTable, actualDim, vecStr, tagCount); err != nil {
 				log.Printf("Failed to save embedding for image %d: %v", imgID, err)
 				failed++
 				continue
 			}
+			// Save the tag hash for future idempotency checks
+			saveTagHash(db, imgID, tagHashes[i])
 		}
 
 		processed += len(imageIDs)
@@ -210,6 +213,22 @@ func main() {
 
 	log.Printf("Done — processed %d, skipped %d, failed %d in %s",
 		processed, skipped, failed, time.Since(startTime).Round(time.Second))
+}
+
+// ensureSetupHashesTable creates the embedding_setup_hashes table if it does not exist.
+func ensureSetupHashesTable(db *gorm.DB) {
+	sql := `
+		CREATE TABLE IF NOT EXISTS embedding_setup_hashes (
+			id BIGSERIAL PRIMARY KEY,
+			image_file_id BIGINT NOT NULL UNIQUE REFERENCES image_files(id) ON DELETE CASCADE,
+			tag_hash VARCHAR(32) NOT NULL DEFAULT '',
+			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+			updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+		)`
+	if err := db.Exec(sql).Error; err != nil {
+		log.Fatalf("Failed to create embedding_setup_hashes table: %v", err)
+	}
+	log.Println("embedding_setup_hashes table ensured")
 }
 
 // countNeedingEmbeddings returns the number of images that need embedding computation.
@@ -268,14 +287,14 @@ func batchFetchTags(db *gorm.DB, imageIDs []uint) map[uint][]string {
 }
 
 // filterUnchanged returns indices of images whose tag hash differs from the stored hash.
-// Images without a parent tag_embeddings record (hash is empty) are always included.
-func filterUnchanged(db *gorm.DB, imageIDs []uint, tagTexts []string, tagHashes []string) []int {
-	// Fetch existing parent records for this batch
-	var parents []TagEmbedding
-	db.Where("image_file_id IN ?", imageIDs).Find(&parents)
+// Images without an embedding_setup_hashes record (hash is empty) are always included.
+func filterUnchanged(db *gorm.DB, imageIDs []uint, tagHashes []string) []int {
+	// Fetch existing hash records for this batch
+	var records []EmbeddingSetupHash
+	db.Where("image_file_id IN ?", imageIDs).Find(&records)
 	hashByImage := make(map[uint]string)
-	for _, p := range parents {
-		hashByImage[p.ImageFileID] = p.TagHash
+	for _, r := range records {
+		hashByImage[r.ImageFileID] = r.TagHash
 	}
 
 	var indices []int
@@ -288,23 +307,34 @@ func filterUnchanged(db *gorm.DB, imageIDs []uint, tagTexts []string, tagHashes 
 	return indices
 }
 
+// saveTagHash creates or updates the tag hash record in embedding_setup_hashes.
+func saveTagHash(db *gorm.DB, imageFileID uint, tagHash string) {
+	var record EmbeddingSetupHash
+	result := db.Where("image_file_id = ?", imageFileID).First(&record)
+	if result.Error == gorm.ErrRecordNotFound {
+		record = EmbeddingSetupHash{ImageFileID: imageFileID, TagHash: tagHash}
+		if err := db.Create(&record).Error; err != nil {
+			log.Printf("Failed to create tag hash record for image %d: %v", imageFileID, err)
+		}
+	} else if result.Error == nil {
+		db.Model(&record).Update("tag_hash", tagHash)
+	}
+}
+
 // upsertEmbedding atomically upserts the parent TagEmbedding record and the child table row.
-func upsertEmbedding(db *gorm.DB, imageFileID uint, childTable string, dimension int, vecStr string, tagCount int, tagHash string) error {
+func upsertEmbedding(db *gorm.DB, imageFileID uint, childTable string, dimension int, vecStr string, tagCount int) error {
 	// Upsert parent record: find existing or create new
 	var parent TagEmbedding
 	result := db.Where("image_file_id = ?", imageFileID).First(&parent)
 	if result.Error == gorm.ErrRecordNotFound {
-		parent = TagEmbedding{ImageFileID: imageFileID, TagCount: tagCount, TagHash: tagHash}
+		parent = TagEmbedding{ImageFileID: imageFileID, TagCount: tagCount}
 		if err := db.Create(&parent).Error; err != nil {
 			return fmt.Errorf("failed to create parent embedding record: %w", err)
 		}
 	} else if result.Error != nil {
 		return fmt.Errorf("failed to query parent embedding record: %w", result.Error)
 	} else {
-		db.Model(&parent).Updates(map[string]interface{}{
-			"tag_count": tagCount,
-			"tag_hash":  tagHash,
-		})
+		db.Model(&parent).Update("tag_count", tagCount)
 	}
 
 	// Atomic upsert: insert or update child embedding row
