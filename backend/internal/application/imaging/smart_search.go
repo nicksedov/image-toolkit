@@ -93,15 +93,16 @@ func SearchByEmbedding(db *gorm.DB, query string, limit int) (SmartSearchRespons
 	}
 
 	querySQL := fmt.Sprintf(`
-		SELECT te.image_file_id, 1 - (m.embedding <=> ?::halfvec) AS similarity
+		SELECT te.image_file_id, MAX(1 - (m.embedding <=> ?::halfvec)) AS similarity
 		FROM %s m
 		INNER JOIN tag_embeddings te ON te.id = m.tag_embeddings_id
-		ORDER BY m.embedding <=> ?::halfvec
+		GROUP BY te.image_file_id
+		ORDER BY similarity DESC
 		LIMIT ?
 	`, childTable)
 
 	var results []searchResult
-	if err := db.Raw(querySQL, vecStr, vecStr, limit).Scan(&results).Error; err != nil {
+	if err := db.Raw(querySQL, vecStr, limit).Scan(&results).Error; err != nil {
 		return SmartSearchResponse{}, fmt.Errorf("semantic search query failed: %w", err)
 	}
 
