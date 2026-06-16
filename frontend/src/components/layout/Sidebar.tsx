@@ -122,7 +122,7 @@ export function Sidebar({
   }, [mobileOpen, onMobileClose])
 
   const renderSubItems = (subItems: SubItem[], handleSelect: (tab: string) => void) => (
-    <div className="ml-6 space-y-0.5 border-l pl-2">
+    <div className="ml-4 space-y-0.5 pl-2">
       {subItems.map((subItem) => {
         const isActive = activeTab === subItem.value
         return (
@@ -173,51 +173,13 @@ export function Sidebar({
     </div>
   )
 
-  const renderGroupCollapsed = (group: GroupItem, handleSelect: (tab: string) => void) => (
-    <Button
-      key={group.id}
-      variant={group.isActive ? "default" : "ghost"}
-      className={cn(
-        "w-full justify-center gap-0 h-10",
-        group.isActive && "bg-primary text-primary-foreground hover:bg-primary/90"
-      )}
-      title={group.label}
-      onClick={() => handleSelect(group.defaultTab)}
-    >
-      <group.icon className="h-5 w-5 flex-shrink-0" />
-    </Button>
-  )
-
-  const renderStandaloneCollapsed = (
-    icon: React.ElementType,
-    label: string,
-    isActive: boolean,
-    tab: string,
-    handleSelect: (tab: string) => void
-  ) => (
-    <Button
-      variant={isActive ? "default" : "ghost"}
-      className={cn(
-        "w-full justify-center gap-0 h-10",
-        isActive && "bg-primary text-primary-foreground hover:bg-primary/90"
-      )}
-      title={label}
-      onClick={() => handleSelect(tab)}
-    >
-      {(() => {
-        const Icon = icon
-        return <Icon className="h-5 w-5 flex-shrink-0" />
-      })()}
-    </Button>
-  )
-
   const handleSelect = (tab: string) => handleTabChangeAndClose(tab)
 
   // -- Sidebar inner content --
   const sidebarContent = (
     <>
       {/* Header */}
-      <div className="flex h-16 items-center border-b px-4">
+      <div className="flex h-16 items-center px-4">
         {collapsed ? (
           <div className="flex w-full items-center justify-center">
             <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
@@ -250,17 +212,57 @@ export function Sidebar({
       <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
         {collapsed ? (
           <>
-            {/* Collapsed: icons only */}
-            <div className="space-y-2">
-              {groups.map((group) => renderGroupCollapsed(group, handleSelect))}
+            {/* Collapsed: all individual sub-item icons */}
+            <div className="space-y-1">
+              {gallerySubItems.map((item) => (
+                <Button
+                  key={item.value}
+                  variant={activeTab === item.value ? "default" : "ghost"}
+                  className={cn(
+                    "w-full justify-center gap-0 h-10",
+                    activeTab === item.value && "bg-primary text-primary-foreground hover:bg-primary/90"
+                  )}
+                  title={item.label}
+                  onClick={() => handleSelect(item.value)}
+                >
+                  <item.icon className="h-5 w-5 flex-shrink-0" />
+                </Button>
+              ))}
             </div>
 
-            <div className="space-y-2 mt-4">
-              {renderStandaloneCollapsed(Trash2, t("tabs.trash"), isTrashActive, "gallery-trash", handleSelect)}
+            <div className="space-y-1 mt-2">
+              {toolsSubItems.map((item) => (
+                <Button
+                  key={item.value}
+                  variant={activeTab === item.value ? "default" : "ghost"}
+                  className={cn(
+                    "w-full justify-center gap-0 h-10",
+                    activeTab === item.value && "bg-primary text-primary-foreground hover:bg-primary/90"
+                  )}
+                  title={item.label}
+                  onClick={() => handleSelect(item.value)}
+                >
+                  <item.icon className="h-5 w-5 flex-shrink-0" />
+                </Button>
+              ))}
+            </div>
+
+            <div className="space-y-1 mt-2">
+              <Button
+                variant={isTrashActive ? "default" : "ghost"}
+                className={cn(
+                  "w-full justify-center gap-0 h-10",
+                  isTrashActive && "bg-primary text-primary-foreground hover:bg-primary/90"
+                )}
+                title={t("tabs.trash")}
+                onClick={() => handleSelect("gallery-trash")}
+              >
+                <Trash2 className="h-5 w-5 flex-shrink-0" />
+              </Button>
             </div>
 
             {user?.role === "admin" && (
-              <div className="mt-4 space-y-2">
+              <div className="mt-2 space-y-1">
                 {adminSubItems.map((item) => (
                   <Button
                     key={item.value}
@@ -332,7 +334,7 @@ export function Sidebar({
       </nav>
 
       {/* Collapse toggle (desktop only) */}
-      <div className="hidden md:block border-t px-2 py-2">
+      <div className="hidden md:block px-2 py-2">
         <Button
           variant="ghost"
           size="sm"
