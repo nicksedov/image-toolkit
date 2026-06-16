@@ -104,7 +104,7 @@ function MapBoundsController() {
       const width = container.clientWidth
       const height = container.clientHeight
       // World is 256px at zoom 0; find the zoom where world fits both dimensions
-      const minZoom = Math.ceil(Math.max(Math.log2(width / 256), Math.log2(height / 256)))
+      const minZoom = Math.ceil(Math.min(Math.log2(width / 256), Math.log2(height / 256)))
       map.setMinZoom(minZoom)
       // Re-fit view if current zoom is now below the new minimum
       if (map.getZoom() < minZoom) {
