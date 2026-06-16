@@ -213,6 +213,7 @@ export const translationsEn = {
 
   // Metadata panel
   "metadata.title": "Image Details",
+  "metadata.file": "File",
   "metadata.dimensions": "Dimensions",
   "metadata.camera": "Camera",
   "metadata.lens": "Lens",
@@ -231,6 +232,7 @@ export const translationsEn = {
   "metadata.noData": "No metadata available",
   "metadata.loading": "Loading metadata...",
   "metadata.sectionCamera": "Camera",
+  "metadata.sectionFile": "File",
   "metadata.sectionImage": "Image",
   "metadata.sectionLocation": "Location",
   "metadata.sectionTechnical": "Technical",
@@ -583,7 +585,7 @@ export const translationsEn = {
   "api.gallery.conflict": "Gallery folder conflict detected",
 
   // LLM OCR messages
-  "llm_ocr.title": "Text Recognition (VL LLM)",
+  "llm_ocr.title": "Text Recognition",
   "llm_ocr.description": "Use VL LLM for high-quality text recognition",
   "llm_ocr.recognizeButton": "Recognize Text",
   "llm_ocr.recognizing": "Recognizing...",
@@ -595,6 +597,8 @@ export const translationsEn = {
   "llm_ocr.provider": "Provider",
   "llm_ocr.model": "Model",
   "llm_ocr.filePath": "File path",
+  "llm_ocr.sectionResult": "Result",
+  "llm_ocr.sectionDetected": "Detected",
   "llm_ocr.settings": "LLM Settings",
   "llm_ocr.vlSettings": "VL LLM Settings",
   "llm_ocr.vlSettingsDescription": "Configure AI: image description, tags, OCR, visual Q&A",

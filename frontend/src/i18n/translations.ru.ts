@@ -213,6 +213,7 @@ export const translationsRu = {
 
   // Metadata panel
   "metadata.title": "Информация об изображении",
+  "metadata.file": "Файл",
   "metadata.dimensions": "Размеры",
   "metadata.camera": "Камера",
   "metadata.lens": "Объектив",
@@ -231,6 +232,7 @@ export const translationsRu = {
   "metadata.noData": "Метаданные недоступны",
   "metadata.loading": "Загрузка метаданных...",
   "metadata.sectionCamera": "Камера",
+  "metadata.sectionFile": "Файл",
   "metadata.sectionImage": "Изображение",
   "metadata.sectionLocation": "Местоположение",
   "metadata.sectionTechnical": "Техническая информация",
@@ -493,7 +495,7 @@ export const translationsRu = {
   "api.llm_ocr.no_recognition": "Данные распознавания отсутствуют",
 
   // LLM OCR messages
-  "llm_ocr.title": "Распознавание текста (VL LLM)",
+  "llm_ocr.title": "Распознавание текста",
   "llm_ocr.description": "Используйте VL LLM для качественного распознавания текста",
   "llm_ocr.recognizeButton": "Распознать текст",
   "llm_ocr.recognizing": "Распознавание...",
@@ -505,6 +507,8 @@ export const translationsRu = {
   "llm_ocr.provider": "Провайдер",
   "llm_ocr.model": "Модель",
   "llm_ocr.filePath": "Путь к файлу",
+  "llm_ocr.sectionResult": "Результат",
+  "llm_ocr.sectionDetected": "Обнаружено",
   "llm_ocr.settings": "Настройки LLM",
   "llm_ocr.vlSettings": "Настройки VL LLM",
   "llm_ocr.vlSettingsDescription": "Настройка ИИ: описание, теги, OCR, визуальные ответы",

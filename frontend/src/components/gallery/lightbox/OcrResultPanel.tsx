@@ -1,10 +1,10 @@
-import { Loader2, Wand2, Download } from "lucide-react"
+import { Loader2, Wand2, Download, ScanText, Sparkles } from "lucide-react"
 import { useTranslation } from "@/i18n"
 import type { OcrDataResponse, LlmOcrDataResponse } from "@/types"
 import { OcrMarkdownRenderer } from "./OcrMarkdownRenderer"
+import { Button } from "@/components/ui/button"
 
 interface OcrResultPanelProps {
-  imagePath: string | null
   ocrData: OcrDataResponse | null
   llmData: LlmOcrDataResponse | null
   recognizing: boolean
@@ -28,7 +28,6 @@ function detectLanguageFromOcr(ocrData: OcrDataResponse): string {
 }
 
 export function OcrResultPanel({
-  imagePath,
   ocrData,
   llmData,
   recognizing,
@@ -45,8 +44,8 @@ export function OcrResultPanel({
     return (
       <div className={panelClass}>
         <div className="flex flex-col items-center justify-center h-full">
-          <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-          <p className="text-lg font-medium">{t("llm_ocr.recognizing")}</p>
+          <Loader2 className="h-8 w-8 animate-spin text-primary mb-3" />
+          <p className="text-sm font-medium">{t("llm_ocr.recognizing")}</p>
         </div>
       </div>
     )
@@ -55,64 +54,56 @@ export function OcrResultPanel({
   if (llmData?.found && llmData.success && llmData.markdownContent) {
     return (
       <div className={panelClass}>
-        <div className="flex-shrink-0 space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold">{t("llm_ocr.title")}</h3>
-            <button
-              onClick={onRecognize}
-              className="flex items-center gap-2 px-3 py-1.5 text-sm bg-primary text-primary-foreground rounded hover:bg-primary/90"
-            >
-              <Wand2 className="h-4 w-4" />
-              {t("llm_ocr.recognizeButton")}
-            </button>
-          </div>
+        <div className="h-full overflow-y-auto">
+          <div className="space-y-4">
+            <h3 className="text-sm font-semibold mb-3">{t("llm_ocr.title")}</h3>
 
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">{t("llm_ocr.language")}:</span>
-              <span className="font-medium">{llmData.language === "ru" ? "Русский" : "English"}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">{t("llm_ocr.provider")}:</span>
-              <span className="font-medium">{llmData.provider}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">{t("llm_ocr.model")}:</span>
-              <span className="font-medium">{llmData.model}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">{t("llm_ocr.processingTime")}:</span>
-              <span className="font-medium">{formatProcessingTime(llmData.processingTimeMs)}</span>
-            </div>
-            {imagePath && (
-              <div>
-                <span className="text-muted-foreground">{t("llm_ocr.filePath")}:</span>
-                <p className="text-xs break-all mt-1">{imagePath}</p>
+            {/* Result section */}
+            <div>
+              <div className="flex items-center gap-1.5 mb-2">
+                <Sparkles className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t("llm_ocr.sectionResult")}</span>
               </div>
-            )}
-          </div>
+              <div className="space-y-1.5">
+                <div className="flex justify-between items-baseline gap-2 text-xs">
+                  <span className="text-muted-foreground shrink-0">{t("llm_ocr.language")}</span>
+                  <span className="font-medium text-right truncate">{llmData.language === "ru" ? "Русский" : "English"}</span>
+                </div>
+                <div className="flex justify-between items-baseline gap-2 text-xs">
+                  <span className="text-muted-foreground shrink-0">{t("llm_ocr.provider")}</span>
+                  <span className="font-medium text-right truncate">{llmData.provider}</span>
+                </div>
+                <div className="flex justify-between items-baseline gap-2 text-xs">
+                  <span className="text-muted-foreground shrink-0">{t("llm_ocr.model")}</span>
+                  <span className="font-medium text-right truncate">{llmData.model}</span>
+                </div>
+                <div className="flex justify-between items-baseline gap-2 text-xs">
+                  <span className="text-muted-foreground shrink-0">{t("llm_ocr.processingTime")}</span>
+                  <span className="font-medium text-right truncate">{formatProcessingTime(llmData.processingTimeMs)}</span>
+                </div>
+              </div>
+            </div>
 
-          <div className="flex gap-2">
-            <button
-              onClick={onSaveMd}
-              className="flex items-center gap-2 px-3 py-1.5 text-sm bg-primary/10 hover:bg-primary/20 text-primary rounded transition-colors"
-            >
-              <Download className="h-3.5 w-3.5" />
-              Save as .md
-            </button>
-            <button
-              onClick={onSaveHtml}
-              className="flex items-center gap-2 px-3 py-1.5 text-sm bg-primary/10 hover:bg-primary/20 text-primary rounded transition-colors"
-            >
-              <Download className="h-3.5 w-3.5" />
-              Save as .html
-            </button>
-          </div>
-        </div>
+            {/* Actions */}
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" className="flex-1 text-xs" onClick={onSaveMd}>
+                <Download className="h-3.5 w-3.5 mr-1.5" />
+                .md
+              </Button>
+              <Button variant="outline" size="sm" className="flex-1 text-xs" onClick={onSaveHtml}>
+                <Download className="h-3.5 w-3.5 mr-1.5" />
+                .html
+              </Button>
+              <Button variant="outline" size="sm" className="text-xs" onClick={onRecognize}>
+                <Wand2 className="h-3.5 w-3.5 mr-1.5" />
+                {t("llm_ocr.recognizeButton")}
+              </Button>
+            </div>
 
-        <div className="flex-1 mt-4 overflow-y-auto min-h-0">
-          <div className="p-4 bg-muted rounded-lg markdown-body">
-            <OcrMarkdownRenderer content={llmData.markdownContent} />
+            {/* Markdown content */}
+            <div className="p-4 bg-muted rounded-lg markdown-body">
+              <OcrMarkdownRenderer content={llmData.markdownContent} />
+            </div>
           </div>
         </div>
       </div>
@@ -122,16 +113,15 @@ export function OcrResultPanel({
   if (llmData?.error) {
     return (
       <div className={panelClass}>
-        <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-destructive">{t("llm_ocr.failed")}</h3>
-          <p className="text-sm text-muted-foreground">{llmData.error}</p>
-          <button
-            onClick={onRecognize}
-            className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90"
-          >
-            <Wand2 className="h-4 w-4" />
-            {t("llm_ocr.recognizeButton")}
-          </button>
+        <div className="h-full overflow-y-auto">
+          <div className="space-y-4">
+            <h3 className="text-sm font-semibold mb-3">{t("llm_ocr.title")}</h3>
+            <p className="text-xs text-destructive">{llmData.error}</p>
+            <Button variant="outline" size="sm" className="w-full text-xs" onClick={onRecognize}>
+              <Wand2 className="h-3.5 w-3.5 mr-1.5" />
+              {t("llm_ocr.recognizeButton")}
+            </Button>
+          </div>
         </div>
       </div>
     )
@@ -139,35 +129,34 @@ export function OcrResultPanel({
 
   return (
     <div className={panelClass}>
-      <div className="space-y-4">
-        <h3 className="text-lg font-semibold">{t("llm_ocr.title")}</h3>
+      <div className="h-full overflow-y-auto">
+        <div className="space-y-4">
+          <h3 className="text-sm font-semibold mb-3">{t("llm_ocr.title")}</h3>
 
-        <div className="space-y-2 text-sm">
-          {imagePath && (
-            <div>
-              <span className="text-muted-foreground">{t("llm_ocr.filePath")}:</span>
-              <p className="text-xs break-all mt-1">{imagePath}</p>
-            </div>
-          )}
           {ocrData && (
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">{t("llm_ocr.language")}:</span>
-              <span className="font-medium">{detectLanguageFromOcr(ocrData)}</span>
+            <div>
+              <div className="flex items-center gap-1.5 mb-2">
+                <ScanText className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t("llm_ocr.sectionDetected")}</span>
+              </div>
+              <div className="space-y-1.5">
+                <div className="flex justify-between items-baseline gap-2 text-xs">
+                  <span className="text-muted-foreground shrink-0">{t("llm_ocr.language")}</span>
+                  <span className="font-medium text-right truncate">{detectLanguageFromOcr(ocrData)}</span>
+                </div>
+              </div>
             </div>
           )}
+
+          <Button variant="outline" size="sm" className="w-full text-xs" onClick={onRecognize}>
+            <Wand2 className="h-3.5 w-3.5 mr-1.5" />
+            {t("llm_ocr.recognizeButton")}
+          </Button>
+
+          <p className="text-xs text-muted-foreground text-center">
+            {t("llm_ocr.description")}
+          </p>
         </div>
-
-        <button
-          onClick={onRecognize}
-          className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
-        >
-          <Wand2 className="h-5 w-5" />
-          {t("llm_ocr.recognizeButton")}
-        </button>
-
-        <p className="text-xs text-muted-foreground text-center">
-          {t("llm_ocr.description")}
-        </p>
       </div>
     </div>
   )

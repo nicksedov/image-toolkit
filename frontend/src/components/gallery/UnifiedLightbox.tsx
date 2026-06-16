@@ -14,7 +14,7 @@ import { useChatAgent } from "@/hooks/useChatAgent"
 import { useImageMetadata } from "@/hooks/useImageMetadata"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
-import { Camera, MapPin, MapPinPlus, Image as ImageIcon, Pencil } from "lucide-react"
+import { Camera, MapPin, MapPinPlus, Image as ImageIcon, Pencil, FileText } from "lucide-react"
 import { GeoSearchForm } from "./GeoSearchForm"
 import { UnderlineTabs } from "@/components/ui/underline-tabs"
 import type { ImageMetadataDTO } from "@/types"
@@ -229,7 +229,6 @@ export function UnifiedLightbox({
             )}
             {activeMode === "ocr" && (
               <OcrResultPanel
-                imagePath={imagePath}
                 ocrData={ocrData}
                 llmData={llmData}
                 recognizing={recognizing}
@@ -307,6 +306,16 @@ function ExifPanelContent({
       ) : (
         <div className="space-y-4">
           <p className="text-xs text-muted-foreground">{t("metadata.noData")}</p>
+          <div>
+            <div className="flex items-center gap-1.5 mb-2">
+              <span className="text-muted-foreground"><FileText className="h-3.5 w-3.5" /></span>
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t("metadata.sectionFile")}</span>
+            </div>
+            <div className="flex justify-between items-baseline gap-2 text-xs">
+              <span className="text-muted-foreground shrink-0">{t("metadata.file")}</span>
+              <span className="font-medium text-right break-all" title={imagePath}>{imagePath}</span>
+            </div>
+          </div>
           <div>
             <div className="flex items-center gap-1.5 mb-2">
               <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
@@ -400,6 +409,22 @@ function MetadataContent({ metadata, imagePath, showGeoForm, onShowGeoForm, onGp
 
   return (
     <div className="space-y-4">
+      {/* File section */}
+      <div>
+        <div className="flex items-center gap-1.5 mb-2">
+          <span className="text-muted-foreground"><FileText className="h-3.5 w-3.5" /></span>
+          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t("metadata.sectionFile")}</span>
+        </div>
+        <div className="space-y-1.5">
+          <div className="flex justify-between items-baseline gap-2 text-xs">
+            <span className="text-muted-foreground shrink-0">{t("metadata.file")}</span>
+            <span className="font-medium text-right break-all" title={imagePath}>
+              {imagePath}
+            </span>
+          </div>
+        </div>
+      </div>
+
       {imageFields.length > 0 && (
         <MetadataSection icon={<ImageIcon className="h-3.5 w-3.5" />} title={t("metadata.sectionImage")} fields={imageFields} />
       )}
