@@ -193,7 +193,6 @@ export function Sidebar({
             </div>
             <div className="overflow-hidden">
               <h1 className="truncate font-semibold text-lg">{t("header.title")}</h1>
-              <p className="truncate text-xs text-muted-foreground">{t("header.subtitle")}</p>
             </div>
           </div>
         )}

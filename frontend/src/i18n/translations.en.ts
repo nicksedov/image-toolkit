@@ -1,7 +1,6 @@
 export const translationsEn = {
   // Header
-  "header.title": "Image Toolkit",
-  "header.subtitle": "All-in-one toolkit for image management",
+  "header.title": "PixelCloud",
   "header.toggleTheme": "Toggle theme",
   "header.toggleLanguage": "Toggle language",
   "header.menu": "Menu",
