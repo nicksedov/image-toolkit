@@ -108,7 +108,7 @@ func askAboutImageToolDef() llm.ToolDefinition {
 
 // --- Registration ---
 
-func (s *ImageToolkitMCPServer) registerImageTools() {
+func (s *PixelCloudMCPServer) registerImageTools() {
 	mcp.AddTool(s.server, &mcp.Tool{
 		Name:        "describe_image",
 		Description: "Generate a detailed text description of what is shown in the image",
@@ -132,7 +132,7 @@ func (s *ImageToolkitMCPServer) registerImageTools() {
 
 // --- MCP SDK handlers ---
 
-func (s *ImageToolkitMCPServer) handleDescribeImage(ctx context.Context, req *mcp.CallToolRequest, input DescribeImageInput) (*mcp.CallToolResult, ImageAnalysisOutput, error) {
+func (s *PixelCloudMCPServer) handleDescribeImage(ctx context.Context, req *mcp.CallToolRequest, input DescribeImageInput) (*mcp.CallToolResult, ImageAnalysisOutput, error) {
 	result, err := s.runImageAction(input.ImagePath, "describe", "", input.Language)
 	if err != nil {
 		return nil, ImageAnalysisOutput{}, err
@@ -148,7 +148,7 @@ func (s *ImageToolkitMCPServer) handleDescribeImage(ctx context.Context, req *mc
 	}, output, nil
 }
 
-func (s *ImageToolkitMCPServer) handleRecognizeText(ctx context.Context, req *mcp.CallToolRequest, input RecognizeTextInput) (*mcp.CallToolResult, ImageAnalysisOutput, error) {
+func (s *PixelCloudMCPServer) handleRecognizeText(ctx context.Context, req *mcp.CallToolRequest, input RecognizeTextInput) (*mcp.CallToolResult, ImageAnalysisOutput, error) {
 	result, err := s.runImageAction(input.ImagePath, "recognizeText", "", "en")
 	if err != nil {
 		return nil, ImageAnalysisOutput{}, err
@@ -164,7 +164,7 @@ func (s *ImageToolkitMCPServer) handleRecognizeText(ctx context.Context, req *mc
 	}, output, nil
 }
 
-func (s *ImageToolkitMCPServer) handleGenerateTags(ctx context.Context, req *mcp.CallToolRequest, input GenerateTagsInput) (*mcp.CallToolResult, ImageAnalysisOutput, error) {
+func (s *PixelCloudMCPServer) handleGenerateTags(ctx context.Context, req *mcp.CallToolRequest, input GenerateTagsInput) (*mcp.CallToolResult, ImageAnalysisOutput, error) {
 	result, err := s.runImageAction(input.ImagePath, "tags", "", "en")
 	if err != nil {
 		return nil, ImageAnalysisOutput{}, err
@@ -182,7 +182,7 @@ func (s *ImageToolkitMCPServer) handleGenerateTags(ctx context.Context, req *mcp
 	}, output, nil
 }
 
-func (s *ImageToolkitMCPServer) handleAskAboutImage(ctx context.Context, req *mcp.CallToolRequest, input AskAboutImageInput) (*mcp.CallToolResult, ImageAnalysisOutput, error) {
+func (s *PixelCloudMCPServer) handleAskAboutImage(ctx context.Context, req *mcp.CallToolRequest, input AskAboutImageInput) (*mcp.CallToolResult, ImageAnalysisOutput, error) {
 	lang := input.Language
 	if lang == "" {
 		lang = "en"
@@ -204,7 +204,7 @@ func (s *ImageToolkitMCPServer) handleAskAboutImage(ctx context.Context, req *mc
 
 // --- Direct execution methods (for agent) ---
 
-func (s *ImageToolkitMCPServer) executeDescribeImage(ctx context.Context, args json.RawMessage) (string, error) {
+func (s *PixelCloudMCPServer) executeDescribeImage(ctx context.Context, args json.RawMessage) (string, error) {
 	var input DescribeImageInput
 	if err := json.Unmarshal(args, &input); err != nil {
 		return "", fmt.Errorf("invalid arguments: %w", err)
@@ -216,7 +216,7 @@ func (s *ImageToolkitMCPServer) executeDescribeImage(ctx context.Context, args j
 	return result.Result, nil
 }
 
-func (s *ImageToolkitMCPServer) executeRecognizeText(ctx context.Context, args json.RawMessage) (string, error) {
+func (s *PixelCloudMCPServer) executeRecognizeText(ctx context.Context, args json.RawMessage) (string, error) {
 	var input RecognizeTextInput
 	if err := json.Unmarshal(args, &input); err != nil {
 		return "", fmt.Errorf("invalid arguments: %w", err)
@@ -228,7 +228,7 @@ func (s *ImageToolkitMCPServer) executeRecognizeText(ctx context.Context, args j
 	return result.Result, nil
 }
 
-func (s *ImageToolkitMCPServer) executeGenerateTags(ctx context.Context, args json.RawMessage) (string, error) {
+func (s *PixelCloudMCPServer) executeGenerateTags(ctx context.Context, args json.RawMessage) (string, error) {
 	var input GenerateTagsInput
 	if err := json.Unmarshal(args, &input); err != nil {
 		return "", fmt.Errorf("invalid arguments: %w", err)
@@ -240,7 +240,7 @@ func (s *ImageToolkitMCPServer) executeGenerateTags(ctx context.Context, args js
 	return strings.Join(result.Tags, ", "), nil
 }
 
-func (s *ImageToolkitMCPServer) executeAskAboutImage(ctx context.Context, args json.RawMessage) (string, error) {
+func (s *PixelCloudMCPServer) executeAskAboutImage(ctx context.Context, args json.RawMessage) (string, error) {
 	var input AskAboutImageInput
 	if err := json.Unmarshal(args, &input); err != nil {
 		return "", fmt.Errorf("invalid arguments: %w", err)
@@ -269,7 +269,7 @@ type imageActionResult struct {
 // runImageAction executes an AI action on an image identified by its path.
 // For the "tags" action, it checks the image_tags cache first and saves
 // newly generated tags back to the cache.
-func (s *ImageToolkitMCPServer) runImageAction(imagePath, action, question, language string) (*imageActionResult, error) {
+func (s *PixelCloudMCPServer) runImageAction(imagePath, action, question, language string) (*imageActionResult, error) {
 	if language == "" {
 		language = "en"
 	}
@@ -352,5 +352,3 @@ func (s *ImageToolkitMCPServer) runImageAction(imagePath, action, question, lang
 
 	return result, nil
 }
-
-

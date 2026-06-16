@@ -12,9 +12,9 @@ import (
 
 // AgentConfig holds agent configuration.
 type AgentConfig struct {
-	MaxTokens              int // Token threshold for summarization (default 8000)
-	MaxToolRounds          int // Maximum tool-use iterations per message (default 10)
-	MaxConversationTokens  int // Max tokens per conversation before exhaustion (default 128000)
+	MaxTokens             int // Token threshold for summarization (default 8000)
+	MaxToolRounds         int // Maximum tool-use iterations per message (default 10)
+	MaxConversationTokens int // Max tokens per conversation before exhaustion (default 128000)
 }
 
 // DefaultAgentConfig returns sensible defaults.
@@ -55,7 +55,7 @@ type ToolEvent struct {
 type ToolEventHandler func(event ToolEvent)
 
 // ToolProvider supplies tool definitions and execution to the agent.
-// Implemented by mcpserver.ImageToolkitMCPServer.
+// Implemented by mcpserver.PixelCloudMCPServer.
 type ToolProvider interface {
 	ToolDefinitions() []llm.ToolDefinition
 	ExecuteTool(ctx context.Context, name string, arguments json.RawMessage) (string, error)
@@ -268,7 +268,7 @@ func (a *Agent) ProcessMessage(ctx context.Context, convID uint, userMessage str
 
 // buildSystemPrompt creates the system prompt for the agent based on conversation context.
 func (a *Agent) buildSystemPrompt(conv *domain.Conversation) string {
-	prompt := `You are an AI assistant for the Image Toolkit application. You help users analyze, search, and understand their image collection.
+	prompt := `You are an AI assistant for the PixelCloud application. You help users analyze, search, and understand their image collection.
 
 You have access to the following tools:
 - describe_image: Generate a detailed description of an image
