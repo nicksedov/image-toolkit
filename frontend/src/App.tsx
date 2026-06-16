@@ -66,6 +66,22 @@ export default function App() {
     }
   }, [isAuthenticated])
 
+  const handleTabChange = useCallback((tab: string) => {
+    setActiveTab(tab as TabValue)
+  }, [])
+
+  const handleToggleCollapse = useCallback(() => {
+    setSidebarCollapsed((v) => !v)
+  }, [])
+
+  const handleMobileMenuToggle = useCallback(() => {
+    setMobileMenuOpen((v) => !v)
+  }, [])
+
+  const handleMobileMenuClose = useCallback(() => {
+    setMobileMenuOpen(false)
+  }, [])
+
   // Loading state
   if (isLoadingAuth || (isAuthenticated && (isCheckingGallery || isLoadingSettings))) {
     return (
@@ -95,25 +111,6 @@ export default function App() {
       </>
     )
   }
-
-  // Bootstrap setup redirect (handled by backend redirect, but we can also show a message)
-  // This case should typically be handled via the bootstrap login flow
-
-  const handleTabChange = (tab: string) => {
-    setActiveTab(tab as TabValue)
-  }
-
-  const handleToggleCollapse = useCallback(() => {
-    setSidebarCollapsed((v) => !v)
-  }, [])
-
-  const handleMobileMenuToggle = useCallback(() => {
-    setMobileMenuOpen((v) => !v)
-  }, [])
-
-  const handleMobileMenuClose = useCallback(() => {
-    setMobileMenuOpen(false)
-  }, [])
 
   return (
     <div className="flex min-h-screen bg-background">
