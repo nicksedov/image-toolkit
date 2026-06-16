@@ -81,6 +81,7 @@ func (s *Server) SetupRouter(authMiddleware *middleware.AuthMiddleware, csrfProt
 			protected.GET("/ocr-image", s.handleServeOcrImage)
 			protected.GET("/settings", s.handleGetSettings)
 			protected.PUT("/settings", s.handleUpdateSettings)
+			protected.GET("/sync-status", s.handleGetSyncStatus)
 			protected.GET("/user-settings", s.handleGetUserSettings)
 			protected.PUT("/user-settings", s.handleUpdateUserSettings)
 			protected.GET("/trash-info", s.handleGetTrashInfo)
@@ -112,6 +113,7 @@ func (s *Server) SetupRouter(authMiddleware *middleware.AuthMiddleware, csrfProt
 			protected.GET("/llm/recognize-status", s.handleLlmRecognizeStatus)
 			protected.GET("/llm/recognition", s.handleGetLlmRecognition)
 			protected.GET("/llm/models", s.handleGetLlmModels)
+			protected.POST("/llm/embedding/probe", s.handleProbeEmbeddingDimension)
 
 			// AI Assistant endpoints
 			protected.POST("/ai/action", s.handleAiAction)

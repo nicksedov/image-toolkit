@@ -1,5 +1,7 @@
 package dto
 
+import "time"
+
 // --- Duplicates API ---
 
 // DuplicatesResponse is the JSON response for GET /api/duplicates
@@ -190,13 +192,35 @@ type GalleryImagesResponse struct {
 
 // AppSettingsDTO is the JSON response for GET /api/settings
 type AppSettingsDTO struct {
-	TrashDir              string `json:"trashDir"`
-	ThumbnailCachePath    string `json:"thumbnailCachePath,omitempty"`
-	ThumbnailCacheSize    int    `json:"thumbnailCacheSize,omitempty"`
-	OcrConcurrentRequests int    `json:"ocrConcurrentRequests,omitempty"`
-	DailySyncEnabled      bool   `json:"dailySyncEnabled"`
-	DailySyncHour         int    `json:"dailySyncHour"`
-	DailySyncMinute       int    `json:"dailySyncMinute"`
+	TrashDir              string     `json:"trashDir"`
+	ThumbnailCachePath    string     `json:"thumbnailCachePath,omitempty"`
+	ThumbnailCacheSize    int        `json:"thumbnailCacheSize,omitempty"`
+	OcrConcurrentRequests int        `json:"ocrConcurrentRequests,omitempty"`
+	SyncDays              string     `json:"syncDays"`
+	DailySyncHour         int        `json:"dailySyncHour"`
+	DailySyncMinute       int        `json:"dailySyncMinute"`
+	SyncTimezoneOffset    int        `json:"syncTimezoneOffset"`
+	LastSyncAt            *time.Time `json:"lastSyncAt,omitempty"`
+	LastSyncNew           int        `json:"lastSyncNew"`
+	LastSyncUpdated       int        `json:"lastSyncUpdated"`
+	LastSyncDeleted       int        `json:"lastSyncDeleted"`
+	LastSyncThumbnails    int        `json:"lastSyncThumbnails"`
+}
+
+// SyncStatusResponse is the JSON response for GET /api/sync-status.
+// NextRunAt and LastSyncAt are formatted as ISO 8601 strings in the user's timezone
+// to avoid browser timezone double-conversion.
+type SyncStatusResponse struct {
+	Running            bool   `json:"running"`
+	SyncInProgress     bool   `json:"syncInProgress"`
+	NextRunAt          string `json:"nextRunAt,omitempty"`
+	LastSyncAt         string `json:"lastSyncAt,omitempty"`
+	LastSyncNew        int    `json:"lastSyncNew"`
+	LastSyncUpdated    int    `json:"lastSyncUpdated"`
+	LastSyncDeleted    int    `json:"lastSyncDeleted"`
+	LastSyncThumbnails int    `json:"lastSyncThumbnails"`
+	ProcessedFiles     int    `json:"processedFiles"`
+	TotalFiles         int    `json:"totalFiles"`
 }
 
 // UserSettingsDTO is the JSON response for user settings
@@ -210,9 +234,10 @@ type UpdateSettingsRequest struct {
 	TrashDir              *string `json:"trashDir"`
 	ThumbnailCachePath    *string `json:"thumbnailCachePath,omitempty"`
 	OcrConcurrentRequests *int    `json:"ocrConcurrentRequests,omitempty"`
-	DailySyncEnabled      *bool   `json:"dailySyncEnabled,omitempty"`
+	SyncDays              *string `json:"syncDays,omitempty"`
 	DailySyncHour         *int    `json:"dailySyncHour,omitempty"`
 	DailySyncMinute       *int    `json:"dailySyncMinute,omitempty"`
+	SyncTimezoneOffset    *int    `json:"syncTimezoneOffset,omitempty"`
 }
 
 // UpdateUserSettingsRequest is the JSON request for PUT /api/user-settings
@@ -460,6 +485,7 @@ type LlmSettingsResponse struct {
 	EmbeddingProviderAlias string          `json:"embeddingProviderAlias"`
 	EmbeddingModel         string          `json:"embeddingModel"`
 	EmbeddingDimension     int             `json:"embeddingDimension"`
+	EmbeddingBatchSize     int             `json:"embeddingBatchSize"`
 	Providers             []LlmProviderDTO `json:"providers"`
 }
 
@@ -475,6 +501,18 @@ type UpdateLlmSettingsRequest struct {
 	EmbeddingProviderAlias *string `json:"embeddingProviderAlias,omitempty"`
 	EmbeddingModel         *string `json:"embeddingModel,omitempty"`
 	EmbeddingDimension     *int    `json:"embeddingDimension,omitempty"`
+	EmbeddingBatchSize     *int    `json:"embeddingBatchSize,omitempty"`
+}
+
+// ProbeEmbeddingDimensionRequest for POST /api/llm/embedding/probe
+type ProbeEmbeddingDimensionRequest struct {
+	ProviderAlias string `json:"providerAlias" binding:"required"`
+	Model         string `json:"model" binding:"required"`
+}
+
+// ProbeEmbeddingDimensionResponse for POST /api/llm/embedding/probe
+type ProbeEmbeddingDimensionResponse struct {
+	Dimension int `json:"dimension"`
 }
 
 // CreateLlmProviderRequest for POST /api/llm/providers

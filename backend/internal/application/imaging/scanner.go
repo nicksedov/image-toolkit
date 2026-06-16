@@ -47,12 +47,51 @@ type hashResult struct {
 	existing *domain.ImageFile
 }
 
+// ScanBatchResult holds the file records affected by a scan operation,
+// allowing the caller to emit post-processing events.
+type ScanBatchResult struct {
+	Created []domain.ImageFile // newly inserted records (with IDs populated)
+	Updated []updatedFile      // updated records with content-change flag
+	Deleted []domain.ImageFile // cascade-deleted records
+}
+
+// updatedFile holds an updated ImageFile and whether its content (hash) changed.
+type updatedFile struct {
+	File           domain.ImageFile
+	ContentChanged bool
+}
+
+// flushBatch writes accumulated create/update records to the database, resets the slices,
+// and returns a ScanBatchResult with the affected records.
+func flushBatch(db *gorm.DB, toCreate *[]domain.ImageFile, toUpdate *[]domain.ImageFile) ScanBatchResult {
+	var result ScanBatchResult
+
+	if len(*toCreate) > 0 {
+		db.Create(toCreate)
+		result.Created = append(result.Created, *toCreate...)
+		*toCreate = (*toCreate)[:0]
+	}
+	for _, f := range *toUpdate {
+		contentChanged := true // safe default: treat as content-changed
+		if f.Hash != "" {
+			var oldHash string
+			db.Model(&domain.ImageFile{}).Select("hash").Where("id = ?", f.ID).Scan(&oldHash)
+			contentChanged = oldHash != f.Hash
+		}
+		db.Save(&f)
+		result.Updated = append(result.Updated, updatedFile{File: f, ContentChanged: contentChanged})
+	}
+	*toUpdate = (*toUpdate)[:0]
+
+	return result
+}
+
 // scanDirectory scans a directory for image files and updates the database.
 // numWorkers controls the number of parallel goroutines used for file hashing.
-func scanDirectory(db *gorm.DB, dirPath string, progressChan chan<- string, numWorkers int) error {
+func scanDirectory(db *gorm.DB, dirPath string, progressChan chan<- string, numWorkers int) (ScanBatchResult, error) {
 	absPath, err := filepath.Abs(dirPath)
 	if err != nil {
-		return fmt.Errorf("failed to get absolute path: %w", err)
+		return ScanBatchResult{}, fmt.Errorf("failed to get absolute path: %w", err)
 	}
 
 	if numWorkers <= 0 {
@@ -81,11 +120,11 @@ func scanDirectory(db *gorm.DB, dirPath string, progressChan chan<- string, numW
 		return nil
 	})
 	if err != nil {
-		return err
+		return ScanBatchResult{}, err
 	}
 
 	if len(allFiles) == 0 {
-		return nil
+		return ScanBatchResult{}, nil
 	}
 
 	// Phase 2: Batch query existing files from DB to build a cache map
@@ -120,7 +159,7 @@ func scanDirectory(db *gorm.DB, dirPath string, progressChan chan<- string, numW
 	}
 
 	if len(filesToHash) == 0 {
-		return nil
+		return ScanBatchResult{}, nil
 	}
 
 	// Phase 4: Hash files in parallel using a worker pool
@@ -166,6 +205,7 @@ func scanDirectory(db *gorm.DB, dirPath string, progressChan chan<- string, numW
 	const writeBatchSize = 50
 	var toCreate []domain.ImageFile
 	var toUpdate []domain.ImageFile
+	var batch ScanBatchResult
 
 	for result := range results {
 		if result.err != nil {
@@ -190,17 +230,22 @@ func scanDirectory(db *gorm.DB, dirPath string, progressChan chan<- string, numW
 		}
 
 		if len(toCreate)+len(toUpdate) >= writeBatchSize {
-			flushDBBatch(db, &toCreate, &toUpdate)
+			b := flushBatch(db, &toCreate, &toUpdate)
+			batch.Created = append(batch.Created, b.Created...)
+			batch.Updated = append(batch.Updated, b.Updated...)
 		}
 	}
 
 	// Flush remaining
-	flushDBBatch(db, &toCreate, &toUpdate)
+	b := flushBatch(db, &toCreate, &toUpdate)
+	batch.Created = append(batch.Created, b.Created...)
+	batch.Updated = append(batch.Updated, b.Updated...)
 
-	return nil
+	return batch, nil
 }
 
-// flushDBBatch writes accumulated create/update records to the database and resets the slices
+// flushDBBatch writes accumulated create/update records to the database and resets the slices.
+// Deprecated: use batchTracker.flush for event-emitting scans.
 func flushDBBatch(db *gorm.DB, toCreate *[]domain.ImageFile, toUpdate *[]domain.ImageFile) {
 	if len(*toCreate) > 0 {
 		db.Create(toCreate)
@@ -217,13 +262,14 @@ func flushDBBatch(db *gorm.DB, toCreate *[]domain.ImageFile, toUpdate *[]domain.
 // It also cleans up records for files that no longer exist on disk.
 // Returns statistics about the scan operation.
 // numWorkers controls the number of parallel goroutines used for file hashing.
-func fastScanGalleryDirectory(db *gorm.DB, dirPath string, progressChan chan<- string, numWorkers int) FastScanResult {
+func fastScanGalleryDirectory(db *gorm.DB, dirPath string, progressChan chan<- string, numWorkers int) (FastScanResult, ScanBatchResult) {
 	stats := FastScanResult{}
+	batch := ScanBatchResult{}
 
 	absPath, err := filepath.Abs(dirPath)
 	if err != nil {
 		progressChan <- "Error: failed to get absolute path: " + err.Error()
-		return stats
+		return stats, batch
 	}
 
 	if numWorkers <= 0 {
@@ -252,11 +298,11 @@ func fastScanGalleryDirectory(db *gorm.DB, dirPath string, progressChan chan<- s
 		return nil
 	})
 	if err != nil {
-		return stats
+		return stats, batch
 	}
 
 	if len(allFiles) == 0 {
-		return stats
+		return stats, batch
 	}
 
 	// Phase 2: Batch query existing files from DB by path to build a cache map
@@ -310,15 +356,16 @@ func fastScanGalleryDirectory(db *gorm.DB, dirPath string, progressChan chan<- s
 
 	for _, ef := range existingFilesInDir {
 		if !checkedIDs[ef.ID] {
-			// This file exists in DB but not on disk - delete it
+			// This file exists in DB but not on disk - cascade delete it and all children
 			progressChan <- "Removing missing file from DB: " + ef.Path
-			db.Delete(&ef)
+			deleteImageFileCascade(db, ef.ID)
 			stats.Deleted++
+			batch.Deleted = append(batch.Deleted, ef)
 		}
 	}
 
 	if len(filesToProcess) == 0 {
-		return stats
+		return stats, batch
 	}
 
 	// Phase 4: Hash files in parallel using a worker pool
@@ -390,17 +437,21 @@ func fastScanGalleryDirectory(db *gorm.DB, dirPath string, progressChan chan<- s
 		}
 
 		if len(toCreate)+len(toUpdate) >= writeBatchSize {
-			flushDBBatch(db, &toCreate, &toUpdate)
+			b := flushBatch(db, &toCreate, &toUpdate)
+			batch.Created = append(batch.Created, b.Created...)
+			batch.Updated = append(batch.Updated, b.Updated...)
 		}
 	}
 
 	// Flush remaining
-	flushDBBatch(db, &toCreate, &toUpdate)
+	b := flushBatch(db, &toCreate, &toUpdate)
+	batch.Created = append(batch.Created, b.Created...)
+	batch.Updated = append(batch.Updated, b.Updated...)
 
 	// Update total checked count (modified + created)
 	stats.TotalChecked = stats.Modified + stats.Created
 
-	return stats
+	return stats, batch
 }
 
 // findDuplicates finds all duplicate groups from the database
@@ -503,17 +554,34 @@ func FindDuplicatesPaginated(db *gorm.DB, offset, limit int) ([]domain.Duplicate
 	return groups, totalGroups, totalFiles, nil
 }
 
-// cleanupMissingFiles removes database entries for files that no longer exist
-func cleanupMissingFiles(db *gorm.DB, progressChan chan<- string) error {
+// deleteImageFileCascade deletes an ImageFile and all its dependent records.
+// Must be used instead of a bare db.Delete(&imageFile) to prevent orphaned child rows.
+func deleteImageFileCascade(db *gorm.DB, imageFileID uint) {
+	db.Where("image_file_id = ?", imageFileID).Delete(&domain.ImageTag{})
+	db.Where("image_file_id = ?", imageFileID).Delete(&domain.OcrLlmRecognition{})
+	// Delete bounding boxes before their parent classifications
+	db.Where("classification_id IN (SELECT id FROM ocr_classifications WHERE image_file_id = ?)", imageFileID).
+		Delete(&domain.OcrBoundingBox{})
+	db.Where("image_file_id = ?", imageFileID).Delete(&domain.OcrClassification{})
+	db.Where("image_file_id = ?", imageFileID).Delete(&domain.TagEmbedding{})
+	db.Where("image_file_id = ?", imageFileID).Delete(&domain.ImageMetadata{})
+	db.Where("id = ?", imageFileID).Delete(&domain.ImageFile{})
+}
+
+// cleanupMissingFiles removes database entries for files that no longer exist.
+// Returns a ScanBatchResult with the deleted file records.
+func cleanupMissingFiles(db *gorm.DB, progressChan chan<- string) (ScanBatchResult, error) {
 	var files []domain.ImageFile
 	db.Find(&files)
+	batch := ScanBatchResult{}
 
 	for _, f := range files {
 		if _, err := os.Stat(f.Path); os.IsNotExist(err) {
 			progressChan <- fmt.Sprintf("Removing missing file from DB: %s", f.Path)
-			db.Delete(&f)
+			deleteImageFileCascade(db, f.ID)
+			batch.Deleted = append(batch.Deleted, f)
 		}
 	}
 
-	return nil
+	return batch, nil
 }

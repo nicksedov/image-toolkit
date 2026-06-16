@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
-import { fetchOCRStatus, startOcrClassification, startOcrClassificationChanges, stopOcrClassification, fetchOcrClassificationStatus, fetchLlmSettings, updateLlmSettings, createLlmProvider, updateLlmProvider, deleteLlmProvider, fetchLlmModels, fetchTagScanStatus, pauseTagScan, resumeTagScan, updateSettings, fetchSettings } from "@/api/endpoints"
+import { fetchOCRStatus, startOcrClassification, startOcrClassificationChanges, stopOcrClassification, fetchOcrClassificationStatus, fetchLlmSettings, updateLlmSettings, createLlmProvider, updateLlmProvider, deleteLlmProvider, fetchLlmModels, fetchTagScanStatus, pauseTagScan, resumeTagScan, updateSettings, fetchSettings, probeEmbeddingDimension } from "@/api/endpoints"
 import { Shield, Loader2, Zap, Wand2, Play, Square, RefreshCw, Plus } from "lucide-react"
 import { useTranslation } from "@/i18n"
 import type { OCRStatus, OcrClassificationStatusResponse, LlmSettingsResponse, LlmProviderDTO, LlmModelDTO, TagScanStatusResponse, LlmProviderType } from "@/types"
@@ -32,6 +32,7 @@ const EMPTY_SETTINGS: LlmSettingsResponse = {
   embeddingProviderAlias: "",
   embeddingModel: "qwen3-embedding:4b",
   embeddingDimension: 1024,
+  embeddingBatchSize: 50,
   providers: [],
 }
 
@@ -73,7 +74,10 @@ export function AdminAnalysisTab() {
   const [embeddingShowModelInput, setEmbeddingShowModelInput] = useState(false)
   const [isEmbeddingFormDirty, setIsEmbeddingFormDirty] = useState(false)
   const [isEmbeddingSaving, setIsEmbeddingSaving] = useState(false)
-  const [embeddingDimension, setEmbeddingDimension] = useState(1024)
+  const [embeddingDimension, setEmbeddingDimension] = useState<number | null>(null)
+  const [embeddingBatchSize, setEmbeddingBatchSize] = useState<number>(50)
+  const [isEmbeddingProbing, setIsEmbeddingProbing] = useState(false)
+  const [embeddingProbeError, setEmbeddingProbeError] = useState<string | null>(null)
  
   // Helper to get current active provider
   const getCurrentProvider = useCallback(
@@ -82,6 +86,22 @@ export function AdminAnalysisTab() {
     },
     [llmSettings.providers, llmSettings.activeProvider]
   )
+
+  // Probe embedding dimension by calling the backend probe endpoint.
+  // The backend also persists the dimension into LlmSettings on success.
+  const probeDimension = useCallback(async (alias: string, model: string) => {
+    if (!alias || !model) return
+    setIsEmbeddingProbing(true)
+    setEmbeddingProbeError(null)
+    try {
+      const result = await probeEmbeddingDimension(alias, model)
+      setEmbeddingDimension(result.dimension)
+    } catch {
+      setEmbeddingProbeError(t("llm_ocr.embeddingDimensionProbeFailed"))
+    } finally {
+      setIsEmbeddingProbing(false)
+    }
+  }, [t])
 
   // Load models for a provider: uses frontend cache if available, otherwise fetches from backend (which uses DB cache).
   // Pass forceRefresh=true to bypass both caches and re-fetch from the LLM provider.
@@ -270,6 +290,7 @@ export function AdminAnalysisTab() {
       setEmbeddingProviderAlias(embAlias)
       setEmbeddingModel(settings.embeddingModel || "qwen3-embedding:4b")
       setEmbeddingDimension(settings.embeddingDimension || 1024)
+      setEmbeddingBatchSize(settings.embeddingBatchSize || 50)
       setIsEmbeddingFormDirty(false)
     } catch {
       setLlmSettings(EMPTY_SETTINGS)
@@ -317,14 +338,24 @@ export function AdminAnalysisTab() {
   const handleEmbeddingProviderChange = useCallback((value: string) => {
     setEmbeddingProviderAlias(value)
     setIsEmbeddingFormDirty(true)
+    setEmbeddingDimension(null)
     loadEmbeddingModelsForProvider(value)
-  }, [loadEmbeddingModelsForProvider])
+    // Re-probe dimension if a model is already selected
+    if (embeddingModel) {
+      probeDimension(value, embeddingModel)
+    }
+  }, [loadEmbeddingModelsForProvider, embeddingModel, probeDimension])
 
   // Embedding model change handler
   const handleEmbeddingModelChange = useCallback((value: string) => {
     setEmbeddingModel(value)
     setIsEmbeddingFormDirty(true)
-  }, [])
+    setEmbeddingDimension(null)
+    // Trigger probe for new model
+    if (embeddingProviderAlias) {
+      probeDimension(embeddingProviderAlias, value)
+    }
+  }, [embeddingProviderAlias, probeDimension])
 
   // Save embedding settings
   const handleSaveEmbeddingSettings = useCallback(async () => {
@@ -333,7 +364,7 @@ export function AdminAnalysisTab() {
       await updateLlmSettings({
         embeddingProviderAlias,
         embeddingModel,
-        embeddingDimension,
+        embeddingBatchSize,
       })
       // Also save embedding provider config (apiUrl, apiKey, model) if provider exists
       const embProvider = llmSettings.providers.find((p) => p.alias === embeddingProviderAlias)
@@ -356,7 +387,7 @@ export function AdminAnalysisTab() {
     } finally {
       setIsEmbeddingSaving(false)
     }
-  }, [embeddingProviderAlias, embeddingModel, embeddingDimension, llmSettings.providers, loadLlmSettings, t])
+  }, [embeddingProviderAlias, embeddingModel, embeddingBatchSize, llmSettings.providers, loadLlmSettings, t])
 
   // Update a field on a specific provider identified by alias
   const handleProviderFieldChange = useCallback((alias: string, field: keyof LlmProviderDTO, value: string | boolean) => {
@@ -622,6 +653,7 @@ export function AdminAnalysisTab() {
         setEmbeddingProviderAlias(embAlias)
         setEmbeddingModel(settings.embeddingModel || "qwen3-embedding:4b")
         setEmbeddingDimension(settings.embeddingDimension || 1024)
+        setEmbeddingBatchSize(settings.embeddingBatchSize || 50)
         setIsEmbeddingFormDirty(false)
         if (embAlias) {
           loadEmbeddingModelsForProvider(embAlias)
@@ -1099,22 +1131,47 @@ export function AdminAnalysisTab() {
                 />
               )}
 
-              {/* Embedding Dimension */}
+              {/* Embedding Dimension (auto-detected) */}
               <div className="space-y-2">
-                <Label htmlFor="embedding-dimension">{t("llm_ocr.embeddingDimension")}</Label>
+                <Label>{t("llm_ocr.embeddingDimension")}</Label>
+                <div className="flex items-center gap-2">
+                  {isEmbeddingProbing ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                      <span className="text-sm text-muted-foreground">{t("llm_ocr.embeddingDimensionProbing")}</span>
+                    </>
+                  ) : embeddingProbeError ? (
+                    <span className="text-sm text-destructive">{embeddingProbeError}</span>
+                  ) : embeddingDimension ? (
+                    <span className="text-sm font-medium">{t("llm_ocr.embeddingDimensionDetected", { dimension: embeddingDimension })}</span>
+                  ) : (
+                    <span className="text-sm text-muted-foreground">{t("llm_ocr.embeddingDimensionUnknown")}</span>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">{t("llm_ocr.embeddingDimensionDescription")}</p>
+              </div>
+
+              {/* Embedding Batch Size */}
+              <div className="space-y-2">
+                <Label htmlFor="embedding-batch-size">{t("llm_ocr.embeddingBatchSize")}</Label>
                 <Input
-                  id="embedding-dimension"
+                  id="embedding-batch-size"
                   type="number"
                   min={1}
-                  value={embeddingDimension}
+                  max={500}
+                  value={embeddingBatchSize}
                   onChange={(e) => {
-                    const val = parseInt(e.target.value, 10)
-                    if (!isNaN(val) && val > 0) setEmbeddingDimension(val)
-                    setIsEmbeddingFormDirty(true)
+                    const num = parseInt(e.target.value, 10)
+                    if (!isNaN(num) && num >= 1) {
+                      setEmbeddingBatchSize(num)
+                      setIsEmbeddingFormDirty(true)
+                    } else if (e.target.value === "") {
+                      setEmbeddingBatchSize(0)
+                    }
                   }}
                   className="w-32"
                 />
-                <p className="text-xs text-muted-foreground">{t("llm_ocr.embeddingDimensionDescription")}</p>
+                <p className="text-xs text-muted-foreground">{t("llm_ocr.embeddingBatchSizeDescription")}</p>
               </div>
 
               {/* No providers message */}

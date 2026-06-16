@@ -23,9 +23,10 @@ func (sl *SettingsLoader) AppSettings() domain.AppSettings {
 		return domain.AppSettings{
 			ID:                    1,
 			OcrConcurrentRequests: 4,
-			DailySyncEnabled:      true,
+			SyncDays:              "1,2,3,4,5",
 			DailySyncHour:         3,
 			DailySyncMinute:       30,
+			SyncTimezoneOffset:    0,
 		}
 	}
 	return settings

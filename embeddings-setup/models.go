@@ -28,7 +28,7 @@ type TagEmbeddingModel struct {
 	ID              uint   `gorm:"primaryKey"`
 	TagEmbeddingsID uint   `gorm:"not null"`
 	Dimensity       int    `gorm:"not null"`
-	Embedding       string `gorm:"type:vector;not null"`
+	Embedding       string `gorm:"type:halfvec;not null"`
 }
 
 // LlmSettings holds LLM provider and embedding configuration.

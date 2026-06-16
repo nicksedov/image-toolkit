@@ -70,6 +70,7 @@ import type {
   TagSearchResponse,
   SmartSearchResponse,
   EmbeddingBackfillStatus,
+  SyncStatusResponse,
 } from "@/types"
 
 export function fetchDuplicates(page: number, pageSize: number): Promise<DuplicatesResponse> {
@@ -256,6 +257,10 @@ export function fetchSettings(): Promise<AppSettingsDTO> {
 
 export function updateSettings(req: UpdateSettingsRequest): Promise<AppSettingsDTO> {
   return apiPut<AppSettingsDTO>("/api/settings", req)
+}
+
+export function fetchSyncStatus(): Promise<SyncStatusResponse> {
+  return apiGet<SyncStatusResponse>("/api/sync-status")
 }
 
 // --- User Settings ---
@@ -478,6 +483,10 @@ export function fetchLlmModels(provider?: string, force?: boolean): Promise<LlmM
     params.force = "true"
   }
   return apiGet<LlmModelsResponse>("/api/llm/models", params)
+}
+
+export function probeEmbeddingDimension(providerAlias: string, model: string): Promise<{ dimension: number }> {
+  return apiPost<{ dimension: number }>("/api/llm/embedding/probe", { providerAlias, model })
 }
 
 // --- Tag Scan ---

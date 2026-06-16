@@ -25,22 +25,49 @@ type FastScanResult struct {
 	TotalChecked int `json:"totalChecked"` // Total files checked (modified + created)
 }
 
+// FileEventType represents the type of file event detected during scanning
+type FileEventType int
+
+const (
+	// FileCreated indicates a new file was added to the database
+	FileCreated FileEventType = iota
+	// FileModified indicates an existing file was updated
+	FileModified
+	// FileDeleted indicates a file was removed from the database
+	FileDeleted
+)
+
+// FileEvent represents a file change event detected during scanning
+type FileEvent struct {
+	Type           FileEventType
+	ImageFileID    uint
+	Path           string
+	ContentChanged bool // true if hash differs (not just modTime)
+}
+
 // ScanManager manages asynchronous directory scanning
 type ScanManager struct {
-	mu             sync.RWMutex
-	isScanning     bool
-	progress       string
-	filesProcessed int
-	db             *gorm.DB
-	scanWorkers    int
-	OnScanComplete func() // called after each scan finishes (if non-nil)
+	mu              sync.RWMutex
+	isScanning      bool
+	progress        string
+	filesProcessed  int
+	db              *gorm.DB
+	scanWorkers     int
+	OnScanComplete  func()          // called after each scan finishes (if non-nil)
+	OnFileProcessed func(FileEvent) // called per-file after scan (async, if non-nil)
+	postProcessSem  chan struct{}   // semaphore bounding post-processing goroutines
 }
 
 // NewScanManager creates a new ScanManager
 func NewScanManager(db *gorm.DB, scanWorkers int) *ScanManager {
+	workers := scanWorkers
+	if workers <= 0 {
+		workers = 1
+	}
 	return &ScanManager{
-		db:          db,
-		scanWorkers: scanWorkers,
+		db:             db,
+		scanWorkers:    scanWorkers,
+		postProcessSem: make(chan struct{}, workers),
 	}
 }
 
@@ -85,7 +112,8 @@ func (sm *ScanManager) StartScan() error {
 		sm.mu.Lock()
 		sm.progress = "Cleaning up missing files..."
 		sm.mu.Unlock()
-		cleanupMissingFiles(sm.db, progressChan)
+		cleanupBatch, _ := cleanupMissingFiles(sm.db, progressChan)
+		sm.processBatchResult(cleanupBatch)
 
 		// Read gallery dirs from DB at scan time
 		scanDirs := sm.getGalleryDirs()
@@ -95,7 +123,8 @@ func (sm *ScanManager) StartScan() error {
 			sm.mu.Lock()
 			sm.progress = fmt.Sprintf("Scanning: %s", dir)
 			sm.mu.Unlock()
-			scanDirectory(sm.db, dir, progressChan, sm.scanWorkers)
+			batch, _ := scanDirectory(sm.db, dir, progressChan, sm.scanWorkers)
+			sm.processBatchResult(batch)
 		}
 
 		close(progressChan)
@@ -139,7 +168,8 @@ func (sm *ScanManager) ScanSingleDir(dirPath string) error {
 			}
 		}()
 
-		scanDirectory(sm.db, dirPath, progressChan, sm.scanWorkers)
+		batch, _ := scanDirectory(sm.db, dirPath, progressChan, sm.scanWorkers)
+		sm.processBatchResult(batch)
 
 		close(progressChan)
 
@@ -190,7 +220,8 @@ func (sm *ScanManager) FastScanGallery() FastScanResult {
 		sm.mu.Lock()
 		sm.progress = "Cleaning up missing files..."
 		sm.mu.Unlock()
-		cleanupMissingFiles(sm.db, progressChan)
+		cleanupBatch, _ := cleanupMissingFiles(sm.db, progressChan)
+		sm.processBatchResult(cleanupBatch)
 
 		// Read gallery dirs from DB at scan time
 		scanDirs := sm.getGalleryDirs()
@@ -200,7 +231,8 @@ func (sm *ScanManager) FastScanGallery() FastScanResult {
 			sm.mu.Lock()
 			sm.progress = fmt.Sprintf("Fast scanning: %s", dir)
 			sm.mu.Unlock()
-			stats := fastScanGalleryDirectory(sm.db, dir, progressChan, sm.scanWorkers)
+			stats, batch := fastScanGalleryDirectory(sm.db, dir, progressChan, sm.scanWorkers)
+			sm.processBatchResult(batch)
 			totalStats.Unchanged += stats.Unchanged
 			totalStats.Modified += stats.Modified
 			totalStats.Created += stats.Created
@@ -253,8 +285,9 @@ func (sm *ScanManager) FastScanSingleDir(dirPath string) FastScanResult {
 			}
 		}()
 
-		result := fastScanGalleryDirectory(sm.db, dirPath, progressChan, sm.scanWorkers)
+		result, batch := fastScanGalleryDirectory(sm.db, dirPath, progressChan, sm.scanWorkers)
 		stats = result
+		sm.processBatchResult(batch)
 
 		close(progressChan)
 
@@ -287,4 +320,36 @@ func (sm *ScanManager) IsScanning() bool {
 	sm.mu.RLock()
 	defer sm.mu.RUnlock()
 	return sm.isScanning
+}
+
+// processBatchResult emits OnFileProcessed events for each file in the batch result.
+// Events are dispatched asynchronously with bounded concurrency via postProcessSem.
+func (sm *ScanManager) processBatchResult(batch ScanBatchResult) {
+	if sm.OnFileProcessed == nil {
+		return
+	}
+	for _, f := range batch.Created {
+		sm.emitEvent(FileEvent{Type: FileCreated, ImageFileID: f.ID, Path: f.Path})
+	}
+	for _, u := range batch.Updated {
+		sm.emitEvent(FileEvent{Type: FileModified, ImageFileID: u.File.ID, Path: u.File.Path, ContentChanged: u.ContentChanged})
+	}
+	for _, f := range batch.Deleted {
+		sm.emitEvent(FileEvent{Type: FileDeleted, ImageFileID: f.ID, Path: f.Path})
+	}
+}
+
+// emitEvent fires a single FileEvent asynchronously with bounded concurrency.
+func (sm *ScanManager) emitEvent(event FileEvent) {
+	if sm.postProcessSem != nil {
+		sm.postProcessSem <- struct{}{}
+	}
+	go func() {
+		defer func() {
+			if sm.postProcessSem != nil {
+				<-sm.postProcessSem
+			}
+		}()
+		sm.OnFileProcessed(event)
+	}()
 }

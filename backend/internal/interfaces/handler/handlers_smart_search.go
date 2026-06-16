@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"image-toolkit/internal/application/imaging"
+	"image-toolkit/internal/interfaces/i18n"
 
 	"github.com/gin-gonic/gin"
 )
@@ -31,7 +32,7 @@ type smartSearchResponse struct {
 func (s *Server) handleSmartSearch(c *gin.Context) {
 	query := c.Query("q")
 	if query == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Query parameter 'q' is required"})
+		s.respondValidationError(c, http.StatusBadRequest, i18n.MsgSmartQueryRequired)
 		return
 	}
 
@@ -46,7 +47,7 @@ func (s *Server) handleSmartSearch(c *gin.Context) {
 
 	result, err := imaging.SearchByEmbedding(s.db, query, limit)
 	if err != nil {
-		c.JSON(http.StatusServiceUnavailable, gin.H{"error": err.Error()})
+		s.respondError(c, http.StatusServiceUnavailable, i18n.MsgSmartSearchFailed)
 		return
 	}
 

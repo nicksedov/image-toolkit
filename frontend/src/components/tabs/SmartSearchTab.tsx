@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { usePolling } from "@/hooks/usePolling"
 
-const DEBOUNCE_MS = 300
+const DEBOUNCE_MS = 600
 const EMBEDDING_POLL_INTERVAL = 3000
 
 /** Lazily fetches and renders a thumbnail via the JSON thumbnail API. */
@@ -51,6 +51,7 @@ export function SmartSearchTab() {
   const { results, total, query, isLoading, error, searched, search, reset } = useSmartSearch()
   const [selectedImage, setSelectedImage] = useState<string | null>(null)
   const [inputValue, setInputValue] = useState("")
+  const [limit, setLimit] = useState(50)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Embedding status polling
@@ -110,7 +111,7 @@ export function SmartSearchTab() {
     }
 
     debounceRef.current = setTimeout(() => {
-      search(inputValue)
+      search(inputValue, limit)
     }, DEBOUNCE_MS)
 
     return () => {
@@ -118,7 +119,7 @@ export function SmartSearchTab() {
         clearTimeout(debounceRef.current)
       }
     }
-  }, [inputValue, search, reset])
+  }, [inputValue, limit, search, reset])
 
   const handleClear = useCallback(() => {
     setInputValue("")
@@ -211,7 +212,7 @@ export function SmartSearchTab() {
       )}
 
       {/* Search bar */}
-      <div className="relative flex items-center gap-2 max-w-2xl">
+      <div className="relative flex items-center gap-2">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -228,6 +229,22 @@ export function SmartSearchTab() {
               <X className="h-4 w-4" />
             </button>
           )}
+        </div>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <span className="text-xs text-muted-foreground whitespace-nowrap">{t("smartSearch.limitLabel")}</span>
+          <Input
+            type="number"
+            min={1}
+            max={200}
+            value={limit}
+            onChange={(e) => {
+              const val = parseInt(e.target.value, 10)
+              if (!isNaN(val) && val > 0) {
+                setLimit(val)
+              }
+            }}
+            className="w-16 h-9 text-xs text-center"
+          />
         </div>
       </div>
 

@@ -158,9 +158,15 @@ export interface AppSettingsDTO {
   thumbnailCachePath?: string
   thumbnailCacheSize?: number
   ocrConcurrentRequests?: number
-  dailySyncEnabled?: boolean
+  syncDays?: string
   dailySyncHour?: number
   dailySyncMinute?: number
+  syncTimezoneOffset?: number
+  lastSyncAt?: string | null
+  lastSyncNew?: number
+  lastSyncUpdated?: number
+  lastSyncDeleted?: number
+  lastSyncThumbnails?: number
 }
 
 export interface UserSettingsDTO {
@@ -181,9 +187,23 @@ export interface UpdateSettingsRequest {
   trashDir?: string
   thumbnailCachePath?: string
   ocrConcurrentRequests?: number
-  dailySyncEnabled?: boolean
+  syncDays?: string
   dailySyncHour?: number
   dailySyncMinute?: number
+  syncTimezoneOffset?: number
+}
+
+export interface SyncStatusResponse {
+  running: boolean
+  syncInProgress: boolean
+  nextRunAt?: string | null
+  lastSyncAt?: string | null
+  lastSyncNew: number
+  lastSyncUpdated: number
+  lastSyncDeleted: number
+  lastSyncThumbnails: number
+  processedFiles: number
+  totalFiles: number
 }
 
 export interface UpdateUserSettingsRequest {
@@ -518,6 +538,7 @@ export interface LlmSettingsResponse {
   embeddingProviderAlias?: string
   embeddingModel?: string
   embeddingDimension?: number
+  embeddingBatchSize?: number
   providers: LlmProviderDTO[]
 }
 
@@ -539,6 +560,7 @@ export interface UpdateLlmSettingsRequest {
   embeddingProviderAlias?: string
   embeddingModel?: string
   embeddingDimension?: number
+  embeddingBatchSize?: number
 }
 
 export interface TagScanStatusResponse {

@@ -11,6 +11,7 @@ import (
 	"image-toolkit/internal/domain"
 	"image-toolkit/internal/infrastructure/llm"
 	"image-toolkit/internal/interfaces/dto"
+	"image-toolkit/internal/interfaces/i18n"
 	"image-toolkit/internal/interfaces/middleware"
 
 	"github.com/gin-gonic/gin"
@@ -20,7 +21,7 @@ import (
 func (s *Server) handleCreateConversation(c *gin.Context) {
 	var req dto.CreateConversationRequest
 	if err := c.ShouldBindJSON(&req); err != nil && err != io.EOF {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
+		s.respondValidationError(c, http.StatusBadRequest, i18n.MsgChatInvalidRequest)
 		return
 	}
 
@@ -94,31 +95,31 @@ func (s *Server) handleListConversations(c *gin.Context) {
 func (s *Server) handleDeleteConversation(c *gin.Context) {
 	convID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid conversation ID"})
+		s.respondValidationError(c, http.StatusBadRequest, i18n.MsgChatInvalidConversationID)
 		return
 	}
 
 	userID := middleware.GetUserID(c)
 	if err := s.conversationService.DeleteConversation(uint(convID), userID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		s.respondError(c, http.StatusInternalServerError, i18n.MsgChatConversationNotFound)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "conversation deleted"})
+	s.respondSuccess(c, http.StatusOK, i18n.MsgChatConversationDeleted)
 }
 
 // handleGetMessages handles GET /api/chat/conversations/:id/messages
 func (s *Server) handleGetMessages(c *gin.Context) {
 	convID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid conversation ID"})
+		s.respondValidationError(c, http.StatusBadRequest, i18n.MsgChatInvalidConversationID)
 		return
 	}
 
 	// Verify ownership
 	userID := middleware.GetUserID(c)
 	if _, err := s.conversationService.GetConversation(uint(convID), userID); err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "conversation not found"})
+		s.respondError(c, http.StatusNotFound, i18n.MsgChatConversationNotFound)
 		return
 	}
 
@@ -155,20 +156,20 @@ func (s *Server) handleGetMessages(c *gin.Context) {
 func (s *Server) handleSendMessage(c *gin.Context) {
 	convID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid conversation ID"})
+		s.respondValidationError(c, http.StatusBadRequest, i18n.MsgChatInvalidConversationID)
 		return
 	}
 
 	var req dto.SendMessageRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "content is required"})
+		s.respondValidationError(c, http.StatusBadRequest, i18n.MsgChatContentRequired)
 		return
 	}
 
 	// Verify ownership
 	userID := middleware.GetUserID(c)
 	if _, err := s.conversationService.GetConversation(uint(convID), userID); err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "conversation not found"})
+		s.respondError(c, http.StatusNotFound, i18n.MsgChatConversationNotFound)
 		return
 	}
 
@@ -180,7 +181,7 @@ func (s *Server) handleSendMessage(c *gin.Context) {
 
 	chatClient, ok := llm.NewChatClient(client)
 	if !ok {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "LLM provider does not support chat/function calling"})
+		s.respondError(c, http.StatusInternalServerError, i18n.MsgChatLlmNoChatSupport)
 		return
 	}
 

@@ -137,7 +137,13 @@ func (m *EmbeddingBackfillManager) run() {
 	m.progress.Remaining = int(total)
 	m.mu.Unlock()
 
-	const batchSize = 100
+	// Read batch size from LLM settings (default 50)
+	batchSize := 50
+	var settings domain.LlmSettings
+	if err := m.db.First(&settings).Error; err == nil && settings.EmbeddingBatchSize > 0 {
+		batchSize = settings.EmbeddingBatchSize
+	}
+
 	cursor := uint(0)
 
 	for {
@@ -243,7 +249,7 @@ func upsertEmbedding(db *gorm.DB, imageFileID uint, childTable string, dimension
 
 	// Atomic upsert: insert or update child embedding row
 	if err := db.Exec(fmt.Sprintf(
-		"INSERT INTO %s (tag_embeddings_id, dimensity, embedding) VALUES (?, ?, ?::vector) "+
+		"INSERT INTO %s (tag_embeddings_id, dimensity, embedding) VALUES (?, ?, ?::halfvec) "+
 			"ON CONFLICT (tag_embeddings_id) DO UPDATE SET dimensity = EXCLUDED.dimensity, embedding = EXCLUDED.embedding",
 		childTable), parent.ID, dimension, vecStr).Error; err != nil {
 		return fmt.Errorf("failed to upsert child embedding row: %w", err)

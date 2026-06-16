@@ -91,10 +91,20 @@ type AppSettings struct {
 	ThumbnailCachePath    string    `gorm:"default:''" json:"thumbnailCachePath"`
 	ThumbnailCacheSize    int       `gorm:"default:0" json:"thumbnailCacheSize"`
 	OcrConcurrentRequests int       `gorm:"default:4" json:"ocrConcurrentRequests"`
-	DailySyncEnabled      bool      `gorm:"default:true" json:"dailySyncEnabled"`
+	// SyncDays: comma-separated weekday numbers (time.Weekday: 0=Sunday,1=Monday,...,6=Saturday)
+	// Empty string means sync is disabled for all days.
+	SyncDays              string    `gorm:"default:'1,2,3,4,5'" json:"syncDays"`
 	DailySyncHour         int       `gorm:"default:3" json:"dailySyncHour"`
 	DailySyncMinute       int       `gorm:"default:30" json:"dailySyncMinute"`
-	UpdatedAt             time.Time `json:"updatedAt"`
+	// SyncTimezoneOffset: user's timezone offset in minutes from UTC (same sign as JS getTimezoneOffset: UTC+3 = -180)
+	SyncTimezoneOffset    int       `gorm:"default:0" json:"syncTimezoneOffset"`
+	// Last sync status fields
+	LastSyncAt            *time.Time `json:"lastSyncAt"`
+	LastSyncNew           int        `gorm:"default:0" json:"lastSyncNew"`
+	LastSyncUpdated       int        `gorm:"default:0" json:"lastSyncUpdated"`
+	LastSyncDeleted       int        `gorm:"default:0" json:"lastSyncDeleted"`
+	LastSyncThumbnails    int        `gorm:"default:0" json:"lastSyncThumbnails"`
+	UpdatedAt             time.Time  `json:"updatedAt"`
 }
 
 // OcrClassification stores OCR classification results for an image
@@ -164,6 +174,7 @@ type LlmSettings struct {
 	EmbeddingProviderAlias string  `gorm:"default:''" json:"embeddingProviderAlias"` // empty = use active VL provider
 	EmbeddingModel         string  `gorm:"default:'qwen3-embedding:4b'" json:"embeddingModel"`
 	EmbeddingDimension     int     `gorm:"default:1024" json:"embeddingDimension"`
+	EmbeddingBatchSize     int     `gorm:"default:50" json:"embeddingBatchSize"`
 	CreatedAt             time.Time `json:"createdAt"`
 	UpdatedAt             time.Time `json:"updatedAt"`
 }
@@ -191,7 +202,7 @@ type TagEmbeddingModel struct {
 	ID              uint   `gorm:"primaryKey" json:"id"`
 	TagEmbeddingsID uint   `gorm:"not null" json:"tagEmbeddingsId"` // FK to tag_embeddings.id
 	Dimensity       int    `gorm:"not null" json:"dimensity"`
-	Embedding       string `gorm:"type:vector;not null" json:"-"` // pgvector
+	Embedding       string `gorm:"type:halfvec;not null" json:"-"` // pgvector halfvec (fp16)
 }
 
 // nonAlphanumericUnderscore matches any character that is not a letter, digit, or underscore.

@@ -52,7 +52,7 @@ func TestScanDirectory_NewFiles(t *testing.T) {
 
 	progressChan := make(chan string, 100)
 
-	err := scanDirectory(db, tmpDir, progressChan, 2)
+	_, err := scanDirectory(db, tmpDir, progressChan, 2)
 
 	require.NoError(t, err)
 
@@ -70,12 +70,12 @@ func TestScanDirectory_CachedFiles(t *testing.T) {
 
 	// First scan - should create record
 	progressChan := make(chan string, 100)
-	err := scanDirectory(db, tmpDir, progressChan, 1)
+	_, err := scanDirectory(db, tmpDir, progressChan, 1)
 	require.NoError(t, err)
 
 	// Second scan - should skip (cached)
 	progressChan2 := make(chan string, 100)
-	err = scanDirectory(db, tmpDir, progressChan2, 1)
+	_, err = scanDirectory(db, tmpDir, progressChan2, 1)
 	require.NoError(t, err)
 
 	// Count should still be 1
@@ -93,7 +93,7 @@ func TestScanDirectory_ModifiedFiles(t *testing.T) {
 
 	// First scan
 	progressChan := make(chan string, 100)
-	err := scanDirectory(db, tmpDir, progressChan, 1)
+	_, err := scanDirectory(db, tmpDir, progressChan, 1)
 	require.NoError(t, err)
 
 	// Get initial size
@@ -106,7 +106,7 @@ func TestScanDirectory_ModifiedFiles(t *testing.T) {
 
 	// Second scan - should detect modification
 	progressChan2 := make(chan string, 100)
-	err = scanDirectory(db, tmpDir, progressChan2, 1)
+	_, err = scanDirectory(db, tmpDir, progressChan2, 1)
 	require.NoError(t, err)
 
 	// Size should have changed
@@ -124,7 +124,7 @@ func TestScanDirectory_NoImageFiles(t *testing.T) {
 	fixtures.CreateTestFile(t, tmpDir, "document.pdf", []byte("pdf content"))
 
 	progressChan := make(chan string, 100)
-	err := scanDirectory(db, tmpDir, progressChan, 1)
+	_, err := scanDirectory(db, tmpDir, progressChan, 1)
 
 	require.NoError(t, err)
 
@@ -140,7 +140,7 @@ func TestScanDirectory_InvalidPath(t *testing.T) {
 	// scanDirectory gracefully handles invalid paths by reporting errors
 	// through the progress channel rather than returning an error
 	progressChan := make(chan string, 100)
-	err := scanDirectory(db, "/nonexistent/path/that/does/not/exist", progressChan, 1)
+	_, err := scanDirectory(db, "/nonexistent/path/that/does/not/exist", progressChan, 1)
 
 	// scanDirectory returns nil even for invalid root (errors reported via channel)
 	require.NoError(t, err)
@@ -170,7 +170,7 @@ func TestFastScanGalleryDirectory_Unchanged(t *testing.T) {
 
 	// Fast scan - all should be unchanged
 	progressChan2 := make(chan string, 100)
-	result := fastScanGalleryDirectory(db, tmpDir, progressChan2, 1)
+	result, _ := fastScanGalleryDirectory(db, tmpDir, progressChan2, 1)
 
 	assert.Equal(t, 3, result.Unchanged)
 	assert.Equal(t, 0, result.Created)
@@ -194,7 +194,7 @@ func TestFastScanGalleryDirectory_NewAndModified(t *testing.T) {
 
 	// Fast scan
 	progressChan2 := make(chan string, 100)
-	result := fastScanGalleryDirectory(db, tmpDir, progressChan2, 1)
+	result, _ := fastScanGalleryDirectory(db, tmpDir, progressChan2, 1)
 
 	assert.GreaterOrEqual(t, result.Created, 1, "should detect at least 1 new file")
 	assert.GreaterOrEqual(t, result.Modified, 1, "should detect at least 1 modified file")
@@ -219,7 +219,7 @@ func TestFastScanGalleryDirectory_MissingFiles(t *testing.T) {
 
 	// Fast scan - should detect missing files
 	progressChan2 := make(chan string, 100)
-	result := fastScanGalleryDirectory(db, tmpDir, progressChan2, 1)
+	result, _ := fastScanGalleryDirectory(db, tmpDir, progressChan2, 1)
 
 	assert.Equal(t, 2, result.Deleted, "should detect 2 deleted files")
 }
@@ -342,11 +342,62 @@ func TestCleanupMissingFiles_RemovesDeleted(t *testing.T) {
 
 	// Cleanup
 	progressChan2 := make(chan string, 100)
-	err := cleanupMissingFiles(db, progressChan2)
+	_, err := cleanupMissingFiles(db, progressChan2)
 
 	require.NoError(t, err)
 
 	var countAfter int64
 	db.Model(&domain.ImageFile{}).Count(&countAfter)
 	assert.Equal(t, int64(3), countAfter, "should have 3 records after cleanup")
+}
+
+func TestDeleteImageFileCascade_RemovesAllChildren(t *testing.T) {
+	db, cleanup := testutil.NewTestDB(t)
+	defer cleanup()
+
+	// Create an ImageFile
+	img := testutil.SeedImageFile(t, db, "/tmp/test/cascade.jpg", "abc123", 1024)
+
+	// Seed child records
+	db.Create(&domain.ImageMetadata{ImageFileID: img.ID, Width: 800, Height: 600})
+	db.Create(&domain.ImageTag{ImageFileID: img.ID, Tag: "landscape"})
+	db.Create(&domain.ImageTag{ImageFileID: img.ID, Tag: "nature"})
+	db.Create(&domain.OcrLlmRecognition{ImageFileID: img.ID, Language: "en", MarkdownContent: "text"})
+	classification := testutil.SeedOcrClassification(t, db, img.ID, true)
+	db.Create(&domain.OcrBoundingBox{ClassificationID: classification.ID, X: 0, Y: 0, Width: 100, Height: 50, Word: "hello"})
+	db.Create(&domain.TagEmbedding{ImageFileID: img.ID, TagCount: 2})
+
+	// Verify children exist
+	var tagCount, metaCount, ocrCount, bbCount, embCount, recogCount int64
+	db.Model(&domain.ImageTag{}).Where("image_file_id = ?", img.ID).Count(&tagCount)
+	db.Model(&domain.ImageMetadata{}).Where("image_file_id = ?", img.ID).Count(&metaCount)
+	db.Model(&domain.OcrClassification{}).Where("image_file_id = ?", img.ID).Count(&ocrCount)
+	db.Model(&domain.OcrBoundingBox{}).Count(&bbCount)
+	db.Model(&domain.TagEmbedding{}).Where("image_file_id = ?", img.ID).Count(&embCount)
+	db.Model(&domain.OcrLlmRecognition{}).Where("image_file_id = ?", img.ID).Count(&recogCount)
+	require.Equal(t, int64(2), tagCount)
+	require.Equal(t, int64(1), metaCount)
+	require.Equal(t, int64(1), ocrCount)
+	require.Equal(t, int64(1), bbCount)
+	require.Equal(t, int64(1), embCount)
+	require.Equal(t, int64(1), recogCount)
+
+	// Execute cascade delete
+	deleteImageFileCascade(db, img.ID)
+
+	// Verify all children and parent are deleted
+	db.Model(&domain.ImageFile{}).Where("id = ?", img.ID).Count(&metaCount)
+	assert.Equal(t, int64(0), metaCount, "ImageFile should be deleted")
+	db.Model(&domain.ImageTag{}).Where("image_file_id = ?", img.ID).Count(&tagCount)
+	assert.Equal(t, int64(0), tagCount, "ImageTags should be deleted")
+	db.Model(&domain.ImageMetadata{}).Where("image_file_id = ?", img.ID).Count(&metaCount)
+	assert.Equal(t, int64(0), metaCount, "ImageMetadata should be deleted")
+	db.Model(&domain.OcrClassification{}).Where("image_file_id = ?", img.ID).Count(&ocrCount)
+	assert.Equal(t, int64(0), ocrCount, "OcrClassification should be deleted")
+	db.Model(&domain.OcrBoundingBox{}).Count(&bbCount)
+	assert.Equal(t, int64(0), bbCount, "OcrBoundingBox should be deleted")
+	db.Model(&domain.TagEmbedding{}).Where("image_file_id = ?", img.ID).Count(&embCount)
+	assert.Equal(t, int64(0), embCount, "TagEmbedding should be deleted")
+	db.Model(&domain.OcrLlmRecognition{}).Where("image_file_id = ?", img.ID).Count(&recogCount)
+	assert.Equal(t, int64(0), recogCount, "OcrLlmRecognition should be deleted")
 }

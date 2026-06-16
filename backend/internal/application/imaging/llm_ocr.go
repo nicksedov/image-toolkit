@@ -6,31 +6,14 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 
 	"image-toolkit/internal/domain"
 	"image-toolkit/internal/infrastructure/llm"
+	"image-toolkit/internal/infrastructure/llm/prompts"
 
 	"gorm.io/gorm"
 )
-
-// Prompt template data types
-
-type ocrPromptData struct {
-	Language string
-}
-
-type actionPromptData struct {
-	ResponseLanguage string
-}
-
-type recognizeTextPromptData struct {
-	NoTextMessage string
-}
-
-type askQuestionPromptData struct {
-	Question         string
-	QuestionLanguage string
-}
 
 // LlmRecognitionStatus represents the status of an async recognition task
 type LlmRecognitionStatus struct {
@@ -269,16 +252,6 @@ func (s *LlmOcrService) detectLanguage(classification domain.OcrClassification) 
 	return "en"
 }
 
-// buildOcrSystemPrompt creates the system prompt for VL LLM
-func buildOcrSystemPrompt(language string) string {
-	langName := "English"
-	if language == "ru" {
-		langName = "Russian"
-	}
-
-	return renderPrompt("prompts/ocr_system.txt", ocrPromptData{Language: langName})
-}
-
 // AiActionResult holds the result of an AI action
 type AiActionResult struct {
 	Success          bool
@@ -299,8 +272,8 @@ func (s *LlmOcrService) ExecuteAiAction(imageFileID uint, action string, questio
 	}
 
 	// Build system prompt based on action
-	systemPrompt := buildAiActionPrompt(action, question, language)
-	userMessage := buildAiActionUserMessage(action)
+	systemPrompt := prompts.BuildActionPrompt(action, question, language)
+	userMessage := prompts.BuildActionUserMessage(action)
 
 	// Call LLM
 	startTime := time.Now()
@@ -322,9 +295,13 @@ func (s *LlmOcrService) ExecuteAiAction(imageFileID uint, action string, questio
 	switch action {
 	case "tags":
 		// Split comma-separated or newline-separated tags
-		tags := parseTags(response)
+		rawTags := prompts.ParseTags(response)
+		tags, err := PostProcessTags(rawTags)
+		if err != nil {
+			return nil, fmt.Errorf("tag post-processing failed: %w", err)
+		}
 		result.Tags = tags
-		result.Result = response
+		result.Result = strings.Join(tags, ", ")
 	default:
 		result.Result = response
 	}
@@ -332,69 +309,82 @@ func (s *LlmOcrService) ExecuteAiAction(imageFileID uint, action string, questio
 	return result, nil
 }
 
-// buildAiActionPrompt creates the system prompt for AI actions
-func buildAiActionPrompt(action string, question string, language string) string {
-	responseLang := languageCodeToName(language)
-
-	switch action {
-	case "describe":
-		return renderPrompt("prompts/action_describe.txt", actionPromptData{ResponseLanguage: responseLang})
-	case "tags":
-		return loadPrompt("prompts/action_tags.txt")
-	case "recognizeText":
-		noTextMsg := "No text detected."
-		if language == "ru" {
-			noTextMsg = "Текст не обнаружен."
-		}
-		return renderPrompt("prompts/action_recognize_text.txt", recognizeTextPromptData{NoTextMessage: noTextMsg})
-	case "askQuestion":
-		questionLang := detectQuestionLanguage(question)
-		return renderPrompt("prompts/action_ask_question.txt", askQuestionPromptData{
-			Question:         question,
-			QuestionLanguage: questionLang,
-		})
-	default:
-		return loadPrompt("prompts/action_default.txt")
-	}
+// hallucinationPrefixes are model hallucination markers that must be discarded.
+var hallucinationPrefixes = []string{
+	"tag1", "tag2", "tag3",
+	"тег1", "тег2", "тег3",
 }
 
-// buildAiActionUserMessage returns the user message for the LLM based on action type
-func buildAiActionUserMessage(action string) string {
-	switch action {
-	case "describe":
-		return "Describe this image in detail."
-	case "tags":
-		return "Generate tags for this image."
-	case "recognizeText":
-		return "Recognize and extract all text from this image."
-	case "askQuestion":
-		return "Answer the question about this image."
-	default:
-		return "Analyze this image."
-	}
-}
-
-// parseTags parses a comma-separated or newline-separated list of tags
-func parseTags(input string) []string {
-	// Split by comma first
-	parts := strings.Split(input, ",")
-
-	// If only one part, try splitting by newline
-	if len(parts) == 1 {
-		parts = strings.Split(input, "\n")
-	}
-
-	var tags []string
-	for _, part := range parts {
-		tag := strings.TrimSpace(part)
-		// Remove leading/trailing quotes
-		tag = strings.Trim(tag, `"'`)
-		if tag != "" {
-			tags = append(tags, tag)
+// containsCJK reports whether s contains any CJK Unified Ideograph.
+func containsCJK(s string) bool {
+	for _, r := range s {
+		if unicode.Is(unicode.Han, r) {
+			return true
 		}
 	}
+	return false
+}
 
-	return tags
+// isHallucinationTag returns true when the tag starts with a known
+// hallucination prefix (case-insensitive).
+func isHallucinationTag(tag string) bool {
+	lower := strings.ToLower(tag)
+	for _, prefix := range hallucinationPrefixes {
+		if strings.HasPrefix(lower, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
+// PostProcessTags filters and validates LLM-generated tags.
+//
+// Filtering rules:
+//   - Remove tags containing Chinese (CJK) characters
+//   - Remove duplicate tags (case-insensitive comparison)
+//   - Remove tags that start with hallucination prefixes
+//     ("Русский тег", "Russian tag", "English tag")
+//
+// Validation:
+//   - The remaining count must be in [20, 120].
+//     Returns an error otherwise.
+func PostProcessTags(raw []string) ([]string, error) {
+	seen := make(map[string]struct{}, len(raw))
+	result := make([]string, 0, len(raw))
+
+	for _, tag := range raw {
+		trimmed := strings.TrimSpace(tag)
+		if trimmed == "" {
+			continue
+		}
+
+		// Rule 1: discard tags with CJK characters
+		if containsCJK(trimmed) {
+			continue
+		}
+
+		// Rule 3: discard hallucination markers
+		if isHallucinationTag(trimmed) {
+			continue
+		}
+
+		// Rule 2: deduplicate (case-insensitive)
+		key := strings.ToLower(trimmed)
+		if _, exists := seen[key]; exists {
+			continue
+		}
+		seen[key] = struct{}{}
+
+		result = append(result, trimmed)
+	}
+
+	// Validate count range
+	if len(result) < 20 || len(result) > 120 {
+		return nil, fmt.Errorf(
+			"tag count out of range: got %d, expected 20–120", len(result))
+	}
+
+	return result, nil
 }
 
 // StoreCachedTagsResult stores a pre-completed task with cached tags from the database.

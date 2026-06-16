@@ -8,6 +8,7 @@ import (
 
 	"image-toolkit/internal/domain"
 	"image-toolkit/internal/interfaces/dto"
+	"image-toolkit/internal/interfaces/i18n"
 
 	"github.com/gin-gonic/gin"
 )
@@ -17,7 +18,7 @@ import (
 func (s *Server) handleSearchByTags(c *gin.Context) {
 	tagsParam := c.Query("tags")
 	if tagsParam == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "tags query parameter is required"})
+		s.respondValidationError(c, http.StatusBadRequest, i18n.MsgTagSearchQueryRequired)
 		return
 	}
 
@@ -31,7 +32,7 @@ func (s *Server) handleSearchByTags(c *gin.Context) {
 		}
 	}
 	if len(tags) == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "at least one tag is required"})
+		s.respondValidationError(c, http.StatusBadRequest, i18n.MsgTagSearchAtLeastOneRequired)
 		return
 	}
 

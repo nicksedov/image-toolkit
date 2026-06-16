@@ -11,6 +11,7 @@ import (
 	"image-toolkit/internal/application/imaging"
 	"image-toolkit/internal/domain"
 	"image-toolkit/internal/infrastructure/llm"
+	"image-toolkit/internal/infrastructure/llm/prompts"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -300,9 +301,9 @@ func (s *ImageToolkitMCPServer) runImageAction(imagePath, action, question, lang
 		return nil, err
 	}
 
-	// Build prompts (same logic as imaging.buildAiActionPrompt)
-	systemPrompt := buildActionPrompt(action, question, language)
-	userMessage := buildActionUserMessage(action)
+	// Build prompts
+	systemPrompt := prompts.BuildActionPrompt(action, question, language)
+	userMessage := prompts.BuildActionUserMessage(action)
 
 	// Call LLM
 	startTime := time.Now()
@@ -320,9 +321,13 @@ func (s *ImageToolkitMCPServer) runImageAction(imagePath, action, question, lang
 	}
 
 	if action == "tags" {
-		tags := parseTags(response)
+		rawTags := prompts.ParseTags(response)
+		tags, err := imaging.PostProcessTags(rawTags)
+		if err != nil {
+			return nil, fmt.Errorf("tag post-processing failed: %w", err)
+		}
 		result.Tags = tags
-		result.Result = response
+		result.Result = strings.Join(tags, ", ")
 
 		// Save generated tags to DB cache for future requests
 		if len(tags) > 0 {
@@ -330,8 +335,16 @@ func (s *ImageToolkitMCPServer) runImageAction(imagePath, action, question, lang
 				// Log but don't fail — tags were generated successfully
 				log.Printf("generate_tags: failed to save tags for image %d: %v", imageFile.ID, err)
 			}
-			// Generate embedding for the newly saved tags
+			// Generate embedding immediately for the just-tagged image
 			go imaging.GenerateAndSaveEmbedding(s.db, imageFile.ID, tags)
+			// Also trigger batch backfill for any other images missing embeddings
+			if s.embeddingBackfill != nil {
+				go func() {
+					if err := s.embeddingBackfill.Start(); err != nil {
+						log.Printf("generate_tags: embedding backfill not started: %v", err)
+					}
+				}()
+			}
 		}
 	} else {
 		result.Result = response
@@ -340,20 +353,4 @@ func (s *ImageToolkitMCPServer) runImageAction(imagePath, action, question, lang
 	return result, nil
 }
 
-// parseTags parses a comma-separated or newline-separated list of tags.
-func parseTags(input string) []string {
-	parts := strings.Split(input, ",")
-	if len(parts) == 1 {
-		parts = strings.Split(input, "\n")
-	}
 
-	var tags []string
-	for _, part := range parts {
-		tag := strings.TrimSpace(part)
-		tag = strings.Trim(tag, `"'`)
-		if tag != "" {
-			tags = append(tags, tag)
-		}
-	}
-	return tags
-}

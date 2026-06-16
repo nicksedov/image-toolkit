@@ -31,10 +31,10 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
   ]
 
   const toolsSubModes = [
+    { value: "smart-search", icon: Search, label: t("tabs.smartSearch") },
     { value: "deduplication", icon: FileScan, label: t("tabs.deduplication") },
     { value: "ocr", icon: FileText, label: t("tabs.ocr") },
     { value: "exif", icon: Database, label: t("tabs.exif") },
-    { value: "smart-search", icon: Search, label: t("tabs.smartSearch") },
   ]
 
   const adminTabs: TabItem[] = [

@@ -10,8 +10,8 @@ export const translationsEn = {
   "tabs.gallery": "Gallery",
   "tabs.tools": "Tools",
   "tabs.deduplication": "Deduplication",
-  "tabs.ocr": "OCR",
-  "tabs.exif": "EXIF",
+  "tabs.ocr": "Text Recognition",
+  "tabs.exif": "Metadata",
   "tabs.trash": "Trash",
   "tabs.smartSearch": "Smart Search",
 
@@ -85,14 +85,30 @@ export const translationsEn = {
   "settings.galleryFoldersDescription": "Manage the folders included in your image gallery. Adding a folder will automatically start scanning it for images.",
 
   // Daily sync schedule
-  "settings.dailySync.title": "Daily Sync Schedule",
-  "settings.dailySync.description": "Configure when the gallery sync runs each day.",
-  "settings.dailySync.enabled": "Enable daily sync",
+  "settings.dailySync.title": "Sync Schedule",
+  "settings.dailySync.description": "Configure which days and time the gallery sync runs. Uncheck all days to disable.",
+  "settings.dailySync.days": "Sync Days",
   "settings.dailySync.hour": "Hour",
   "settings.dailySync.minute": "Minute",
   "settings.dailySync.save": "Save Schedule",
   "settings.dailySync.saved": "Schedule saved",
   "settings.dailySync.saveFailed": "Failed to save schedule",
+  "settings.dailySync.day.mon": "Mon",
+  "settings.dailySync.day.tue": "Tue",
+  "settings.dailySync.day.wed": "Wed",
+  "settings.dailySync.day.thu": "Thu",
+  "settings.dailySync.day.fri": "Fri",
+  "settings.dailySync.day.sat": "Sat",
+  "settings.dailySync.day.sun": "Sun",
+  "settings.dailySync.status": "Sync Status",
+  "settings.dailySync.statusRunning": "Running...",
+  "settings.dailySync.statusIdle": "Idle",
+  "settings.dailySync.nextRun": "Next sync",
+  "settings.dailySync.lastRun": "Last sync",
+  "settings.dailySync.lastRunNever": "Never",
+  "settings.dailySync.lastStats": "{newFiles} new, {updatedFiles} updated, {deletedFiles} deleted, {thumbnails} thumbnails",
+  "settings.dailySync.syncProgress": "{processed} of {total} files processed",
+  "settings.dailySync.enabled": "Enable daily sync",
 
   // Trash settings
   "trash.title": "Trash",
@@ -472,6 +488,96 @@ export const translationsEn = {
   "api.llm_ocr.settings_save_failed": "Failed to save settings",
   "api.llm_ocr.no_recognition": "No recognition data available",
 
+  // API Response Messages (backend i18n keys)
+  "api.success": "Success",
+  "api.error": "Error",
+  "api.validation_error": "Validation error",
+
+  // Auth messages
+  "api.auth.internal_error": "Internal server error",
+  "api.auth.invalid_credentials": "Invalid login or password",
+  "api.auth.rate_limited": "Too many attempts. Please try again later",
+  "api.auth.bootstrap_mode": "Bootstrap mode - complete initial setup",
+  "api.auth.logout_success": "Logged out successfully",
+  "api.auth.unauthorized": "Authorization required",
+  "api.auth.invalid_request_format": "Invalid request format",
+  "api.auth.password_length": "Password must be between 8 and 128 characters",
+  "api.auth.invalid_current_password": "Invalid current password",
+  "api.auth.password_change_failed": "Failed to change password",
+  "api.auth.bootstrap_failed": "Bootstrap failed",
+  "api.auth.session_creation_failed": "Failed to create session",
+  "api.auth.bootstrap_complete": "Bootstrap complete",
+  "api.auth.users_list_failed": "Failed to get users list",
+  "api.auth.invalid_role": "Invalid role",
+  "api.auth.user_created": "User created",
+  "api.auth.user_not_found": "User not found",
+  "api.auth.user_updated": "User updated",
+  "api.auth.user_update_failed": "Failed to update user",
+  "api.auth.user_deleted": "User deleted",
+  "api.auth.user_delete_failed": "Failed to delete user",
+  "api.auth.password_reset_failed": "Failed to reset password",
+  "api.auth.password_reset_success": "Password reset successfully",
+  "api.auth.profile_update_failed": "Failed to update profile",
+  "api.auth.audit_logs_failed": "Failed to get audit logs",
+
+  // Scan messages
+  "api.scan.started": "Scan started",
+  "api.scan.failed": "Failed to start scan",
+  "api.scan.duplicate_failed": "Failed to find duplicates",
+  "api.scan.no_files_selected": "No files selected",
+  "api.scan.trash_dir_failed": "Failed to create trash directory",
+
+  // Folder messages
+  "api.folder.path_required": "Path is required",
+  "api.folder.invalid_path": "Invalid path",
+  "api.folder.cannot_access_path": "Cannot access path",
+  "api.folder.not_directory": "Path is not a directory",
+  "api.folder.conflict_trash": "Gallery folder conflicts with trash directory: paths must not overlap",
+  "api.folder.already_in_gallery": "This folder is already in the gallery",
+  "api.folder.add_failed": "Failed to add folder",
+  "api.folder.added": "Folder added to gallery",
+  "api.folder.not_found": "Folder not found",
+  "api.folder.removed": "Folder removed from gallery",
+  "api.folder.remove_failed": "Failed to remove folder",
+
+  // Image messages
+  "api.image.path_required": "Path is required",
+  "api.image.access_denied": "Access denied: path is not within a gallery folder",
+  "api.image.not_found": "File not found",
+  "api.image.invalid_theme": "Invalid theme. Must be 'light' or 'dark'",
+  "api.image.invalid_language": "Invalid language. Must be 'en' or 'ru'",
+  "api.image.invalid_trash_path": "Invalid trash directory path",
+  "api.image.trash_conflict": "Trash directory conflicts with a gallery folder",
+  "api.image.trash_not_configured": "Trash directory is not configured",
+  "api.image.trash_not_exists": "Trash directory does not exist",
+  "api.image.trash_read_failed": "Failed to read trash directory",
+  "api.image.thumbnail_failed": "Failed to create thumbnail",
+  "api.image.metadata_failed": "Failed to get image metadata",
+
+  // Thumbnail cache messages
+  "api.thumbnail_cache.not_available": "Thumbnail cache service is not available",
+
+  // User service messages
+  "api.user_service.invalid_role": "Invalid role",
+  "api.user_service.password_length": "Password must be between 8 and 128 characters",
+  "api.user_service.user_exists": "User with this login already exists",
+  "api.user_service.last_admin_demote": "Cannot demote the last administrator",
+  "api.user_service.last_admin_deactivate": "Cannot deactivate the last administrator",
+  "api.user_service.last_admin_delete": "Cannot delete the last administrator",
+
+  // Middleware messages
+  "api.middleware.unauthorized": "Authorization required",
+  "api.middleware.forbidden": "Insufficient permissions",
+  "api.middleware.csrf_failed": "Origin check failed",
+
+  // Trash messages
+  "api.trash.not_configured": "Trash directory is not configured",
+  "api.trash.not_exists": "Trash directory does not exist",
+  "api.trash.read_failed": "Failed to read trash directory",
+
+  // Gallery messages
+  "api.gallery.conflict": "Gallery folder conflict detected",
+
   // LLM OCR messages
   "llm_ocr.title": "Text Recognition (VL LLM)",
   "llm_ocr.description": "Use VL LLM for high-quality text recognition",
@@ -493,7 +599,13 @@ export const translationsEn = {
   "llm_ocr.embeddingProvider": "Embedding Provider",
   "llm_ocr.embeddingModel": "Embedding Model",
   "llm_ocr.embeddingDimension": "Embedding Dimension",
-  "llm_ocr.embeddingDimensionDescription": "Vector dimension size for the embedding model (e.g., 1024 for qwen3-embedding:4b, 2560 for qwen3-embedding:8b)",
+  "llm_ocr.embeddingDimensionDescription": "Auto-detected from the model response. Changes when you switch models.",
+  "llm_ocr.embeddingDimensionDetected": "Auto-detected: {dimension}",
+  "llm_ocr.embeddingDimensionProbing": "Detecting dimension…",
+  "llm_ocr.embeddingDimensionProbeFailed": "Failed to detect dimension. Check that the model is available.",
+  "llm_ocr.embeddingDimensionUnknown": "Unknown — select a model to detect",
+    "llm_ocr.embeddingBatchSize": "Embedding Batch Size",
+    "llm_ocr.embeddingBatchSizeDescription": "Number of images processed per embedding API call. Higher values speed up backfill but use more memory.",
   "llm_ocr.settingsSaved": "Settings saved",
   "llm_ocr.settingsSaveFailed": "Failed to save settings",
   "llm_ocr.notEnabled": "LLM recognition not enabled",
@@ -669,4 +781,5 @@ export const translationsEn = {
   "smartSearch.stopBackfill": "Stop",
   "smartSearch.backfillRunning": "Generating embeddings...",
   "smartSearch.backfillProgress": "{processed} of {total} images processed",
+  "smartSearch.limitLabel": "Results:",
  } as const

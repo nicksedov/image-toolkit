@@ -51,6 +51,7 @@ type TagScanManager struct {
 	cursor             uint
 	progress           TagScanProgress
 	maxImageMegapixels float64
+	embeddingBackfill  *EmbeddingBackfillManager
 }
 
 // NewTagScanManager creates a new tag scan manager
@@ -68,6 +69,13 @@ func NewTagScanManager(db *gorm.DB, llmOcrService *LlmOcrService, maxImageMegapi
 		resumeCh:           make(chan struct{}, 1),
 		maxImageMegapixels: maxImageMegapixels,
 	}
+}
+
+// SetEmbeddingBackfill sets the embedding backfill manager to trigger after tags are saved.
+func (tsm *TagScanManager) SetEmbeddingBackfill(eb *EmbeddingBackfillManager) {
+	tsm.mu.Lock()
+	tsm.embeddingBackfill = eb
+	tsm.mu.Unlock()
 }
 
 // Start begins the tag scanning loop with the given schedule
@@ -521,7 +529,19 @@ func (tsm *TagScanManager) processImage(imageFile domain.ImageFile) {
 		}
 		log.Printf("Tag scan: saved %d tags for %s", len(result.Tags), imageFile.Path)
 
-		// Generate embedding for the newly saved tags
+		// Generate embedding immediately for the just-tagged image
 		go GenerateAndSaveEmbedding(tsm.db, imageFile.ID, result.Tags)
+
+		// Also trigger batch backfill for any other images missing embeddings
+		tsm.mu.Lock()
+		eb := tsm.embeddingBackfill
+		tsm.mu.Unlock()
+		if eb != nil {
+			go func() {
+				if err := eb.Start(); err != nil {
+					log.Printf("Tag scan: embedding backfill not started: %v", err)
+				}
+			}()
+		}
 	}
 }

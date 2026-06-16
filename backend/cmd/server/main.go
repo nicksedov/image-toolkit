@@ -148,29 +148,70 @@ func main() {
 	// Create background sync manager
 	backgroundSync := imaging.NewBackgroundSyncManager(db, thumbnailService, geolocationService)
 
-	// Read schedule from DB (default: enabled=true, hour=3, minute=30)
-	syncEnabled := cfg.BackgroundSyncEnabled
+	// Read schedule from DB (default: weekdays, 03:30, UTC)
 	syncHour := 3
 	syncMinute := 30
+	syncDays := []time.Weekday{time.Monday, time.Tuesday, time.Wednesday, time.Thursday, time.Friday}
+	syncTimezoneOffset := 0
 	var appSettings domain.AppSettings
 	if result := db.First(&appSettings, 1); result.Error == nil {
 		if appSettings.DailySyncHour > 0 || appSettings.DailySyncMinute > 0 {
 			syncHour = appSettings.DailySyncHour
 			syncMinute = appSettings.DailySyncMinute
 		}
-		// Use DB value for enabled flag if it has been set (default true)
-		syncEnabled = appSettings.DailySyncEnabled
+		syncDays = imaging.ParseSyncDays(appSettings.SyncDays)
+		syncTimezoneOffset = appSettings.SyncTimezoneOffset
 	}
 
-	backgroundSync.Start(syncEnabled, syncHour, syncMinute)
+	backgroundSync.Start(syncDays, syncHour, syncMinute, syncTimezoneOffset)
 	defer backgroundSync.Stop()
-	fmt.Printf("Background sync: daily at %02d:%02d, enabled=%v\n", syncHour, syncMinute, syncEnabled)
+	fmt.Printf("Background sync: days=%v at %02d:%02d, tzOffset=%d min\n", syncDays, syncHour, syncMinute, syncTimezoneOffset)
 
 	// Wire scan complete callback to trigger OCR classification
 	scanManager.OnScanComplete = func() {
 		if cfg.OCREnabled && ocrManager != nil {
 			if err := ocrManager.StartClassification(false); err != nil {
 				log.Printf("OCR classification not started: %v", err)
+			}
+		}
+	}
+
+	// Wire per-file post-processor for EXIF extraction, thumbnail generation, and invalidation
+	scanManager.OnFileProcessed = func(event imaging.FileEvent) {
+		switch event.Type {
+		case imaging.FileCreated:
+			// Extract EXIF/geo metadata for new files
+			backgroundSync.ExtractAndSaveMetadataAsync(event.Path, event.ImageFileID)
+			// Generate thumbnail for new files
+			if thumbnailService != nil {
+				go func() {
+					if _, err := thumbnailService.GetOrGenerate(event.Path); err != nil {
+						log.Printf("Post-processor: failed to generate thumbnail for %s: %v", event.Path, err)
+					}
+				}()
+			}
+		case imaging.FileModified:
+			if event.ContentChanged {
+				// Re-extract EXIF/geo metadata
+				backgroundSync.ExtractAndSaveMetadataAsync(event.Path, event.ImageFileID)
+				// Invalidate OCR classification
+				backgroundSync.InvalidateOCRClassificationAsync(event.ImageFileID)
+				// Invalidate AI tags and embeddings
+				backgroundSync.InvalidateTagsAndEmbeddingsAsync(event.ImageFileID)
+				// Regenerate thumbnail
+				if thumbnailService != nil {
+					go func() {
+						thumbnailService.Invalidate(event.Path)
+						if _, err := thumbnailService.GetOrGenerate(event.Path); err != nil {
+							log.Printf("Post-processor: failed to regenerate thumbnail for %s: %v", event.Path, err)
+						}
+					}()
+				}
+			}
+		case imaging.FileDeleted:
+			// Clean up thumbnail cache
+			if thumbnailService != nil {
+				thumbnailService.Invalidate(event.Path)
 			}
 		}
 	}
@@ -241,9 +282,12 @@ func main() {
 	embeddingBackfill := imaging.NewEmbeddingBackfillManager(db)
 	fmt.Println("Embedding backfill manager initialized")
 
+	// Wire embedding backfill to tag scan manager (triggered after tags are saved)
+	tagScanManager.SetEmbeddingBackfill(embeddingBackfill)
+
 	// Create MCP server
 	llmFactory := helpers.NewLLMFactory(db, cfg.LlmMaxImageMegapixels)
-	mcpSrv := mcpserver.NewImageToolkitMCPServer(db, llmFactory, llmOcrService, cfg.LlmMaxImageMegapixels)
+	mcpSrv := mcpserver.NewImageToolkitMCPServer(db, llmFactory, llmOcrService, cfg.LlmMaxImageMegapixels, embeddingBackfill)
 	fmt.Println("MCP server initialized with image analysis and search tools")
 
 	// Create conversation service and agent
@@ -265,7 +309,7 @@ func main() {
 	fmt.Printf("Scan workers: %d\n", cfg.ScanWorkers)
 	fmt.Printf("CORS allowed origins: %s\n", strings.Join(cfg.CORSOrigins, ", "))
 	fmt.Printf("Thumbnail cache: enabled=%v, path=%s\n", cfg.ThumbnailCacheEnabled, cachePath)
-	fmt.Printf("Background sync: daily at %02d:%02d, enabled=%v (configured in UI)\n", syncHour, syncMinute, syncEnabled)
+	fmt.Printf("Background sync: days=%v at %02d:%02d, tzOffset=%d min (configured in UI)\n", syncDays, syncHour, syncMinute, syncTimezoneOffset)
 	fmt.Println("Configure gallery folders via the web UI Settings tab.")
 	fmt.Println("Press Ctrl+C to stop the server")
 

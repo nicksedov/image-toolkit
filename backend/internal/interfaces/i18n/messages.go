@@ -155,6 +155,36 @@ const (
 	MsgGpsNotJpeg            MessageKey = "geocode.not_jpeg"
 	MsgGpsBackupFailed       MessageKey = "geocode.backup_failed"
 	MsgBatchGpsNoPaths       MessageKey = "batch_gps.no_paths"
+
+	// Smart search messages
+	MsgSmartSearchFailed  MessageKey = "smart.search_failed"
+	MsgSmartQueryRequired MessageKey = "smart.query_required"
+
+	// Chat messages
+	MsgChatInvalidRequest        MessageKey = "chat.invalid_request"
+	MsgChatConversationNotFound  MessageKey = "chat.conversation_not_found"
+	MsgChatInvalidConversationID MessageKey = "chat.invalid_conversation_id"
+	MsgChatContentRequired       MessageKey = "chat.content_required"
+	MsgChatLlmNoChatSupport      MessageKey = "chat.llm_no_chat_support"
+	MsgChatConversationDeleted   MessageKey = "chat.conversation_deleted"
+
+	// Embedding messages
+	MsgEmbeddingManagerNotAvailable MessageKey = "embedding.manager_not_available"
+	MsgEmbeddingBackfillStarted    MessageKey = "embedding.backfill_started"
+	MsgEmbeddingBackfillStopped    MessageKey = "embedding.backfill_stopped"
+	MsgEmbeddingProviderNotFound   MessageKey = "embedding.provider_not_found"
+	MsgEmbeddingClientFailed       MessageKey = "embedding.client_creation_failed"
+	MsgEmbeddingProbeFailed        MessageKey = "embedding.probe_failed"
+	MsgEmbeddingEmptyVector        MessageKey = "embedding.empty_vector"
+
+	// Tag search messages
+	MsgTagSearchQueryRequired    MessageKey = "tag_search.query_required"
+	MsgTagSearchAtLeastOneRequired MessageKey = "tag_search.at_least_one_required"
+
+	// Tag scan messages
+	MsgTagScanManagerNotAvailable MessageKey = "tag_scan.manager_not_available"
+	MsgTagScanPaused             MessageKey = "tag_scan.paused"
+	MsgTagScanResumed            MessageKey = "tag_scan.resumed"
 )
 
 // GetMessage returns the message key as string

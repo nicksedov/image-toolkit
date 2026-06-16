@@ -16,26 +16,28 @@ import (
 
 // ImageToolkitMCPServer wraps the official MCP SDK server with domain-specific tools.
 type ImageToolkitMCPServer struct {
-	server      *mcp.Server
-	db          *gorm.DB
-	llmFactory  *helpers.LLMFactory
-	llmService  *imaging.LlmOcrService
-	maxMegapixels float64
+	server            *mcp.Server
+	db                *gorm.DB
+	llmFactory        *helpers.LLMFactory
+	llmService        *imaging.LlmOcrService
+	maxMegapixels     float64
+	embeddingBackfill *imaging.EmbeddingBackfillManager
 }
 
 // NewImageToolkitMCPServer creates and configures the MCP server with all tools.
-func NewImageToolkitMCPServer(db *gorm.DB, llmFactory *helpers.LLMFactory, llmService *imaging.LlmOcrService, maxMegapixels float64) *ImageToolkitMCPServer {
+func NewImageToolkitMCPServer(db *gorm.DB, llmFactory *helpers.LLMFactory, llmService *imaging.LlmOcrService, maxMegapixels float64, embeddingBackfill *imaging.EmbeddingBackfillManager) *ImageToolkitMCPServer {
 	srv := mcp.NewServer(&mcp.Implementation{
 		Name:    "image-toolkit",
 		Version: "1.0.0",
 	}, nil)
 
 	s := &ImageToolkitMCPServer{
-		server:        srv,
-		db:            db,
-		llmFactory:    llmFactory,
-		llmService:    llmService,
-		maxMegapixels: maxMegapixels,
+		server:            srv,
+		db:                db,
+		llmFactory:        llmFactory,
+		llmService:        llmService,
+		maxMegapixels:     maxMegapixels,
+		embeddingBackfill: embeddingBackfill,
 	}
 
 	s.registerImageTools()

@@ -561,9 +561,15 @@ func (s *Server) handleGetSettings(c *gin.Context) {
 		ThumbnailCachePath:    settings.ThumbnailCachePath,
 		ThumbnailCacheSize:    settings.ThumbnailCacheSize,
 		OcrConcurrentRequests: settings.OcrConcurrentRequests,
-		DailySyncEnabled:      settings.DailySyncEnabled,
+		SyncDays:              settings.SyncDays,
 		DailySyncHour:         settings.DailySyncHour,
 		DailySyncMinute:       settings.DailySyncMinute,
+		SyncTimezoneOffset:    settings.SyncTimezoneOffset,
+		LastSyncAt:            settings.LastSyncAt,
+		LastSyncNew:           settings.LastSyncNew,
+		LastSyncUpdated:       settings.LastSyncUpdated,
+		LastSyncDeleted:       settings.LastSyncDeleted,
+		LastSyncThumbnails:    settings.LastSyncThumbnails,
 	})
 }
 
@@ -642,8 +648,10 @@ func (s *Server) handleUpdateSettings(c *gin.Context) {
 		}
 	}
 
-	if req.DailySyncEnabled != nil {
-		settings.DailySyncEnabled = *req.DailySyncEnabled
+	scheduleChanged := false
+	if req.SyncDays != nil {
+		settings.SyncDays = *req.SyncDays
+		scheduleChanged = true
 	}
 	if req.DailySyncHour != nil {
 		hour := *req.DailySyncHour
@@ -652,6 +660,7 @@ func (s *Server) handleUpdateSettings(c *gin.Context) {
 			return
 		}
 		settings.DailySyncHour = hour
+		scheduleChanged = true
 	}
 	if req.DailySyncMinute != nil {
 		minute := *req.DailySyncMinute
@@ -660,11 +669,17 @@ func (s *Server) handleUpdateSettings(c *gin.Context) {
 			return
 		}
 		settings.DailySyncMinute = minute
+		scheduleChanged = true
+	}
+	if req.SyncTimezoneOffset != nil {
+		settings.SyncTimezoneOffset = *req.SyncTimezoneOffset
+		scheduleChanged = true
 	}
 
 	// Apply schedule changes to background sync manager in real-time
-	if s.backgroundSync != nil && (req.DailySyncEnabled != nil || req.DailySyncHour != nil || req.DailySyncMinute != nil) {
-		s.backgroundSync.UpdateSchedule(settings.DailySyncEnabled, settings.DailySyncHour, settings.DailySyncMinute)
+	if s.backgroundSync != nil && scheduleChanged {
+		syncDays := imaging.ParseSyncDays(settings.SyncDays)
+		s.backgroundSync.UpdateSchedule(syncDays, settings.DailySyncHour, settings.DailySyncMinute, settings.SyncTimezoneOffset)
 	}
 
 	s.db.Save(&settings)
@@ -674,10 +689,48 @@ func (s *Server) handleUpdateSettings(c *gin.Context) {
 		ThumbnailCachePath:    settings.ThumbnailCachePath,
 		ThumbnailCacheSize:    settings.ThumbnailCacheSize,
 		OcrConcurrentRequests: settings.OcrConcurrentRequests,
-		DailySyncEnabled:      settings.DailySyncEnabled,
+		SyncDays:              settings.SyncDays,
 		DailySyncHour:         settings.DailySyncHour,
 		DailySyncMinute:       settings.DailySyncMinute,
+		SyncTimezoneOffset:    settings.SyncTimezoneOffset,
+		LastSyncAt:            settings.LastSyncAt,
+		LastSyncNew:           settings.LastSyncNew,
+		LastSyncUpdated:       settings.LastSyncUpdated,
+		LastSyncDeleted:       settings.LastSyncDeleted,
+		LastSyncThumbnails:    settings.LastSyncThumbnails,
 	})
+}
+
+// handleGetSyncStatus returns the current background sync status
+func (s *Server) handleGetSyncStatus(c *gin.Context) {
+	if s.backgroundSync == nil {
+		c.JSON(http.StatusOK, dto.SyncStatusResponse{Running: false})
+		return
+	}
+	status := s.backgroundSync.GetStatus()
+	settings := s.settingsLoader.AppSettings()
+	c.JSON(http.StatusOK, dto.SyncStatusResponse{
+		Running:            status.Running,
+		SyncInProgress:     status.SyncInProgress,
+		NextRunAt:          formatTimeInUserTZ(status.NextRunAt, settings.SyncTimezoneOffset),
+		LastSyncAt:         formatTimeInUserTZ(status.LastSyncAt, settings.SyncTimezoneOffset),
+		LastSyncNew:        status.LastSyncNew,
+		LastSyncUpdated:    status.LastSyncUpdated,
+		LastSyncDeleted:    status.LastSyncDeleted,
+		LastSyncThumbnails: status.LastSyncThumbnails,
+		ProcessedFiles:     status.ProcessedFiles,
+		TotalFiles:         status.TotalFiles,
+	})
+}
+
+// formatTimeInUserTZ formats a time pointer as an ISO 8601 string in the user's configured timezone.
+// This prevents browser double-conversion: the string is already in the user's local time.
+func formatTimeInUserTZ(t *time.Time, timezoneOffset int) string {
+	if t == nil {
+		return ""
+	}
+	userTZ := time.FixedZone("UserTZ", -timezoneOffset*60)
+	return t.In(userTZ).Format("2006-01-02T15:04:05")
 }
 
 // --- User Settings Handlers ---
@@ -2139,6 +2192,7 @@ func (s *Server) handleGetLlmSettings(c *gin.Context) {
 		EmbeddingProviderAlias: settings.EmbeddingProviderAlias,
 		EmbeddingModel:         settings.EmbeddingModel,
 		EmbeddingDimension:     settings.EmbeddingDimension,
+		EmbeddingBatchSize:     settings.EmbeddingBatchSize,
 		Providers:             providerDTOs,
 	})
 }
@@ -2183,6 +2237,9 @@ func (s *Server) handleUpdateLlmSettings(c *gin.Context) {
 	if req.EmbeddingDimension != nil {
 		globalUpdates["embedding_dimension"] = *req.EmbeddingDimension
 	}
+	if req.EmbeddingBatchSize != nil {
+		globalUpdates["embedding_batch_size"] = *req.EmbeddingBatchSize
+	}
 
 	if err == gorm.ErrRecordNotFound {
 		settings = domain.LlmSettings{
@@ -2223,6 +2280,9 @@ func (s *Server) handleUpdateLlmSettings(c *gin.Context) {
 		if req.EmbeddingDimension != nil {
 			settings.EmbeddingDimension = *req.EmbeddingDimension
 		}
+		if req.EmbeddingBatchSize != nil {
+			settings.EmbeddingBatchSize = *req.EmbeddingBatchSize
+		}
 		if err := s.db.Create(&settings).Error; err != nil {
 			c.JSON(http.StatusInternalServerError, i18n.ErrorResponse(i18n.MsgLlmOcrSettingsSaveFailed))
 			return
@@ -2245,6 +2305,54 @@ func (s *Server) handleUpdateLlmSettings(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, map[string]string{"message": string(i18n.MsgLlmOcrSettingsSaved)})
+}
+
+// handleProbeEmbeddingDimension probes the embedding model to detect its vector dimension.
+// Sends a single "dimension probe" text to the model and returns len(embeddings[0]).
+func (s *Server) handleProbeEmbeddingDimension(c *gin.Context) {
+	var req dto.ProbeEmbeddingDimensionRequest
+	if !helpers.BindJSON(c, &req) {
+		return
+	}
+
+	// Resolve provider by alias
+	var provider domain.LlmProvider
+	if err := s.db.Where("alias = ?", req.ProviderAlias).First(&provider).Error; err != nil {
+		s.respondError(c, http.StatusNotFound, i18n.MsgEmbeddingProviderNotFound)
+		return
+	}
+
+	// Create embedding client
+	embeddingClient, err := llm.NewEmbeddingClient(provider.Name, provider.ApiUrl, provider.ApiKey, req.Model)
+	if err != nil {
+		s.respondError(c, http.StatusInternalServerError, i18n.MsgEmbeddingClientFailed)
+		return
+	}
+
+	// Probe: send a single short text and measure output dimension
+	probe, err := embeddingClient.Embed([]string{"dimension probe"})
+	if err != nil {
+		s.respondError(c, http.StatusInternalServerError, i18n.MsgEmbeddingProbeFailed)
+		return
+	}
+	if len(probe) == 0 || len(probe[0]) == 0 {
+		s.respondError(c, http.StatusInternalServerError, i18n.MsgEmbeddingEmptyVector)
+		return
+	}
+
+	dimension := len(probe[0])
+
+	// Persist detected dimension into LlmSettings so downstream code uses it immediately
+	var settings domain.LlmSettings
+	if s.db.First(&settings).Error == nil {
+		s.db.Model(&settings).Updates(map[string]interface{}{
+			"embedding_dimension":     dimension,
+			"embedding_model":         req.Model,
+			"embedding_provider_alias": req.ProviderAlias,
+		})
+	}
+
+	c.JSON(http.StatusOK, dto.ProbeEmbeddingDimensionResponse{Dimension: dimension})
 }
 
 // handleCreateLlmProvider creates a new LLM provider
@@ -2417,23 +2525,23 @@ func (s *Server) handleTagScanStatus(c *gin.Context) {
 // handleTagScanPause pauses the tag scanning
 func (s *Server) handleTagScanPause(c *gin.Context) {
 	if s.tagScanManager == nil {
-		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Tag scan manager not available"})
+		s.respondError(c, http.StatusServiceUnavailable, i18n.MsgTagScanManagerNotAvailable)
 		return
 	}
 
 	s.tagScanManager.RequestPause()
-	c.JSON(http.StatusOK, gin.H{"message": "Tag scan paused"})
+	s.respondSuccess(c, http.StatusOK, i18n.MsgTagScanPaused)
 }
 
 // handleTagScanResume resumes the tag scanning
 func (s *Server) handleTagScanResume(c *gin.Context) {
 	if s.tagScanManager == nil {
-		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Tag scan manager not available"})
+		s.respondError(c, http.StatusServiceUnavailable, i18n.MsgTagScanManagerNotAvailable)
 		return
 	}
 
 	s.tagScanManager.Resume()
-	c.JSON(http.StatusOK, gin.H{"message": "Tag scan resumed"})
+	s.respondSuccess(c, http.StatusOK, i18n.MsgTagScanResumed)
 }
 
 // handleLlmRecognize starts LLM-based OCR recognition asynchronously
