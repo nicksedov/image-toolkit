@@ -105,8 +105,9 @@ func main() {
 
 	// Count total images that need embeddings for this model.
 	// Without --force, an image is "needing" embeddings when:
-	//   1. No child table row exists for this model, OR
-	//   2. The tag_hash in embedding_setup_hashes differs from the current tag content.
+	//   1. No child table row exists for this model (missing embedding), OR
+	//   2. A tag_hash exists in embedding_setup_hashes (previously processed;
+	//      actual hash comparison happens in filterUnchanged() later).
 	total := countNeedingEmbeddings(db, childTable, *force)
 
 	if total == 0 {
@@ -151,9 +152,11 @@ func main() {
 			tagHashes[i] = hashTags(tagTexts[i])
 		}
 
-		// Without --force, filter out images whose tag hash hasn't changed
-		// (they may appear in the query if tag_embeddings exists but child doesn't,
-		// yet the hash proves content is unchanged — rare edge case after schema migration).
+		// Without --force, filter out images whose tag hash hasn't changed.
+		// Images appear in the batch when:
+		//   - child table row is missing (needs initial embedding), OR
+		//   - a tag_hash was stored (hash comparison detects actual tag changes).
+		// Images whose stored hash matches the current computed hash are skipped.
 		if !*force {
 			filtered := filterUnchanged(db, imageIDs, tagHashes)
 			if len(filtered) == 0 {
@@ -232,6 +235,10 @@ func ensureSetupHashesTable(db *gorm.DB) {
 }
 
 // countNeedingEmbeddings returns the number of images that need embedding computation.
+// Without --force, an image needs embeddings when:
+//  1. No child table row exists for this model (missing embedding), OR
+//  2. A tag_hash exists in embedding_setup_hashes (image was previously processed)
+//     — the actual hash comparison happens later in filterUnchanged().
 func countNeedingEmbeddings(db *gorm.DB, childTable string, force bool) int64 {
 	var total int64
 	if force {
@@ -241,12 +248,15 @@ func countNeedingEmbeddings(db *gorm.DB, childTable string, force bool) int64 {
 			Distinct("image_files.id").
 			Count(&total)
 	} else {
-		// Without --force, count images where child table row is missing
+		// Without --force, count images where:
+		//   - child table row is missing, OR
+		//   - a tag_hash was stored (may be outdated due to tag changes)
 		db.Table("image_files").
 			Joins("INNER JOIN image_tags ON image_tags.image_file_id = image_files.id").
 			Joins("LEFT JOIN tag_embeddings ON tag_embeddings.image_file_id = image_files.id").
 			Joins(fmt.Sprintf("LEFT JOIN %s ON %s.tag_embeddings_id = tag_embeddings.id", childTable, childTable)).
-			Where(fmt.Sprintf("%s.id IS NULL", childTable)).
+			Joins("LEFT JOIN embedding_setup_hashes ON embedding_setup_hashes.image_file_id = image_files.id").
+			Where(fmt.Sprintf("%s.id IS NULL OR embedding_setup_hashes.tag_hash != ''", childTable)).
 			Distinct("image_files.id").
 			Count(&total)
 	}
@@ -254,6 +264,8 @@ func countNeedingEmbeddings(db *gorm.DB, childTable string, force bool) int64 {
 }
 
 // fetchBatch retrieves the next batch of image IDs that need embeddings.
+// Without --force, includes images that are missing child records or have a
+// stored tag_hash (to detect tag changes via hash comparison).
 func fetchBatch(db *gorm.DB, childTable string, cursor uint, batchSize int, force bool) ([]uint, error) {
 	var imageIDs []uint
 	q := db.Table("image_files").
@@ -263,7 +275,8 @@ func fetchBatch(db *gorm.DB, childTable string, cursor uint, batchSize int, forc
 	if !force {
 		q = q.Joins("LEFT JOIN tag_embeddings ON tag_embeddings.image_file_id = image_files.id").
 			Joins(fmt.Sprintf("LEFT JOIN %s ON %s.tag_embeddings_id = tag_embeddings.id", childTable, childTable)).
-			Where(fmt.Sprintf("%s.id IS NULL AND image_files.id > ?", childTable), cursor)
+			Joins("LEFT JOIN embedding_setup_hashes ON embedding_setup_hashes.image_file_id = image_files.id").
+			Where(fmt.Sprintf("(%s.id IS NULL OR embedding_setup_hashes.tag_hash != '') AND image_files.id > ?", childTable), cursor)
 	} else {
 		q = q.Where("image_files.id > ?", cursor)
 	}
@@ -287,7 +300,9 @@ func batchFetchTags(db *gorm.DB, imageIDs []uint) map[uint][]string {
 }
 
 // filterUnchanged returns indices of images whose tag hash differs from the stored hash.
-// Images without an embedding_setup_hashes record (hash is empty) are always included.
+// Images without an embedding_setup_hashes record (hash is empty) are always included
+// (they need an initial embedding).
+// Images with a matching hash are excluded — their embedding is already up-to-date.
 func filterUnchanged(db *gorm.DB, imageIDs []uint, tagHashes []string) []int {
 	// Fetch existing hash records for this batch
 	var records []EmbeddingSetupHash
