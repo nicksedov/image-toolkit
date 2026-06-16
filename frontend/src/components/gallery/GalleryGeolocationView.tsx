@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react"
-import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from "react-leaflet"
+import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap } from "react-leaflet"
 import L from "leaflet"
 import { GalleryImageGrid } from "@/components/gallery/GalleryImageGrid"
 import { useGeoClusters } from "@/hooks/useGeoClusters"
@@ -86,6 +86,37 @@ function MapEventHandler({ onBoundsChange }: { onBoundsChange: (bounds: GeoBound
       maxLng: bounds.getEast(),
     })
   }, [map, onBoundsChange])
+
+  return null
+}
+
+// Prevents the map from showing the world more than once by setting
+// maxBounds and dynamically calculating minZoom based on container width
+function MapBoundsController() {
+  const map = useMap()
+
+  useEffect(() => {
+    // Restrict panning to world bounds so the map can't scroll past the edges
+    map.setMaxBounds(L.latLngBounds(L.latLng(-90, -180), L.latLng(90, 180)))
+
+    const updateMinZoom = () => {
+      const container = map.getContainer()
+      const width = container.clientWidth
+      // World is 256px at zoom 0; find the zoom where world width == container width
+      const minZoom = Math.ceil(Math.log2(width / 256))
+      map.setMinZoom(minZoom)
+      // Re-fit view if current zoom is now below the new minimum
+      if (map.getZoom() < minZoom) {
+        map.setZoom(minZoom)
+      }
+    }
+
+    updateMinZoom()
+
+    const observer = new ResizeObserver(updateMinZoom)
+    observer.observe(map.getContainer())
+    return () => observer.disconnect()
+  }, [map])
 
   return null
 }
@@ -253,6 +284,8 @@ export function GalleryGeolocationView({ onImageClick, onImageDownload, onImageD
           <MapContainer
             center={[20, 0]}
             zoom={2}
+            maxBoundsViscosity={1.0}
+            worldCopyJump={true}
             style={{ height: "100%", width: "100%" }}
             zoomControl={true}
             scrollWheelZoom={true}
@@ -262,6 +295,7 @@ export function GalleryGeolocationView({ onImageClick, onImageDownload, onImageD
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
+            <MapBoundsController />
             <MapZoomTracker />
             <MapEventHandler onBoundsChange={handleBoundsChange} />
 
