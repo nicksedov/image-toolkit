@@ -54,8 +54,8 @@ export function OcrResultPanel({
   if (llmData?.found && llmData.success && llmData.markdownContent) {
     return (
       <div className={panelClass}>
-        <div className="h-full overflow-y-auto">
-          <div className="space-y-4">
+        <div className="flex flex-col h-full">
+          <div className="shrink-0 space-y-4">
             <h3 className="text-sm font-semibold mb-3">{t("llm_ocr.title")}</h3>
 
             {/* Result section */}
@@ -99,8 +99,10 @@ export function OcrResultPanel({
                 {t("llm_ocr.recognizeButton")}
               </Button>
             </div>
+          </div>
 
-            {/* Markdown content */}
+          {/* Markdown content — scrollable */}
+          <div className="mt-4 overflow-y-auto min-h-0">
             <div className="p-4 bg-muted rounded-lg markdown-body">
               <OcrMarkdownRenderer content={llmData.markdownContent} />
             </div>
