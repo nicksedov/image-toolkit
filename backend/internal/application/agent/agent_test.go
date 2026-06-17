@@ -176,7 +176,7 @@ func TestAgent_MultipleToolCalls(t *testing.T) {
 	mockLLM := &mockChatClient{
 		responses: []*llm.ChatResponse{
 			{
-				// First: generate tags then search
+				// First: generate tags to understand the image
 				Message: llm.ChatMessage{
 					Role: "assistant",
 					ToolCalls: []llm.ToolCall{
@@ -186,11 +186,11 @@ func TestAgent_MultipleToolCalls(t *testing.T) {
 				StopReason: "tool_use",
 			},
 			{
-				// Second: search by those tags
+				// Second: use semantic search to find similar images
 				Message: llm.ChatMessage{
 					Role: "assistant",
 					ToolCalls: []llm.ToolCall{
-						{ID: "call_2", Name: "search_by_tags", Arguments: json.RawMessage(`{"tags":["cat","couch"]}`)},
+						{ID: "call_2", Name: "semantic_search", Arguments: json.RawMessage(`{"query":"cat on couch indoor"}`)},
 					},
 				},
 				StopReason: "tool_use",
@@ -206,13 +206,13 @@ func TestAgent_MultipleToolCalls(t *testing.T) {
 	toolProvider := &mockToolProvider{
 		tools: []llm.ToolDefinition{
 			{Name: "generate_tags", Description: "Generate tags"},
-			{Name: "search_by_tags", Description: "Search by tags"},
+			{Name: "semantic_search", Description: "Semantic search"},
 		},
 		executeMap: map[string]func(json.RawMessage) (string, error){
 			"generate_tags": func(args json.RawMessage) (string, error) {
 				return `["cat","couch","indoor"]`, nil
 			},
-			"search_by_tags": func(args json.RawMessage) (string, error) {
+			"semantic_search": func(args json.RawMessage) (string, error) {
 				return `[{"path":"/img1.jpg"},{"path":"/img2.jpg"},{"path":"/img3.jpg"}]`, nil
 			},
 		},

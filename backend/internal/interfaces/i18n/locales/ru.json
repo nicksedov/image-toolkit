@@ -206,11 +206,6 @@
     "empty_vector": "Пробный запрос эмбеддингов вернул пустой вектор"
   },
 
-  "description_tag_search": "Сообщения поиска по тегам",
-  "tag_search": {
-    "query_required": "Параметр tags обязателен",
-    "at_least_one_required": "Необходим хотя бы один тег"
-  },
 
   "description_tag_scan": "Сообщения сканирования тегов",
   "tag_scan": {

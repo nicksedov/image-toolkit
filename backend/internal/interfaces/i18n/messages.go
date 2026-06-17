@@ -177,10 +177,6 @@ const (
 	MsgEmbeddingProbeFailed        MessageKey = "embedding.probe_failed"
 	MsgEmbeddingEmptyVector        MessageKey = "embedding.empty_vector"
 
-	// Tag search messages
-	MsgTagSearchQueryRequired    MessageKey = "tag_search.query_required"
-	MsgTagSearchAtLeastOneRequired MessageKey = "tag_search.at_least_one_required"
-
 	// Tag scan messages
 	MsgTagScanManagerNotAvailable MessageKey = "tag_scan.manager_not_available"
 	MsgTagScanPaused             MessageKey = "tag_scan.paused"

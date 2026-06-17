@@ -206,11 +206,6 @@
     "empty_vector": "Embedding probe returned empty vector"
   },
 
-  "description_tag_search": "Tag search messages",
-  "tag_search": {
-    "query_required": "Tags query parameter is required",
-    "at_least_one_required": "At least one tag is required"
-  },
 
   "description_tag_scan": "Tag scan messages",
   "tag_scan": {

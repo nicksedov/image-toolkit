@@ -65,7 +65,6 @@ func (s *PixelCloudMCPServer) ToolDefinitions() []llm.ToolDefinition {
 		recognizeTextToolDef(),
 		generateTagsToolDef(),
 		askAboutImageToolDef(),
-		searchByTagsToolDef(),
 		searchByDateToolDef(),
 		searchByLocationToolDef(),
 		searchByPathToolDef(),
@@ -85,8 +84,6 @@ func (s *PixelCloudMCPServer) ExecuteTool(ctx context.Context, name string, argu
 		return s.executeGenerateTags(ctx, arguments)
 	case "ask_about_image":
 		return s.executeAskAboutImage(ctx, arguments)
-	case "search_by_tags":
-		return s.executeSearchByTags(ctx, arguments)
 	case "search_by_date":
 		return s.executeSearchByDate(ctx, arguments)
 	case "search_by_location":

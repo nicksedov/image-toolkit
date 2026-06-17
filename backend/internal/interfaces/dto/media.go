@@ -721,18 +721,3 @@ type BatchUpdateGpsResponse struct {
 	Lng         float64  `json:"lng"`
 }
 
-// --- Tag Search API ---
-
-// TagSearchResult represents a single image result from a tag search
-type TagSearchResult struct {
-	ID       uint   `json:"id"`
-	Path     string `json:"path"`
-	FileName string `json:"fileName"`
-	ModTime  string `json:"modTime,omitempty"`
-}
-
-// TagSearchResponse is the JSON response for GET /api/gallery/tag-search
-type TagSearchResponse struct {
-	Images []TagSearchResult `json:"images"`
-	Total  int               `json:"total"`
-}

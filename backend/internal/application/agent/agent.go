@@ -275,12 +275,11 @@ You have access to the following tools:
 - recognize_text: Extract text from an image (OCR)
 - generate_tags: Generate descriptive tags for an image
 - ask_about_image: Answer a specific question about an image
-- search_by_tags: Find images by their AI-generated tags
+- semantic_search: Find images by natural language description using semantic similarity. This is the PRIMARY tool for finding similar or related images.
 - search_by_date: Find images taken within a date range
 - search_by_location: Find images at specific geographic coordinates
 - search_by_path: Find images by filename or path pattern
 - get_image_metadata: Get EXIF metadata for an image
-- semantic_search: Find images by natural language description using semantic similarity
 
 Guidelines:
 - Use tools when you need information. Don't guess.
