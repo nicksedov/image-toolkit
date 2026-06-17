@@ -50,7 +50,7 @@ interface Suggestion {
 
 const TOOL_NAME_KEYS: Record<string, TranslationKey> = {
   describe_image: "chat.tool_describe_image",
-  search_by_tags: "chat.tool_search_by_tags",
+  semantic_search: "chat.tool_semantic_search",
   search_by_date: "chat.tool_search_by_date",
   search_by_location: "chat.tool_search_by_location",
   search_by_path: "chat.tool_search_by_path",
