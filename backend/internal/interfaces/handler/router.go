@@ -119,9 +119,6 @@ func (s *Server) SetupRouter(authMiddleware *middleware.AuthMiddleware, csrfProt
 			protected.POST("/ai/action", s.handleAiAction)
 			protected.GET("/ai/status/:taskId", s.handleAiActionStatus)
 
-			// Tag Search endpoint
-			protected.GET("/gallery/tag-search", s.handleSearchByTags)
-
 			// Smart Search (semantic search) endpoint
 			protected.GET("/gallery/smart-search", s.handleSmartSearch)
 

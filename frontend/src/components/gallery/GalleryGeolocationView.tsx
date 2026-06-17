@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react"
-import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from "react-leaflet"
+import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap } from "react-leaflet"
 import L from "leaflet"
 import { GalleryImageGrid } from "@/components/gallery/GalleryImageGrid"
 import { useGeoClusters } from "@/hooks/useGeoClusters"
 import { useGeoImages } from "@/hooks/useGeoImages"
 import { useTranslation } from "@/i18n"
-import { ArrowLeft, MapPin, ImageIcon, Loader2 } from "lucide-react"
+import { ArrowLeft, MapPin, ImageIcon } from "lucide-react"
 import { useIntersectionObserver } from "@/hooks/useIntersectionObserver"
 import { PaginationFooter } from "@/components/ui/pagination-footer"
 import { ViewHeader } from "@/components/ui/view-header"
@@ -86,6 +86,38 @@ function MapEventHandler({ onBoundsChange }: { onBoundsChange: (bounds: GeoBound
       maxLng: bounds.getEast(),
     })
   }, [map, onBoundsChange])
+
+  return null
+}
+
+// Prevents the map from showing the world more than once by setting
+// maxBounds and dynamically calculating minZoom based on container width
+function MapBoundsController() {
+  const map = useMap()
+
+  useEffect(() => {
+    // Restrict panning to world bounds so the map can't scroll past the edges
+    map.setMaxBounds(L.latLngBounds(L.latLng(-90, -180), L.latLng(90, 180)))
+
+    const updateMinZoom = () => {
+      const container = map.getContainer()
+      const width = container.clientWidth
+      const height = container.clientHeight
+      // World is 256px at zoom 0; find the zoom where world fits both dimensions
+      const minZoom = Math.ceil(Math.min(Math.log2(width / 256), Math.log2(height / 256)))
+      map.setMinZoom(minZoom)
+      // Re-fit view if current zoom is now below the new minimum
+      if (map.getZoom() < minZoom) {
+        map.setZoom(minZoom)
+      }
+    }
+
+    updateMinZoom()
+
+    const observer = new ResizeObserver(updateMinZoom)
+    observer.observe(map.getContainer())
+    return () => observer.disconnect()
+  }, [map])
 
   return null
 }
@@ -229,16 +261,12 @@ export function GalleryGeolocationView({ onImageClick, onImageDownload, onImageD
   // Map view
   return (
     <div className="space-y-2">
-      {(totalImages > 0 || !clustersInitialized) && (
+      {totalImages > 0 && clustersInitialized && (
         <div className="flex items-center gap-2">
           <MapPin className="h-5 w-5 text-muted-foreground" />
-          {!clustersInitialized ? (
-            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-          ) : (
-            <span className="text-sm text-muted-foreground">
-              {t("geolocation.totalGeoImages", { count: totalImages.toString() })}
-            </span>
-          )}
+          <span className="text-sm text-muted-foreground">
+            {t("geolocation.totalGeoImages", { count: totalImages.toString() })}
+          </span>
         </div>
       )}
 
@@ -257,6 +285,8 @@ export function GalleryGeolocationView({ onImageClick, onImageDownload, onImageD
           <MapContainer
             center={[20, 0]}
             zoom={2}
+            maxBoundsViscosity={1.0}
+            worldCopyJump={true}
             style={{ height: "100%", width: "100%" }}
             zoomControl={true}
             scrollWheelZoom={true}
@@ -266,6 +296,7 @@ export function GalleryGeolocationView({ onImageClick, onImageDownload, onImageD
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
+            <MapBoundsController />
             <MapZoomTracker />
             <MapEventHandler onBoundsChange={handleBoundsChange} />
 
@@ -290,11 +321,6 @@ export function GalleryGeolocationView({ onImageClick, onImageDownload, onImageD
         </div>
       )}
 
-      {clustersLoading && (
-        <div className="flex justify-center py-4">
-          <div className="text-sm text-muted-foreground">{t("geolocation.loadingClusters")}</div>
-        </div>
-      )}
     </div>
   )
 }

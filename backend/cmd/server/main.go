@@ -9,10 +9,10 @@ import (
 
 	"github.com/joho/godotenv"
 
+	agentpkg "image-toolkit/internal/application/agent"
 	"image-toolkit/internal/application/auth"
 	"image-toolkit/internal/application/imaging"
 	"image-toolkit/internal/application/thumbnail"
-	agentpkg "image-toolkit/internal/application/agent"
 	"image-toolkit/internal/domain"
 	"image-toolkit/internal/infrastructure/config"
 	"image-toolkit/internal/infrastructure/database"
@@ -287,7 +287,7 @@ func main() {
 
 	// Create MCP server
 	llmFactory := helpers.NewLLMFactory(db, cfg.LlmMaxImageMegapixels)
-	mcpSrv := mcpserver.NewImageToolkitMCPServer(db, llmFactory, llmOcrService, cfg.LlmMaxImageMegapixels, embeddingBackfill)
+	mcpSrv := mcpserver.NewPixelDriveMCPServer(db, llmFactory, llmOcrService, cfg.LlmMaxImageMegapixels, embeddingBackfill)
 	fmt.Println("MCP server initialized with image analysis and search tools")
 
 	// Create conversation service and agent

@@ -20,9 +20,9 @@ Language:
 - First list English tags, then Russian tags
 - Ensure semantic correspondence between languages (translations, not different tags)
 
-Format:
+Output format:
 - Single comma-separated line
 - Max 30 tags per language
 
-Example format:
-tag1, tag2, tag3, ..., тег1, тег2, тег3
+Output example:
+tag1, tag2, tag3, тег1, тег2, тег3

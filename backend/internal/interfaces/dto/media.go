@@ -474,30 +474,30 @@ type LlmProviderDTO struct {
 
 // LlmSettingsResponse for GET /api/llm/settings
 type LlmSettingsResponse struct {
-	ID                    uint             `json:"id"`
-	ActiveProvider        string           `json:"activeProvider"` // References LlmProvider.Alias
-	TagScanEnabled        bool             `json:"tagScanEnabled"`
-	TagScanStartHour      int              `json:"tagScanStartHour"`
-	TagScanStartMinute    int              `json:"tagScanStartMinute"`
-	TagScanEndHour        int              `json:"tagScanEndHour"`
-	TagScanEndMinute      int              `json:"tagScanEndMinute"`
-	TagScanTimezoneOffset int              `json:"tagScanTimezoneOffset"`
-	EmbeddingProviderAlias string          `json:"embeddingProviderAlias"`
-	EmbeddingModel         string          `json:"embeddingModel"`
-	EmbeddingDimension     int             `json:"embeddingDimension"`
-	EmbeddingBatchSize     int             `json:"embeddingBatchSize"`
-	Providers             []LlmProviderDTO `json:"providers"`
+	ID                     uint             `json:"id"`
+	ActiveProvider         string           `json:"activeProvider"` // References LlmProvider.Alias
+	TagScanEnabled         bool             `json:"tagScanEnabled"`
+	TagScanStartHour       int              `json:"tagScanStartHour"`
+	TagScanStartMinute     int              `json:"tagScanStartMinute"`
+	TagScanEndHour         int              `json:"tagScanEndHour"`
+	TagScanEndMinute       int              `json:"tagScanEndMinute"`
+	TagScanTimezoneOffset  int              `json:"tagScanTimezoneOffset"`
+	EmbeddingProviderAlias string           `json:"embeddingProviderAlias"`
+	EmbeddingModel         string           `json:"embeddingModel"`
+	EmbeddingDimension     int              `json:"embeddingDimension"`
+	EmbeddingBatchSize     int              `json:"embeddingBatchSize"`
+	Providers              []LlmProviderDTO `json:"providers"`
 }
 
 // UpdateLlmSettingsRequest for PUT /api/llm/settings (active provider + tag scan only)
 type UpdateLlmSettingsRequest struct {
-	ActiveProvider        *string `json:"activeProvider"` // References LlmProvider.Alias
-	TagScanEnabled        *bool   `json:"tagScanEnabled,omitempty"`
-	TagScanStartHour      *int    `json:"tagScanStartHour,omitempty"`
-	TagScanStartMinute    *int    `json:"tagScanStartMinute,omitempty"`
-	TagScanEndHour        *int    `json:"tagScanEndHour,omitempty"`
-	TagScanEndMinute      *int    `json:"tagScanEndMinute,omitempty"`
-	TagScanTimezoneOffset *int    `json:"tagScanTimezoneOffset,omitempty"`
+	ActiveProvider         *string `json:"activeProvider"` // References LlmProvider.Alias
+	TagScanEnabled         *bool   `json:"tagScanEnabled,omitempty"`
+	TagScanStartHour       *int    `json:"tagScanStartHour,omitempty"`
+	TagScanStartMinute     *int    `json:"tagScanStartMinute,omitempty"`
+	TagScanEndHour         *int    `json:"tagScanEndHour,omitempty"`
+	TagScanEndMinute       *int    `json:"tagScanEndMinute,omitempty"`
+	TagScanTimezoneOffset  *int    `json:"tagScanTimezoneOffset,omitempty"`
 	EmbeddingProviderAlias *string `json:"embeddingProviderAlias,omitempty"`
 	EmbeddingModel         *string `json:"embeddingModel,omitempty"`
 	EmbeddingDimension     *int    `json:"embeddingDimension,omitempty"`
@@ -714,25 +714,10 @@ type BatchUpdateGpsRequest struct {
 type BatchUpdateGpsResponse struct {
 	Success     int      `json:"success"`
 	Failed      int      `json:"failed"`
+	Skipped     int      `json:"skipped"`
 	FailedFiles []string `json:"failedFiles,omitempty"`
 	NameLocal   string   `json:"nameLocal"`
 	NameEng     string   `json:"nameEng"`
 	Lat         float64  `json:"lat"`
 	Lng         float64  `json:"lng"`
-}
-
-// --- Tag Search API ---
-
-// TagSearchResult represents a single image result from a tag search
-type TagSearchResult struct {
-	ID       uint   `json:"id"`
-	Path     string `json:"path"`
-	FileName string `json:"fileName"`
-	ModTime  string `json:"modTime,omitempty"`
-}
-
-// TagSearchResponse is the JSON response for GET /api/gallery/tag-search
-type TagSearchResponse struct {
-	Images []TagSearchResult `json:"images"`
-	Total  int               `json:"total"`
 }

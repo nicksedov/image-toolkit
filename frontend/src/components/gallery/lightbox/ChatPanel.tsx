@@ -50,7 +50,7 @@ interface Suggestion {
 
 const TOOL_NAME_KEYS: Record<string, TranslationKey> = {
   describe_image: "chat.tool_describe_image",
-  search_by_tags: "chat.tool_search_by_tags",
+  semantic_search: "chat.tool_semantic_search",
   search_by_date: "chat.tool_search_by_date",
   search_by_location: "chat.tool_search_by_location",
   search_by_path: "chat.tool_search_by_path",
@@ -157,7 +157,7 @@ function extractImagePaths(message: ChatMessage): string[] {
   if (!message.toolCalls) return []
   const paths: string[] = []
   for (const tc of message.toolCalls) {
-    if (tc.name.startsWith("search_") && tc.result) {
+    if ((tc.name.startsWith("search_") || tc.name === "semantic_search") && tc.result) {
       try {
         const parsed = JSON.parse(tc.result)
         if (Array.isArray(parsed)) {

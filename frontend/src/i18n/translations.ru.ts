@@ -1,9 +1,13 @@
 export const translationsRu = {
   // Header
-  "header.title": "Image Toolkit",
-  "header.subtitle": "Универсальный набор инструментов для работы с изображениями",
+  "header.title": "PixelDrive",
   "header.toggleTheme": "Переключить тему",
   "header.toggleLanguage": "Переключить язык",
+  "header.menu": "Меню",
+
+  // Sidebar
+  "sidebar.collapse": "Свернуть",
+  "sidebar.expand": "Развернуть",
 
   // Tabs
   "tabs.preferences": "Настройки",
@@ -209,6 +213,7 @@ export const translationsRu = {
 
   // Metadata panel
   "metadata.title": "Информация об изображении",
+  "metadata.file": "Файл",
   "metadata.dimensions": "Размеры",
   "metadata.camera": "Камера",
   "metadata.lens": "Объектив",
@@ -227,6 +232,7 @@ export const translationsRu = {
   "metadata.noData": "Метаданные недоступны",
   "metadata.loading": "Загрузка метаданных...",
   "metadata.sectionCamera": "Камера",
+  "metadata.sectionFile": "Файл",
   "metadata.sectionImage": "Изображение",
   "metadata.sectionLocation": "Местоположение",
   "metadata.sectionTechnical": "Техническая информация",
@@ -390,7 +396,7 @@ export const translationsRu = {
   "adminPanel.loginPlaceholder": "Введите логин",
   "adminPanel.passwordPlaceholder": "Введите пароль",
   "adminPanel.adminSetup": "Первичная настройка",
-  "adminPanel.loginTitle": "Image Toolkit",
+  "adminPanel.loginTitle": "PixelDrive",
   "adminPanel.signIn": "Войти",
   "adminPanel.bootstrapTitle": "Первичная настройка",
   "adminPanel.bootstrapDescAdmin": "Войдите под учетной записью администратора для первичной настройки системы",
@@ -489,7 +495,7 @@ export const translationsRu = {
   "api.llm_ocr.no_recognition": "Данные распознавания отсутствуют",
 
   // LLM OCR messages
-  "llm_ocr.title": "Распознавание текста (VL LLM)",
+  "llm_ocr.title": "Распознавание текста",
   "llm_ocr.description": "Используйте VL LLM для качественного распознавания текста",
   "llm_ocr.recognizeButton": "Распознать текст",
   "llm_ocr.recognizing": "Распознавание...",
@@ -501,6 +507,8 @@ export const translationsRu = {
   "llm_ocr.provider": "Провайдер",
   "llm_ocr.model": "Модель",
   "llm_ocr.filePath": "Путь к файлу",
+  "llm_ocr.sectionResult": "Результат",
+  "llm_ocr.sectionDetected": "Обнаружено",
   "llm_ocr.settings": "Настройки LLM",
   "llm_ocr.vlSettings": "Настройки VL LLM",
   "llm_ocr.vlSettingsDescription": "Настройка ИИ: описание, теги, OCR, визуальные ответы",
@@ -732,12 +740,12 @@ export const translationsRu = {
   "chat.suggest_date": "Когда это снято?",
   "chat.suggest_describe_msg": "Опиши это изображение подробно",
   "chat.suggest_text_msg": "Какой текст на этом изображении?",
-  "chat.suggest_similar_msg": "Найди похожие изображения по тегам",
+  "chat.suggest_similar_msg": "Найди похожие изображения по тегам с использованием семантического поиска",
   "chat.suggest_date_msg": "Когда было сделано это фото?",
   "chat.tool_running": "Выполняется...",
   "chat.thinking": "Думаю...",
   "chat.tool_describe_image": "Описание изображения",
-  "chat.tool_search_by_tags": "Поиск по тегам",
+  "chat.tool_semantic_search": "Семантический поиск",
   "chat.tool_search_by_date": "Поиск по дате",
   "chat.tool_search_by_location": "Поиск по местоположению",
   "chat.tool_search_by_path": "Поиск по пути",

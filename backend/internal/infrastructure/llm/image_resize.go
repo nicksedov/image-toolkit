@@ -12,9 +12,20 @@ import (
 	"github.com/disintegration/imaging"
 )
 
+// roundToMultipleOf32 rounds v to the nearest multiple of 32 (minimum 32).
+func roundToMultipleOf32(v int) int {
+	n := int(math.Round(float64(v) / 32.0))
+	if n < 1 {
+		n = 1
+	}
+	return n * 32
+}
+
 // resizeImageForLLM reads an image from the given path and downsizes it if its
-// pixel count exceeds maxMegapixels. The returned bytes are JPEG-encoded and
-// the media type is inferred from the file extension.
+// pixel count exceeds maxMegapixels. After scaling, both dimensions are snapped
+// to the nearest multiple of 32 to align with vision-model patch grids.
+// The returned bytes are JPEG-encoded and the media type is inferred from the
+// file extension.
 func resizeImageForLLM(imagePath string, maxMegapixels float64) ([]byte, string, error) {
 	file, err := os.Open(imagePath)
 	if err != nil {
@@ -36,9 +47,17 @@ func resizeImageForLLM(imagePath string, maxMegapixels float64) ([]byte, string,
 		if megapixels > maxMegapixels {
 			scale := math.Sqrt(maxMegapixels * 1_000_000.0 / float64(width*height))
 			newWidth := int(math.Round(float64(width) * scale))
-			newHeight := int(math.Round(float64(height) * scale))
-			if newWidth > 0 && newHeight > 0 {
-				img = imaging.Resize(img, newWidth, newHeight, imaging.Lanczos)
+			if newWidth > 0 {
+				// Snap x-dimension to nearest multiple of 32
+				newWidth = roundToMultipleOf32(newWidth)
+				// Precise scale correction
+				scale = float64(newWidth) / float64(width)
+				newHeight := int(math.Round(float64(height) * scale))
+				if newHeight > 0 {
+					// Snap y-dimension to nearest multiple of 32
+					newHeight = roundToMultipleOf32(newHeight)
+					img = imaging.Resize(img, newWidth, newHeight, imaging.Lanczos)
+				}
 			}
 		}
 	}

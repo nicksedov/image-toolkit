@@ -737,6 +737,7 @@ export interface BatchUpdateGpsRequest {
 export interface BatchUpdateGpsResponse {
   success: number
   failed: number
+  skipped: number
   failedFiles?: string[]
   nameLocal: string
   nameEng: string

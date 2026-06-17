@@ -1,9 +1,13 @@
 export const translationsEn = {
   // Header
-  "header.title": "Image Toolkit",
-  "header.subtitle": "All-in-one toolkit for image management",
+  "header.title": "PixelDrive",
   "header.toggleTheme": "Toggle theme",
   "header.toggleLanguage": "Toggle language",
+  "header.menu": "Menu",
+
+  // Sidebar
+  "sidebar.collapse": "Collapse",
+  "sidebar.expand": "Expand",
 
   // Tabs
   "tabs.preferences": "Preferences",
@@ -209,6 +213,7 @@ export const translationsEn = {
 
   // Metadata panel
   "metadata.title": "Image Details",
+  "metadata.file": "File",
   "metadata.dimensions": "Dimensions",
   "metadata.camera": "Camera",
   "metadata.lens": "Lens",
@@ -227,6 +232,7 @@ export const translationsEn = {
   "metadata.noData": "No metadata available",
   "metadata.loading": "Loading metadata...",
   "metadata.sectionCamera": "Camera",
+  "metadata.sectionFile": "File",
   "metadata.sectionImage": "Image",
   "metadata.sectionLocation": "Location",
   "metadata.sectionTechnical": "Technical",
@@ -390,7 +396,7 @@ export const translationsEn = {
   "adminPanel.loginPlaceholder": "Enter login",
   "adminPanel.passwordPlaceholder": "Enter password",
   "adminPanel.adminSetup": "Primary Setup",
-  "adminPanel.loginTitle": "Image Toolkit",
+  "adminPanel.loginTitle": "PixelDrive",
   "adminPanel.signIn": "Sign In",
   "adminPanel.bootstrapTitle": "Primary Setup",
   "adminPanel.bootstrapDescAdmin": "Log in as administrator for primary system setup",
@@ -579,7 +585,7 @@ export const translationsEn = {
   "api.gallery.conflict": "Gallery folder conflict detected",
 
   // LLM OCR messages
-  "llm_ocr.title": "Text Recognition (VL LLM)",
+  "llm_ocr.title": "Text Recognition",
   "llm_ocr.description": "Use VL LLM for high-quality text recognition",
   "llm_ocr.recognizeButton": "Recognize Text",
   "llm_ocr.recognizing": "Recognizing...",
@@ -591,6 +597,8 @@ export const translationsEn = {
   "llm_ocr.provider": "Provider",
   "llm_ocr.model": "Model",
   "llm_ocr.filePath": "File path",
+  "llm_ocr.sectionResult": "Result",
+  "llm_ocr.sectionDetected": "Detected",
   "llm_ocr.settings": "LLM Settings",
   "llm_ocr.vlSettings": "VL LLM Settings",
   "llm_ocr.vlSettingsDescription": "Configure AI: image description, tags, OCR, visual Q&A",
@@ -732,12 +740,12 @@ export const translationsEn = {
   "chat.suggest_date": "When was this taken?",
   "chat.suggest_describe_msg": "Describe this image in detail",
   "chat.suggest_text_msg": "What text is in this image?",
-  "chat.suggest_similar_msg": "Find similar images by tags",
+  "chat.suggest_similar_msg": "Find similar images by tags using semantic search",
   "chat.suggest_date_msg": "When was this photo taken?",
   "chat.tool_running": "Running...",
   "chat.thinking": "Thinking...",
   "chat.tool_describe_image": "Image description",
-  "chat.tool_search_by_tags": "Search by tags",
+  "chat.tool_semantic_search": "Semantic search",
   "chat.tool_search_by_date": "Search by date",
   "chat.tool_search_by_location": "Search by location",
   "chat.tool_search_by_path": "Search by path",

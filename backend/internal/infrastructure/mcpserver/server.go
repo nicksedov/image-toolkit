@@ -14,8 +14,8 @@ import (
 	"gorm.io/gorm"
 )
 
-// ImageToolkitMCPServer wraps the official MCP SDK server with domain-specific tools.
-type ImageToolkitMCPServer struct {
+// PixelDriveMCPServer wraps the official MCP SDK server with domain-specific tools.
+type PixelDriveMCPServer struct {
 	server            *mcp.Server
 	db                *gorm.DB
 	llmFactory        *helpers.LLMFactory
@@ -24,14 +24,14 @@ type ImageToolkitMCPServer struct {
 	embeddingBackfill *imaging.EmbeddingBackfillManager
 }
 
-// NewImageToolkitMCPServer creates and configures the MCP server with all tools.
-func NewImageToolkitMCPServer(db *gorm.DB, llmFactory *helpers.LLMFactory, llmService *imaging.LlmOcrService, maxMegapixels float64, embeddingBackfill *imaging.EmbeddingBackfillManager) *ImageToolkitMCPServer {
+// NewPixelDriveMCPServer creates and configures the MCP server with all tools.
+func NewPixelDriveMCPServer(db *gorm.DB, llmFactory *helpers.LLMFactory, llmService *imaging.LlmOcrService, maxMegapixels float64, embeddingBackfill *imaging.EmbeddingBackfillManager) *PixelDriveMCPServer {
 	srv := mcp.NewServer(&mcp.Implementation{
 		Name:    "image-toolkit",
 		Version: "1.0.0",
 	}, nil)
 
-	s := &ImageToolkitMCPServer{
+	s := &PixelDriveMCPServer{
 		server:            srv,
 		db:                db,
 		llmFactory:        llmFactory,
@@ -47,25 +47,24 @@ func NewImageToolkitMCPServer(db *gorm.DB, llmFactory *helpers.LLMFactory, llmSe
 }
 
 // Server returns the underlying MCP server instance.
-func (s *ImageToolkitMCPServer) Server() *mcp.Server {
+func (s *PixelDriveMCPServer) Server() *mcp.Server {
 	return s.server
 }
 
 // HTTPHandler returns an http.Handler that serves MCP over streamable HTTP.
-func (s *ImageToolkitMCPServer) HTTPHandler() http.Handler {
+func (s *PixelDriveMCPServer) HTTPHandler() http.Handler {
 	return mcp.NewStreamableHTTPHandler(func(r *http.Request) *mcp.Server {
 		return s.server
 	}, nil)
 }
 
 // ToolDefinitions returns all registered tool definitions for use by the agent.
-func (s *ImageToolkitMCPServer) ToolDefinitions() []llm.ToolDefinition {
+func (s *PixelDriveMCPServer) ToolDefinitions() []llm.ToolDefinition {
 	return []llm.ToolDefinition{
 		describeImageToolDef(),
 		recognizeTextToolDef(),
 		generateTagsToolDef(),
 		askAboutImageToolDef(),
-		searchByTagsToolDef(),
 		searchByDateToolDef(),
 		searchByLocationToolDef(),
 		searchByPathToolDef(),
@@ -75,7 +74,7 @@ func (s *ImageToolkitMCPServer) ToolDefinitions() []llm.ToolDefinition {
 }
 
 // ExecuteTool runs a tool by name with the given arguments.
-func (s *ImageToolkitMCPServer) ExecuteTool(ctx context.Context, name string, arguments json.RawMessage) (string, error) {
+func (s *PixelDriveMCPServer) ExecuteTool(ctx context.Context, name string, arguments json.RawMessage) (string, error) {
 	switch name {
 	case "describe_image":
 		return s.executeDescribeImage(ctx, arguments)
@@ -85,8 +84,6 @@ func (s *ImageToolkitMCPServer) ExecuteTool(ctx context.Context, name string, ar
 		return s.executeGenerateTags(ctx, arguments)
 	case "ask_about_image":
 		return s.executeAskAboutImage(ctx, arguments)
-	case "search_by_tags":
-		return s.executeSearchByTags(ctx, arguments)
 	case "search_by_date":
 		return s.executeSearchByDate(ctx, arguments)
 	case "search_by_location":
@@ -103,7 +100,7 @@ func (s *ImageToolkitMCPServer) ExecuteTool(ctx context.Context, name string, ar
 }
 
 // createLLMClient creates an LLM client from the active provider in the database.
-func (s *ImageToolkitMCPServer) createLLMClient() (llm.Client, string, string, error) {
+func (s *PixelDriveMCPServer) createLLMClient() (llm.Client, string, string, error) {
 	var settings struct {
 		ActiveProvider string `json:"activeProvider"`
 	}

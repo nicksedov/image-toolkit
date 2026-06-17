@@ -1,23 +1,41 @@
 import { useTranslation } from "@/i18n"
 import { useAuth } from "@/providers/AuthProvider"
 import { getAvatarUrl } from "@/api/endpoints"
-import { LogOut, Settings, User } from "lucide-react"
+import { LogOut, Settings, User, Menu } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { IconButton } from "@/components/ui/icon-button"
 
 interface HeaderProps {
   onTabChange: (tab: string) => void
+  onMobileMenuToggle: () => void
 }
 
-export function Header({ onTabChange }: HeaderProps) {
+export function Header({ onTabChange, onMobileMenuToggle }: HeaderProps) {
   const { t } = useTranslation()
   const { user, logout } = useAuth()
 
   return (
-    <header className="sticky top-0 z-10 border-b bg-header px-6 py-3">
-      <div className="flex items-center justify-end gap-3">
+    <header
+      className="flex-shrink-0 z-10 px-4 sm:px-6 py-3"
+      style={{ backgroundColor: 'var(--color-header)' }}
+    >
+      <div className="flex items-center justify-between gap-3">
+        {/* Mobile menu button */}
+        <button
+          type="button"
+          className="flex h-9 w-9 items-center justify-center rounded-md hover:bg-muted transition-colors md:hidden"
+          onClick={onMobileMenuToggle}
+          aria-label={t("header.menu")}
+          title={t("header.menu")}
+        >
+          <Menu className="h-5 w-5" />
+        </button>
+
+        {/* Spacer for desktop alignment */}
+        <div className="hidden md:block" />
+
         {user && (
-          <>
+          <div className="flex items-center gap-3">
             <button
               type="button"
               className="flex items-center gap-2 rounded-md px-2 py-1 hover:bg-muted transition-colors cursor-pointer"
@@ -48,7 +66,7 @@ export function Header({ onTabChange }: HeaderProps) {
             >
               {t("adminPanel.logout")}
             </IconButton>
-          </>
+          </div>
         )}
       </div>
     </header>

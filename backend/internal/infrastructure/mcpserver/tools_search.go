@@ -16,12 +16,6 @@ import (
 
 // --- Tool input types ---
 
-type SearchByTagsInput struct {
-	Tags     []string `json:"tags" jsonschema:"List of tags to search for"`
-	MatchAll bool     `json:"match_all,omitempty" jsonschema:"If true, all tags must match (AND). If false, any tag matches (OR)"`
-	Limit    int      `json:"limit,omitempty" jsonschema:"Maximum number of results (default 20)"`
-}
-
 type SearchByDateInput struct {
 	StartDate string `json:"start_date" jsonschema:"Start date in YYYY-MM-DD format"`
 	EndDate   string `json:"end_date" jsonschema:"End date in YYYY-MM-DD format"`
@@ -93,22 +87,6 @@ type ImageMetadataOutput struct {
 }
 
 // --- Tool definitions for the agent ---
-
-func searchByTagsToolDef() llm.ToolDefinition {
-	return llm.ToolDefinition{
-		Name:        "search_by_tags",
-		Description: "Find images by their AI-generated tags",
-		Parameters: map[string]any{
-			"type": "object",
-			"properties": map[string]any{
-				"tags":      map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "List of tags to search for"},
-				"match_all": map[string]any{"type": "boolean", "description": "If true, all tags must match (AND). If false, any tag matches (OR)"},
-				"limit":     map[string]any{"type": "integer", "description": "Maximum number of results (default 20)"},
-			},
-			"required": []string{"tags"},
-		},
-	}
-}
 
 func searchByDateToolDef() llm.ToolDefinition {
 	return llm.ToolDefinition{
@@ -190,12 +168,7 @@ func semanticSearchToolDef() llm.ToolDefinition {
 
 // --- Registration ---
 
-func (s *ImageToolkitMCPServer) registerSearchTools() {
-	mcp.AddTool(s.server, &mcp.Tool{
-		Name:        "search_by_tags",
-		Description: "Find images by their AI-generated tags",
-	}, s.handleSearchByTags)
-
+func (s *PixelDriveMCPServer) registerSearchTools() {
 	mcp.AddTool(s.server, &mcp.Tool{
 		Name:        "search_by_date",
 		Description: "Find images taken within a date range",
@@ -218,24 +191,13 @@ func (s *ImageToolkitMCPServer) registerSearchTools() {
 
 	mcp.AddTool(s.server, &mcp.Tool{
 		Name:        "semantic_search",
-		Description: "Find images by natural language description using semantic similarity of AI-generated tags. Unlike search_by_tags which requires exact tag matches, this finds images whose tags are semantically similar to the query.",
+		Description: "Find images by natural language description using semantic similarity of AI-generated tags. This is the primary tool for finding similar or related images.",
 	}, s.handleSemanticSearch)
 }
 
 // --- MCP SDK handlers ---
 
-func (s *ImageToolkitMCPServer) handleSearchByTags(ctx context.Context, req *mcp.CallToolRequest, input SearchByTagsInput) (*mcp.CallToolResult, ImageSearchOutput, error) {
-	output, err := s.queryByTags(input.Tags, input.MatchAll, clampLimit(input.Limit))
-	if err != nil {
-		return nil, ImageSearchOutput{}, err
-	}
-	text := formatSearchResults(output)
-	return &mcp.CallToolResult{
-		Content: []mcp.Content{&mcp.TextContent{Text: text}},
-	}, output, nil
-}
-
-func (s *ImageToolkitMCPServer) handleSearchByDate(ctx context.Context, req *mcp.CallToolRequest, input SearchByDateInput) (*mcp.CallToolResult, ImageSearchOutput, error) {
+func (s *PixelDriveMCPServer) handleSearchByDate(ctx context.Context, req *mcp.CallToolRequest, input SearchByDateInput) (*mcp.CallToolResult, ImageSearchOutput, error) {
 	output, err := s.queryByDate(input.StartDate, input.EndDate, clampLimit(input.Limit))
 	if err != nil {
 		return nil, ImageSearchOutput{}, err
@@ -246,7 +208,7 @@ func (s *ImageToolkitMCPServer) handleSearchByDate(ctx context.Context, req *mcp
 	}, output, nil
 }
 
-func (s *ImageToolkitMCPServer) handleSearchByLocation(ctx context.Context, req *mcp.CallToolRequest, input SearchByLocationInput) (*mcp.CallToolResult, ImageSearchOutput, error) {
+func (s *PixelDriveMCPServer) handleSearchByLocation(ctx context.Context, req *mcp.CallToolRequest, input SearchByLocationInput) (*mcp.CallToolResult, ImageSearchOutput, error) {
 	output, err := s.queryByLocation(input.MinLat, input.MaxLat, input.MinLng, input.MaxLng, clampLimit(input.Limit))
 	if err != nil {
 		return nil, ImageSearchOutput{}, err
@@ -257,7 +219,7 @@ func (s *ImageToolkitMCPServer) handleSearchByLocation(ctx context.Context, req 
 	}, output, nil
 }
 
-func (s *ImageToolkitMCPServer) handleSearchByPath(ctx context.Context, req *mcp.CallToolRequest, input SearchByPathInput) (*mcp.CallToolResult, ImageSearchOutput, error) {
+func (s *PixelDriveMCPServer) handleSearchByPath(ctx context.Context, req *mcp.CallToolRequest, input SearchByPathInput) (*mcp.CallToolResult, ImageSearchOutput, error) {
 	output, err := s.queryByPath(input.Query, clampLimit(input.Limit))
 	if err != nil {
 		return nil, ImageSearchOutput{}, err
@@ -268,7 +230,7 @@ func (s *ImageToolkitMCPServer) handleSearchByPath(ctx context.Context, req *mcp
 	}, output, nil
 }
 
-func (s *ImageToolkitMCPServer) handleGetImageMetadata(ctx context.Context, req *mcp.CallToolRequest, input GetImageMetadataInput) (*mcp.CallToolResult, ImageMetadataOutput, error) {
+func (s *PixelDriveMCPServer) handleGetImageMetadata(ctx context.Context, req *mcp.CallToolRequest, input GetImageMetadataInput) (*mcp.CallToolResult, ImageMetadataOutput, error) {
 	output, err := s.queryImageMetadata(input.ImagePath)
 	if err != nil {
 		return nil, ImageMetadataOutput{}, err
@@ -279,7 +241,7 @@ func (s *ImageToolkitMCPServer) handleGetImageMetadata(ctx context.Context, req 
 	}, output, nil
 }
 
-func (s *ImageToolkitMCPServer) handleSemanticSearch(ctx context.Context, req *mcp.CallToolRequest, input SemanticSearchInput) (*mcp.CallToolResult, SemanticSearchOutput, error) {
+func (s *PixelDriveMCPServer) handleSemanticSearch(ctx context.Context, req *mcp.CallToolRequest, input SemanticSearchInput) (*mcp.CallToolResult, SemanticSearchOutput, error) {
 	output, err := s.querySemanticSearch(input.Query, clampLimit(input.Limit))
 	if err != nil {
 		return nil, SemanticSearchOutput{}, err
@@ -292,19 +254,7 @@ func (s *ImageToolkitMCPServer) handleSemanticSearch(ctx context.Context, req *m
 
 // --- Direct execution methods (for agent) ---
 
-func (s *ImageToolkitMCPServer) executeSearchByTags(ctx context.Context, args json.RawMessage) (string, error) {
-	var input SearchByTagsInput
-	if err := json.Unmarshal(args, &input); err != nil {
-		return "", fmt.Errorf("invalid arguments: %w", err)
-	}
-	output, err := s.queryByTags(input.Tags, input.MatchAll, clampLimit(input.Limit))
-	if err != nil {
-		return "", err
-	}
-	return formatSearchResultsJSON(output)
-}
-
-func (s *ImageToolkitMCPServer) executeSearchByDate(ctx context.Context, args json.RawMessage) (string, error) {
+func (s *PixelDriveMCPServer) executeSearchByDate(ctx context.Context, args json.RawMessage) (string, error) {
 	var input SearchByDateInput
 	if err := json.Unmarshal(args, &input); err != nil {
 		return "", fmt.Errorf("invalid arguments: %w", err)
@@ -316,7 +266,7 @@ func (s *ImageToolkitMCPServer) executeSearchByDate(ctx context.Context, args js
 	return formatSearchResultsJSON(output)
 }
 
-func (s *ImageToolkitMCPServer) executeSearchByLocation(ctx context.Context, args json.RawMessage) (string, error) {
+func (s *PixelDriveMCPServer) executeSearchByLocation(ctx context.Context, args json.RawMessage) (string, error) {
 	var input SearchByLocationInput
 	if err := json.Unmarshal(args, &input); err != nil {
 		return "", fmt.Errorf("invalid arguments: %w", err)
@@ -328,7 +278,7 @@ func (s *ImageToolkitMCPServer) executeSearchByLocation(ctx context.Context, arg
 	return formatSearchResultsJSON(output)
 }
 
-func (s *ImageToolkitMCPServer) executeSearchByPath(ctx context.Context, args json.RawMessage) (string, error) {
+func (s *PixelDriveMCPServer) executeSearchByPath(ctx context.Context, args json.RawMessage) (string, error) {
 	var input SearchByPathInput
 	if err := json.Unmarshal(args, &input); err != nil {
 		return "", fmt.Errorf("invalid arguments: %w", err)
@@ -340,7 +290,7 @@ func (s *ImageToolkitMCPServer) executeSearchByPath(ctx context.Context, args js
 	return formatSearchResultsJSON(output)
 }
 
-func (s *ImageToolkitMCPServer) executeGetImageMetadata(ctx context.Context, args json.RawMessage) (string, error) {
+func (s *PixelDriveMCPServer) executeGetImageMetadata(ctx context.Context, args json.RawMessage) (string, error) {
 	var input GetImageMetadataInput
 	if err := json.Unmarshal(args, &input); err != nil {
 		return "", fmt.Errorf("invalid arguments: %w", err)
@@ -352,7 +302,7 @@ func (s *ImageToolkitMCPServer) executeGetImageMetadata(ctx context.Context, arg
 	return formatMetadataJSON(output)
 }
 
-func (s *ImageToolkitMCPServer) executeSemanticSearch(ctx context.Context, args json.RawMessage) (string, error) {
+func (s *PixelDriveMCPServer) executeSemanticSearch(ctx context.Context, args json.RawMessage) (string, error) {
 	var input SemanticSearchInput
 	if err := json.Unmarshal(args, &input); err != nil {
 		return "", fmt.Errorf("invalid arguments: %w", err)
@@ -370,55 +320,7 @@ func (s *ImageToolkitMCPServer) executeSemanticSearch(ctx context.Context, args 
 
 // --- Query implementations ---
 
-func (s *ImageToolkitMCPServer) queryByTags(tags []string, matchAll bool, limit int) (ImageSearchOutput, error) {
-	if len(tags) == 0 {
-		return ImageSearchOutput{}, fmt.Errorf("at least one tag is required")
-	}
-
-	lowerTags := make([]string, len(tags))
-	for i, t := range tags {
-		lowerTags[i] = strings.ToLower(t)
-	}
-
-	query := s.db.Table("image_files").
-		Select("DISTINCT image_files.id, image_files.path, image_files.mod_time").
-		Joins("INNER JOIN image_tags ON image_tags.image_file_id = image_files.id")
-
-	if matchAll {
-		// AND logic: each tag must exist for the image
-		for _, tag := range lowerTags {
-			subQuery := s.db.Table("image_tags").
-				Select("image_file_id").
-				Where("LOWER(tag) = ?", tag)
-			query = query.Where("image_files.id IN (?)", subQuery)
-		}
-	} else {
-		// OR logic: any tag matches
-		query = query.Where("LOWER(image_tags.tag) IN ?", lowerTags)
-	}
-
-	var files []domain.ImageFile
-	query.Order("image_files.mod_time DESC").Limit(limit).Find(&files)
-
-	var total int64
-	countQuery := s.db.Table("image_files").
-		Joins("INNER JOIN image_tags ON image_tags.image_file_id = image_files.id")
-	if matchAll {
-		for _, tag := range lowerTags {
-			subQuery := s.db.Table("image_tags").
-				Select("image_file_id").
-				Where("LOWER(tag) = ?", tag)
-			countQuery = countQuery.Where("image_files.id IN (?)", subQuery)
-		}
-	} else {
-		countQuery = countQuery.Where("LOWER(image_tags.tag) IN ?", lowerTags)
-	}
-	countQuery.Distinct("image_files.id").Count(&total)
-
-	return toImageSearchOutput(files, int(total)), nil
-}
-
-func (s *ImageToolkitMCPServer) queryByDate(startDate, endDate string, limit int) (ImageSearchOutput, error) {
+func (s *PixelDriveMCPServer) queryByDate(startDate, endDate string, limit int) (ImageSearchOutput, error) {
 	startTime, err := time.Parse("2006-01-02", startDate)
 	if err != nil {
 		return ImageSearchOutput{}, fmt.Errorf("invalid start_date format (use YYYY-MM-DD): %w", err)
@@ -450,7 +352,7 @@ func (s *ImageToolkitMCPServer) queryByDate(startDate, endDate string, limit int
 	return toImageSearchOutput(files, int(total)), nil
 }
 
-func (s *ImageToolkitMCPServer) queryByLocation(minLat, maxLat, minLng, maxLng float64, limit int) (ImageSearchOutput, error) {
+func (s *PixelDriveMCPServer) queryByLocation(minLat, maxLat, minLng, maxLng float64, limit int) (ImageSearchOutput, error) {
 	var files []domain.ImageFile
 	s.db.Table("image_files").
 		Select("image_files.id, image_files.path, image_files.mod_time").
@@ -473,7 +375,7 @@ func (s *ImageToolkitMCPServer) queryByLocation(minLat, maxLat, minLng, maxLng f
 	return toImageSearchOutput(files, int(total)), nil
 }
 
-func (s *ImageToolkitMCPServer) queryByPath(query string, limit int) (ImageSearchOutput, error) {
+func (s *PixelDriveMCPServer) queryByPath(query string, limit int) (ImageSearchOutput, error) {
 	if query == "" {
 		return ImageSearchOutput{}, fmt.Errorf("query is required")
 	}
@@ -494,7 +396,7 @@ func (s *ImageToolkitMCPServer) queryByPath(query string, limit int) (ImageSearc
 	return toImageSearchOutput(files, int(total)), nil
 }
 
-func (s *ImageToolkitMCPServer) queryImageMetadata(imagePath string) (ImageMetadataOutput, error) {
+func (s *PixelDriveMCPServer) queryImageMetadata(imagePath string) (ImageMetadataOutput, error) {
 	var imageFile domain.ImageFile
 	if err := s.db.Where("path = ?", imagePath).First(&imageFile).Error; err != nil {
 		return ImageMetadataOutput{}, fmt.Errorf("image not found: %s", imagePath)
@@ -630,7 +532,7 @@ func formatMetadataJSON(output ImageMetadataOutput) (string, error) {
 }
 
 // querySemanticSearch performs semantic search using vector similarity.
-func (s *ImageToolkitMCPServer) querySemanticSearch(query string, limit int) (SemanticSearchOutput, error) {
+func (s *PixelDriveMCPServer) querySemanticSearch(query string, limit int) (SemanticSearchOutput, error) {
 	result, err := imaging.SearchByEmbedding(s.db, query, limit)
 	if err != nil {
 		return SemanticSearchOutput{}, err
@@ -670,4 +572,3 @@ func formatSemanticSearchResult(output SemanticSearchOutput) string {
 	}
 	return sb.String()
 }
-

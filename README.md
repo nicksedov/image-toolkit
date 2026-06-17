@@ -1,4 +1,4 @@
-# Image Toolkit
+# PixelDrive
 
 A web application for finding and managing duplicate images in local media libraries.
 
@@ -204,8 +204,8 @@ If the remote machine cannot connect, check that the firewall on the server mach
 Windows (PowerShell от администратора):
 
 ```powershell
-netsh advfirewall firewall add rule name="Image Toolkit Backend" dir=in action=allow protocol=TCP localport=5170
-netsh advfirewall firewall add rule name="Image Toolkit Frontend" dir=in action=allow protocol=TCP localport=5173
+netsh advfirewall firewall add rule name="PixelDrive Backend" dir=in action=allow protocol=TCP localport=5170
+netsh advfirewall firewall add rule name="PixelDrive Frontend" dir=in action=allow protocol=TCP localport=5173
 ```
 
 Linux:

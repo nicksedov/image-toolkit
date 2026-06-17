@@ -55,16 +55,16 @@ type ReverseGeocodeResult struct {
 
 // nominatimReverseJSON is the raw JSON structure returned by Nominatim /reverse.
 type nominatimReverseJSON struct {
-	DisplayName  string            `json:"display_name"`
-	NameDetails  map[string]string `json:"namedetails"`
-	Address      struct {
-		City          string `json:"city"`
-		Town          string `json:"town"`
-		Village       string `json:"village"`
-		State         string `json:"state"`
-		Country       string `json:"country"`
-		Hamlet        string `json:"hamlet"`
-		Municipality  string `json:"municipality"`
+	DisplayName string            `json:"display_name"`
+	NameDetails map[string]string `json:"namedetails"`
+	Address     struct {
+		City         string `json:"city"`
+		Town         string `json:"town"`
+		Village      string `json:"village"`
+		State        string `json:"state"`
+		Country      string `json:"country"`
+		Hamlet       string `json:"hamlet"`
+		Municipality string `json:"municipality"`
 	} `json:"address"`
 }
 
@@ -122,7 +122,7 @@ func (n *NominatimClient) reverseCall(lat, lng float64, acceptLang string) (*nom
 	if err != nil {
 		return nil, fmt.Errorf("failed to create reverse request: %w", err)
 	}
-	req.Header.Set("User-Agent", "ImageToolkit/1.0 (https://github.com/nicksedov/image-toolkit)")
+	req.Header.Set("User-Agent", "PixelDrive/1.0 (https://github.com/nicksedov/image-toolkit)")
 	if acceptLang != "" {
 		req.Header.Set("Accept-Language", acceptLang)
 	}
@@ -180,7 +180,7 @@ func (n *NominatimClient) Search(query string) ([]NominatimResult, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
-	req.Header.Set("User-Agent", "ImageToolkit/1.0 (https://github.com/nicksedov/image-toolkit)")
+	req.Header.Set("User-Agent", "PixelDrive/1.0 (https://github.com/nicksedov/image-toolkit)")
 
 	resp, err := n.httpClient.Do(req)
 	if err != nil {

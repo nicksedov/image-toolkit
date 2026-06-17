@@ -2181,19 +2181,19 @@ func (s *Server) handleGetLlmSettings(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, dto.LlmSettingsResponse{
-		ID:                    settings.ID,
-		ActiveProvider:        settings.ActiveProvider,
-		TagScanEnabled:        settings.TagScanEnabled,
-		TagScanStartHour:      settings.TagScanStartHour,
-		TagScanStartMinute:    settings.TagScanStartMinute,
-		TagScanEndHour:        settings.TagScanEndHour,
-		TagScanEndMinute:      settings.TagScanEndMinute,
-		TagScanTimezoneOffset: settings.TagScanTimezoneOffset,
+		ID:                     settings.ID,
+		ActiveProvider:         settings.ActiveProvider,
+		TagScanEnabled:         settings.TagScanEnabled,
+		TagScanStartHour:       settings.TagScanStartHour,
+		TagScanStartMinute:     settings.TagScanStartMinute,
+		TagScanEndHour:         settings.TagScanEndHour,
+		TagScanEndMinute:       settings.TagScanEndMinute,
+		TagScanTimezoneOffset:  settings.TagScanTimezoneOffset,
 		EmbeddingProviderAlias: settings.EmbeddingProviderAlias,
 		EmbeddingModel:         settings.EmbeddingModel,
 		EmbeddingDimension:     settings.EmbeddingDimension,
 		EmbeddingBatchSize:     settings.EmbeddingBatchSize,
-		Providers:             providerDTOs,
+		Providers:              providerDTOs,
 	})
 }
 
@@ -2346,8 +2346,8 @@ func (s *Server) handleProbeEmbeddingDimension(c *gin.Context) {
 	var settings domain.LlmSettings
 	if s.db.First(&settings).Error == nil {
 		s.db.Model(&settings).Updates(map[string]interface{}{
-			"embedding_dimension":     dimension,
-			"embedding_model":         req.Model,
+			"embedding_dimension":      dimension,
+			"embedding_model":          req.Model,
 			"embedding_provider_alias": req.ProviderAlias,
 		})
 	}
@@ -3341,7 +3341,7 @@ func (s *Server) handleBatchUpdateGps(c *gin.Context) {
 		}
 	}
 
-	var successCount, failedCount int
+	var successCount, failedCount, skippedCount int
 	var failedFiles []string
 
 	for _, p := range req.Paths {
@@ -3359,6 +3359,15 @@ func (s *Server) handleBatchUpdateGps(c *gin.Context) {
 			failedCount++
 			failedFiles = append(failedFiles, p)
 			continue
+		}
+
+		// Check if image already has geolocation - skip if it does
+		var existingMeta domain.ImageMetadata
+		if s.db.Where("image_file_id = ?", imageFile.ID).First(&existingMeta).Error == nil {
+			if existingMeta.GeolocationRef != nil {
+				skippedCount++
+				continue
+			}
 		}
 
 		// Convert to OS path
@@ -3395,6 +3404,7 @@ func (s *Server) handleBatchUpdateGps(c *gin.Context) {
 	s.respondJSON(c, http.StatusOK, dto.BatchUpdateGpsResponse{
 		Success:     successCount,
 		Failed:      failedCount,
+		Skipped:     skippedCount,
 		FailedFiles: failedFiles,
 		NameLocal:   nameLocal,
 		NameEng:     nameEng,
