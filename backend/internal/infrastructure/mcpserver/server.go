@@ -14,8 +14,8 @@ import (
 	"gorm.io/gorm"
 )
 
-// PixelCloudMCPServer wraps the official MCP SDK server with domain-specific tools.
-type PixelCloudMCPServer struct {
+// PixelDriveMCPServer wraps the official MCP SDK server with domain-specific tools.
+type PixelDriveMCPServer struct {
 	server            *mcp.Server
 	db                *gorm.DB
 	llmFactory        *helpers.LLMFactory
@@ -24,14 +24,14 @@ type PixelCloudMCPServer struct {
 	embeddingBackfill *imaging.EmbeddingBackfillManager
 }
 
-// NewPixelCloudMCPServer creates and configures the MCP server with all tools.
-func NewPixelCloudMCPServer(db *gorm.DB, llmFactory *helpers.LLMFactory, llmService *imaging.LlmOcrService, maxMegapixels float64, embeddingBackfill *imaging.EmbeddingBackfillManager) *PixelCloudMCPServer {
+// NewPixelDriveMCPServer creates and configures the MCP server with all tools.
+func NewPixelDriveMCPServer(db *gorm.DB, llmFactory *helpers.LLMFactory, llmService *imaging.LlmOcrService, maxMegapixels float64, embeddingBackfill *imaging.EmbeddingBackfillManager) *PixelDriveMCPServer {
 	srv := mcp.NewServer(&mcp.Implementation{
 		Name:    "image-toolkit",
 		Version: "1.0.0",
 	}, nil)
 
-	s := &PixelCloudMCPServer{
+	s := &PixelDriveMCPServer{
 		server:            srv,
 		db:                db,
 		llmFactory:        llmFactory,
@@ -47,19 +47,19 @@ func NewPixelCloudMCPServer(db *gorm.DB, llmFactory *helpers.LLMFactory, llmServ
 }
 
 // Server returns the underlying MCP server instance.
-func (s *PixelCloudMCPServer) Server() *mcp.Server {
+func (s *PixelDriveMCPServer) Server() *mcp.Server {
 	return s.server
 }
 
 // HTTPHandler returns an http.Handler that serves MCP over streamable HTTP.
-func (s *PixelCloudMCPServer) HTTPHandler() http.Handler {
+func (s *PixelDriveMCPServer) HTTPHandler() http.Handler {
 	return mcp.NewStreamableHTTPHandler(func(r *http.Request) *mcp.Server {
 		return s.server
 	}, nil)
 }
 
 // ToolDefinitions returns all registered tool definitions for use by the agent.
-func (s *PixelCloudMCPServer) ToolDefinitions() []llm.ToolDefinition {
+func (s *PixelDriveMCPServer) ToolDefinitions() []llm.ToolDefinition {
 	return []llm.ToolDefinition{
 		describeImageToolDef(),
 		recognizeTextToolDef(),
@@ -74,7 +74,7 @@ func (s *PixelCloudMCPServer) ToolDefinitions() []llm.ToolDefinition {
 }
 
 // ExecuteTool runs a tool by name with the given arguments.
-func (s *PixelCloudMCPServer) ExecuteTool(ctx context.Context, name string, arguments json.RawMessage) (string, error) {
+func (s *PixelDriveMCPServer) ExecuteTool(ctx context.Context, name string, arguments json.RawMessage) (string, error) {
 	switch name {
 	case "describe_image":
 		return s.executeDescribeImage(ctx, arguments)
@@ -100,7 +100,7 @@ func (s *PixelCloudMCPServer) ExecuteTool(ctx context.Context, name string, argu
 }
 
 // createLLMClient creates an LLM client from the active provider in the database.
-func (s *PixelCloudMCPServer) createLLMClient() (llm.Client, string, string, error) {
+func (s *PixelDriveMCPServer) createLLMClient() (llm.Client, string, string, error) {
 	var settings struct {
 		ActiveProvider string `json:"activeProvider"`
 	}

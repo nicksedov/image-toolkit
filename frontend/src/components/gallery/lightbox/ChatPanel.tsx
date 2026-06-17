@@ -157,7 +157,7 @@ function extractImagePaths(message: ChatMessage): string[] {
   if (!message.toolCalls) return []
   const paths: string[] = []
   for (const tc of message.toolCalls) {
-    if (tc.name.startsWith("search_") && tc.result) {
+    if ((tc.name.startsWith("search_") || tc.name === "semantic_search") && tc.result) {
       try {
         const parsed = JSON.parse(tc.result)
         if (Array.isArray(parsed)) {

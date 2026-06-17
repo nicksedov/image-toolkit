@@ -1,6 +1,6 @@
 export const translationsEn = {
   // Header
-  "header.title": "PixelCloud",
+  "header.title": "PixelDrive",
   "header.toggleTheme": "Toggle theme",
   "header.toggleLanguage": "Toggle language",
   "header.menu": "Menu",
@@ -396,7 +396,7 @@ export const translationsEn = {
   "adminPanel.loginPlaceholder": "Enter login",
   "adminPanel.passwordPlaceholder": "Enter password",
   "adminPanel.adminSetup": "Primary Setup",
-  "adminPanel.loginTitle": "PixelCloud",
+  "adminPanel.loginTitle": "PixelDrive",
   "adminPanel.signIn": "Sign In",
   "adminPanel.bootstrapTitle": "Primary Setup",
   "adminPanel.bootstrapDescAdmin": "Log in as administrator for primary system setup",
@@ -740,7 +740,7 @@ export const translationsEn = {
   "chat.suggest_date": "When was this taken?",
   "chat.suggest_describe_msg": "Describe this image in detail",
   "chat.suggest_text_msg": "What text is in this image?",
-  "chat.suggest_similar_msg": "Find similar images using semantic search",
+  "chat.suggest_similar_msg": "Find similar images by tags using semantic search",
   "chat.suggest_date_msg": "When was this photo taken?",
   "chat.tool_running": "Running...",
   "chat.thinking": "Thinking...",

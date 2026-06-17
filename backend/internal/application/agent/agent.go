@@ -55,7 +55,7 @@ type ToolEvent struct {
 type ToolEventHandler func(event ToolEvent)
 
 // ToolProvider supplies tool definitions and execution to the agent.
-// Implemented by mcpserver.PixelCloudMCPServer.
+// Implemented by mcpserver.PixelDriveMCPServer.
 type ToolProvider interface {
 	ToolDefinitions() []llm.ToolDefinition
 	ExecuteTool(ctx context.Context, name string, arguments json.RawMessage) (string, error)
@@ -268,7 +268,7 @@ func (a *Agent) ProcessMessage(ctx context.Context, convID uint, userMessage str
 
 // buildSystemPrompt creates the system prompt for the agent based on conversation context.
 func (a *Agent) buildSystemPrompt(conv *domain.Conversation) string {
-	prompt := `You are an AI assistant for the PixelCloud application. You help users analyze, search, and understand their image collection.
+	prompt := `You are an AI assistant for the PixelDrive application. You help users analyze, search, and understand their image collection.
 
 You have access to the following tools:
 - describe_image: Generate a detailed description of an image

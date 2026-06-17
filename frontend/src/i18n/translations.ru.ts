@@ -1,6 +1,6 @@
 export const translationsRu = {
   // Header
-  "header.title": "PixelCloud",
+  "header.title": "PixelDrive",
   "header.toggleTheme": "Переключить тему",
   "header.toggleLanguage": "Переключить язык",
   "header.menu": "Меню",
@@ -396,7 +396,7 @@ export const translationsRu = {
   "adminPanel.loginPlaceholder": "Введите логин",
   "adminPanel.passwordPlaceholder": "Введите пароль",
   "adminPanel.adminSetup": "Первичная настройка",
-  "adminPanel.loginTitle": "PixelCloud",
+  "adminPanel.loginTitle": "PixelDrive",
   "adminPanel.signIn": "Войти",
   "adminPanel.bootstrapTitle": "Первичная настройка",
   "adminPanel.bootstrapDescAdmin": "Войдите под учетной записью администратора для первичной настройки системы",
@@ -740,7 +740,7 @@ export const translationsRu = {
   "chat.suggest_date": "Когда это снято?",
   "chat.suggest_describe_msg": "Опиши это изображение подробно",
   "chat.suggest_text_msg": "Какой текст на этом изображении?",
-  "chat.suggest_similar_msg": "Найди похожие изображения через семантический поиск",
+  "chat.suggest_similar_msg": "Найди похожие изображения по тегам с использованием семантического поиска",
   "chat.suggest_date_msg": "Когда было сделано это фото?",
   "chat.tool_running": "Выполняется...",
   "chat.thinking": "Думаю...",

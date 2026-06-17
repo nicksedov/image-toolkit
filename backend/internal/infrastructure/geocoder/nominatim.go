@@ -122,7 +122,7 @@ func (n *NominatimClient) reverseCall(lat, lng float64, acceptLang string) (*nom
 	if err != nil {
 		return nil, fmt.Errorf("failed to create reverse request: %w", err)
 	}
-	req.Header.Set("User-Agent", "PixelCloud/1.0 (https://github.com/nicksedov/image-toolkit)")
+	req.Header.Set("User-Agent", "PixelDrive/1.0 (https://github.com/nicksedov/image-toolkit)")
 	if acceptLang != "" {
 		req.Header.Set("Accept-Language", acceptLang)
 	}
@@ -180,7 +180,7 @@ func (n *NominatimClient) Search(query string) ([]NominatimResult, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
-	req.Header.Set("User-Agent", "PixelCloud/1.0 (https://github.com/nicksedov/image-toolkit)")
+	req.Header.Set("User-Agent", "PixelDrive/1.0 (https://github.com/nicksedov/image-toolkit)")
 
 	resp, err := n.httpClient.Do(req)
 	if err != nil {

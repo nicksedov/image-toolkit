@@ -1,4 +1,4 @@
-# PixelCloud - Agent Context
+# PixelDrive - Agent Context
 
 ## Overview
 Full-stack app for finding/managing duplicate images. Async scanning, MD5 detection, thumbnails, OCR, geolocation clustering, batch deduplication.

@@ -287,7 +287,7 @@ func main() {
 
 	// Create MCP server
 	llmFactory := helpers.NewLLMFactory(db, cfg.LlmMaxImageMegapixels)
-	mcpSrv := mcpserver.NewPixelCloudMCPServer(db, llmFactory, llmOcrService, cfg.LlmMaxImageMegapixels, embeddingBackfill)
+	mcpSrv := mcpserver.NewPixelDriveMCPServer(db, llmFactory, llmOcrService, cfg.LlmMaxImageMegapixels, embeddingBackfill)
 	fmt.Println("MCP server initialized with image analysis and search tools")
 
 	// Create conversation service and agent
