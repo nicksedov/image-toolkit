@@ -1,5 +1,6 @@
 import { useCallback } from "react"
 import { marked } from "marked"
+import { useTranslation } from "@/i18n"
 
 interface UseFileExportReturn {
   getFileName: () => string
@@ -8,6 +9,7 @@ interface UseFileExportReturn {
 }
 
 export function useFileExport(markdownContent: string | undefined, imagePath: string | null): UseFileExportReturn {
+  const { language } = useTranslation()
   const getFileName = useCallback(() => {
     if (!imagePath) return "document"
     const base = imagePath.split(/[\\/]/).pop() || "document"
@@ -34,7 +36,7 @@ export function useFileExport(markdownContent: string | undefined, imagePath: st
     })
 
     const fullHtml = `<!DOCTYPE html>
-<html lang="en">
+<html lang="${language}">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -66,7 +68,7 @@ ${html}
     a.download = `${getFileName()}.html`
     a.click()
     URL.revokeObjectURL(url)
-  }, [markdownContent, getFileName])
+  }, [markdownContent, getFileName, language])
 
   return { getFileName, handleSaveMd, handleSaveHtml }
 }

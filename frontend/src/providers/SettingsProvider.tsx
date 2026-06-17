@@ -16,9 +16,14 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
   const { isAuthenticated } = useAuth()
   const [isLoading, setIsLoading] = useState(!isAuthenticated)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const languageRef = useRef<Language>(language)
+  languageRef.current = language
+  const themeRef = useRef<Theme>(theme)
+  themeRef.current = theme
 
   useEffect(() => {
     if (!isAuthenticated) {
+      setIsLoading(false)
       return
     }
 
@@ -64,10 +69,7 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
   const setTheme = useCallback(
     (newTheme: Theme) => {
       setThemeState(newTheme)
-      setLanguageState((lang) => {
-        persistSettings(newTheme, lang)
-        return lang
-      })
+      persistSettings(newTheme, languageRef.current)
     },
     [persistSettings]
   )
@@ -84,10 +86,7 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
       const currentIndex = themeOrder.indexOf(prev)
       const nextIndex = (currentIndex + 1) % themeOrder.length
       const next = themeOrder[nextIndex]
-      setLanguageState((lang) => {
-        persistSettings(next, lang)
-        return lang
-      })
+      persistSettings(next, languageRef.current)
       return next
     })
   }, [persistSettings])
@@ -95,14 +94,10 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
   const setLanguage = useCallback(
     (newLanguage: Language) => {
       setLanguageState(newLanguage)
-      setThemeState((th) => {
-        persistSettings(th, newLanguage)
-        return th
-      })
+      persistSettings(themeRef.current, newLanguage)
     },
     [persistSettings]
   )
-
   const setTrashDir = useCallback(
     (newTrashDir: string) => {
       setTrashDirState(newTrashDir)

@@ -1,3 +1,4 @@
+import { memo } from "react"
 import { useTranslation } from "@/i18n"
 import { Download, Trash2 } from "lucide-react"
 import type { GalleryImageDTO } from "@/types"
@@ -9,7 +10,7 @@ interface ImageTileProps {
   onImageDelete?: (image: GalleryImageDTO) => void
 }
 
-export function ImageTile({
+export const ImageTile = memo(function ImageTile({
   image,
   onClick,
   onImageDownload,
@@ -18,9 +19,12 @@ export function ImageTile({
   const { t } = useTranslation()
 
   return (
-    <button
+    <div
+      role="button"
+      tabIndex={0}
       className="group flex flex-col cursor-pointer"
       onClick={() => onClick(image)}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(image); } }}
     >
       <div className="relative aspect-square overflow-hidden rounded-lg border bg-muted hover:ring-2 hover:ring-ring transition-all">
         {image.thumbnail ? (
@@ -70,6 +74,6 @@ export function ImageTile({
       <p className="text-[11px] text-muted-foreground truncate mt-1 px-0.5 w-full text-center" title={image.fileName}>
         {image.fileName}
       </p>
-    </button>
+    </div>
   )
-}
+})

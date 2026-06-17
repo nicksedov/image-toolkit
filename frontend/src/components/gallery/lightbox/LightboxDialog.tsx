@@ -2,22 +2,26 @@ import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/compone
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden"
 import { Button } from "@/components/ui/button"
 import { X } from "lucide-react"
+import { useTranslation } from "@/i18n"
+import type { TranslationKey } from "@/i18n"
 
 interface LightboxDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  titleKey: string
-  descriptionKey: string
+  titleKey: TranslationKey
+  descriptionKey: TranslationKey
   children: React.ReactNode
 }
 
 export function LightboxDialog({ open, onOpenChange, titleKey, descriptionKey, children }: LightboxDialogProps) {
+  const { t } = useTranslation()
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[95vw] w-[95vw] h-[90vh] p-0 overflow-hidden flex flex-col">
         <VisuallyHidden>
-          <DialogTitle>{titleKey}</DialogTitle>
-          <DialogDescription>{descriptionKey}</DialogDescription>
+          <DialogTitle>{t(titleKey)}</DialogTitle>
+          <DialogDescription>{t(descriptionKey)}</DialogDescription>
         </VisuallyHidden>
         <Button
           variant="ghost"

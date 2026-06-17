@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { deleteFiles } from "@/api/endpoints"
+import { API_BASE_URL } from "@/api/client"
 import { useSettings } from "@/providers/useSettings"
 import { useTranslation } from "@/i18n"
 import type { GalleryImageDTO } from "@/types"
@@ -21,8 +22,6 @@ import type { GalleryImageDTO } from "@/types"
 interface GalleryTabProps {
   galleryMode: "folders" | "calendar" | "geolocation"
 }
-
-const API_BASE_URL = import.meta.env.VITE_API_URL || ""
 
 export function GalleryTab({ galleryMode }: GalleryTabProps) {
   const { trashDir } = useSettings()

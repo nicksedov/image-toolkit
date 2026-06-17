@@ -137,6 +137,12 @@ export function UnifiedLightbox({
     activeMode === "exif" ? imagePath : null
   )
 
+  // Standard image loading state
+  const [standardImageLoaded, setStandardImageLoaded] = useState(false)
+  useEffect(() => {
+    setStandardImageLoaded(false)
+  }, [imagePath])
+
   const handleGpsSaved = useCallback(() => {
     reloadMetadata()
     handleShowGeoForm(false)
@@ -183,11 +189,17 @@ export function UnifiedLightbox({
             className="flex-1 flex items-center justify-center p-8 relative h-full"
           />
         ) : (
-          <div className="flex-1 flex items-center justify-center bg-black min-h-[300px] min-w-0 h-full">
+          <div className="flex-1 flex items-center justify-center bg-black min-h-[300px] min-w-0 h-full relative">
+            {!standardImageLoaded && (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+              </div>
+            )}
             <img
               src={standardImageUrl}
               alt={t("lightbox.alt")}
-              className="max-w-full max-h-full object-contain"
+              className={`max-w-full max-h-full object-contain ${standardImageLoaded ? "" : "invisible"}`}
+              onLoad={() => setStandardImageLoaded(true)}
             />
           </div>
         )}

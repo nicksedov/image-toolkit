@@ -17,19 +17,9 @@ export function CalendarImageGrid({ groups, onImageClick, onImageDownload, onIma
   const { t } = useTranslation()
 
   const handleDelete = (image: GalleryImageDTO) => {
-    const removeThumbnail = () => {
-      // Find the group and remove the image from it
-      for (const group of groups) {
-        const idx = group.images.findIndex((img) => img.id === image.id)
-        if (idx !== -1) {
-          group.images.splice(idx, 1)
-          break
-        }
-      }
-      // Force re-render by triggering state update in parent
-      // This is a workaround - ideally the parent would manage this
-    }
-    onImageDelete?.(image, removeThumbnail)
+    onImageDelete?.(image, () => {
+      // Removal from parent state is handled by the parent callback (calendar.removeImage)
+    })
   }
 
   return (

@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || ""
+export const API_BASE_URL = import.meta.env.VITE_API_URL || ""
 
 function handleUnauthorized(): never {
   window.dispatchEvent(new CustomEvent("navigate-to-login"))
@@ -13,6 +13,35 @@ export function translateApiMessage(message: string | undefined): string {
   return message
 }
 
+interface ParsedResponse {
+  error?: string
+  message?: string
+  [key: string]: unknown
+}
+
+async function safeParseJson(response: Response): Promise<ParsedResponse> {
+  const text = await response.text()
+  try {
+    return JSON.parse(text) as ParsedResponse
+  } catch {
+    throw new Error(text || `HTTP ${response.status}`)
+  }
+}
+
+async function handleResponse<T>(response: Response): Promise<T> {
+  const data = await safeParseJson(response)
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      handleUnauthorized()
+    }
+    const errorMessage = translateApiMessage(data.error || data.message)
+    throw new Error(errorMessage)
+  }
+
+  return data as T
+}
+
 export async function apiGet<T>(path: string, params?: Record<string, string>, signal?: AbortSignal): Promise<T> {
   const url = new URL(`${API_BASE_URL}${path}`, window.location.origin)
   if (params) {
@@ -25,17 +54,8 @@ export async function apiGet<T>(path: string, params?: Record<string, string>, s
     credentials: "include",
     signal,
   })
-  const data = await response.json()
 
-  if (!response.ok) {
-    if (response.status === 401) {
-      handleUnauthorized()
-    }
-    const errorMessage = translateApiMessage(data.error || data.message)
-    throw new Error(errorMessage)
-  }
-
-  return data as T
+  return handleResponse<T>(response)
 }
 
 export async function apiPost<T>(path: string, body?: unknown): Promise<T> {
@@ -46,17 +66,7 @@ export async function apiPost<T>(path: string, body?: unknown): Promise<T> {
     body: body ? JSON.stringify(body) : undefined,
   })
 
-  const data = await response.json()
-
-  if (!response.ok) {
-    if (response.status === 401) {
-      handleUnauthorized()
-    }
-    const errorMessage = translateApiMessage(data.error || data.message)
-    throw new Error(errorMessage)
-  }
-
-  return data as T
+  return handleResponse<T>(response)
 }
 
 export async function apiDelete<T>(path: string): Promise<T> {
@@ -65,17 +75,7 @@ export async function apiDelete<T>(path: string): Promise<T> {
     credentials: "include",
   })
 
-  const data = await response.json()
-
-  if (!response.ok) {
-    if (response.status === 401) {
-      handleUnauthorized()
-    }
-    const errorMessage = translateApiMessage(data.error || data.message)
-    throw new Error(errorMessage)
-  }
-
-  return data as T
+  return handleResponse<T>(response)
 }
 
 export async function apiPut<T>(path: string, body?: unknown): Promise<T> {
@@ -86,17 +86,7 @@ export async function apiPut<T>(path: string, body?: unknown): Promise<T> {
     body: body ? JSON.stringify(body) : undefined,
   })
 
-  const data = await response.json()
-
-  if (!response.ok) {
-    if (response.status === 401) {
-      handleUnauthorized()
-    }
-    const errorMessage = translateApiMessage(data.error || data.message)
-    throw new Error(errorMessage)
-  }
-
-  return data as T
+  return handleResponse<T>(response)
 }
 
 export async function apiPatch<T>(path: string, body?: unknown): Promise<T> {
@@ -107,17 +97,7 @@ export async function apiPatch<T>(path: string, body?: unknown): Promise<T> {
     body: body ? JSON.stringify(body) : undefined,
   })
 
-  const data = await response.json()
-
-  if (!response.ok) {
-    if (response.status === 401) {
-      handleUnauthorized()
-    }
-    const errorMessage = translateApiMessage(data.error || data.message)
-    throw new Error(errorMessage)
-  }
-
-  return data as T
+  return handleResponse<T>(response)
 }
 
 export async function apiUpload<T>(path: string, formData: FormData): Promise<T> {
@@ -127,15 +107,5 @@ export async function apiUpload<T>(path: string, formData: FormData): Promise<T>
     body: formData,
   })
 
-  const data = await response.json()
-
-  if (!response.ok) {
-    if (response.status === 401) {
-      handleUnauthorized()
-    }
-    const errorMessage = translateApiMessage(data.error || data.message)
-    throw new Error(errorMessage)
-  }
-
-  return data as T
+  return handleResponse<T>(response)
 }

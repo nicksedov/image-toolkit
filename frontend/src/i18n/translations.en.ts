@@ -174,6 +174,10 @@ export const translationsEn = {
   "gallery.calendar.noImagesForDate": "No images for the selected date",
   "gallery.calendar.clearFilterHint": "Clear the filter to see all images.",
   "gallery.calendar.fullMonth": "Full Month",
+  "gallery.calendar.tooltipImages": "{count} images",
+  "gallery.calendar.tooltipLoaded": "loaded",
+  "gallery.calendar.tooltipVisible": "visible",
+  "gallery.calendar.tooltipOutsideFilter": "outside filter",
 
   // Gallery image overlay
   "gallery.overlay.download": "Download",
