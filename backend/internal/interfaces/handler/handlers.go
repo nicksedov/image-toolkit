@@ -1630,9 +1630,14 @@ func (s *Server) handleGetCalendarSeek(c *gin.Context) {
 		First(&firstResult).Error
 
 	if err == nil {
-		// Found images on this exact date
+		// Found images on this exact date.
+		// Position cursor BEFORE the first image so the strict > comparison includes it.
+		var preID uint
+		if firstResult.ID > 0 {
+			preID = firstResult.ID - 1
+		}
 		c.JSON(http.StatusOK, dto.CalendarSeekResponse{
-			Cursor:     helpers.EncodeCursor(firstResult.DateTaken.Format(helpers.DateTimeFormat), firstResult.ID),
+			Cursor:     helpers.EncodeCursor(firstResult.DateTaken.Format(helpers.DateOnlyFormat), preID),
 			ActualDate: firstResult.DateTaken.Format(helpers.DateOnlyFormat),
 		})
 		return
