@@ -1,6 +1,6 @@
 export const translationsEn = {
   // Header
-  "header.title": "PixelDrive",
+  "header.title": "Flashbacks",
   "header.toggleTheme": "Toggle theme",
   "header.toggleLanguage": "Toggle language",
   "header.menu": "Menu",
@@ -400,7 +400,7 @@ export const translationsEn = {
   "adminPanel.loginPlaceholder": "Enter login",
   "adminPanel.passwordPlaceholder": "Enter password",
   "adminPanel.adminSetup": "Primary Setup",
-  "adminPanel.loginTitle": "PixelDrive",
+  "adminPanel.loginTitle": "Flashbacks",
   "adminPanel.signIn": "Sign In",
   "adminPanel.bootstrapTitle": "Primary Setup",
   "adminPanel.bootstrapDescAdmin": "Log in as administrator for primary system setup",

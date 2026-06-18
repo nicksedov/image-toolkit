@@ -1,6 +1,6 @@
 export const translationsRu = {
   // Header
-  "header.title": "PixelDrive",
+  "header.title": "Flashbacks",
   "header.toggleTheme": "Переключить тему",
   "header.toggleLanguage": "Переключить язык",
   "header.menu": "Меню",
@@ -400,7 +400,7 @@ export const translationsRu = {
   "adminPanel.loginPlaceholder": "Введите логин",
   "adminPanel.passwordPlaceholder": "Введите пароль",
   "adminPanel.adminSetup": "Первичная настройка",
-  "adminPanel.loginTitle": "PixelDrive",
+  "adminPanel.loginTitle": "Flashbacks",
   "adminPanel.signIn": "Войти",
   "adminPanel.bootstrapTitle": "Первичная настройка",
   "adminPanel.bootstrapDescAdmin": "Войдите под учетной записью администратора для первичной настройки системы",
