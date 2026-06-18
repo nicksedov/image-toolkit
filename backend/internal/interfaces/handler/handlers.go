@@ -3124,6 +3124,10 @@ func (s *Server) handleUpdateGps(c *gin.Context) {
 		return
 	}
 
+	// Load existing metadata for EXIF restore in case of nuclear fallback
+	var existingMeta domain.ImageMetadata
+	s.db.Where("image_file_id = ?", imageFile.ID).First(&existingMeta)
+
 	// Convert to OS path
 	osPath := filepath.FromSlash(req.Path)
 
@@ -3134,7 +3138,7 @@ func (s *Server) handleUpdateGps(c *gin.Context) {
 	}
 
 	// Write GPS to EXIF (creates backup first)
-	if err := imaging.WriteGPS(osPath, trashDir, req.Lat, req.Lng); err != nil {
+	if err := imaging.WriteGPS(osPath, trashDir, req.Lat, req.Lng, &existingMeta); err != nil {
 		log.Printf("UpdateGps: WriteGPS failed for %s: %v", req.Path, err)
 		if strings.Contains(err.Error(), "backup") {
 			s.respondError(c, http.StatusInternalServerError, i18n.MsgGpsBackupFailed)
@@ -3386,10 +3390,12 @@ func (s *Server) handleBatchUpdateGps(c *gin.Context) {
 			continue
 		}
 
-		// Check if image already has geolocation - skip if it does
+		// Load existing metadata for EXIF restore in case of nuclear fallback
 		var existingMeta domain.ImageMetadata
-		if s.db.Where("image_file_id = ?", imageFile.ID).First(&existingMeta).Error == nil {
-			if existingMeta.GeolocationRef != nil {
+		s.db.Where("image_file_id = ?", imageFile.ID).First(&existingMeta)
+
+		// Check if image already has geolocation - skip if it does
+		if existingMeta.GeolocationRef != nil {
 				skippedCount++
 				continue
 			}

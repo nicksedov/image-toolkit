@@ -406,7 +406,8 @@ func HasExifData(meta *domain.ImageMetadata) bool {
 
 // WriteGPS backs up the original file and writes GPS coordinates to its EXIF metadata.
 // If trashDir is non-empty, the backup is created there; otherwise alongside the original file.
-func WriteGPS(filePath, trashDir string, lat, lng float64) error {
+// The optional meta parameter provides DB-stored metadata to restore EXIF fields after a full strip (attempt 3).
+func WriteGPS(filePath, trashDir string, lat, lng float64, meta *domain.ImageMetadata) error {
 	// Validate coordinates
 	if lat < -90 || lat > 90 {
 		return fmt.Errorf("invalid latitude: %f (must be between -90 and 90)", lat)
@@ -440,60 +441,121 @@ func WriteGPS(filePath, trashDir string, lat, lng float64) error {
 		absLng = -lng
 	}
 
-	// Write GPS using exiftool CLI
-	// -m (ignoreMinorErrors) allows writing even when non-critical IFD sections
-	// (e.g. InteropIFD) are corrupted — common in older Canon JPEGs.
-	cmd := exec.Command("exiftool",
-		"-overwrite_original",
-		"-m",
-		fmt.Sprintf("-GPSLatitude=%.8f", absLat),
-		fmt.Sprintf("-GPSLatitudeRef=%s", latRef),
-		fmt.Sprintf("-GPSLongitude=%.8f", absLng),
-		fmt.Sprintf("-GPSLongitudeRef=%s", lngRef),
-		filePath,
-	)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		// Fallback: strip all GPS tags first, then retry writing.
-		// This handles edge cases where -m alone is not enough.
-		log.Printf("EXIF WriteGPS: first attempt failed for %s: %v, output: %s — retrying with tag cleanup",
-			filepath.Base(filePath), err, string(output))
-
-		cleanCmd := exec.Command("exiftool",
-			"-overwrite_original",
-			"-m",
-			"-GPS:all=",
-			filePath,
-		)
-		if cleanOut, cleanErr := cleanCmd.CombinedOutput(); cleanErr != nil {
-			log.Printf("EXIF WriteGPS: cleanup attempt also failed for %s: %v, output: %s",
-				filepath.Base(filePath), cleanErr, string(cleanOut))
-			// Return original error, not cleanup error
-			return fmt.Errorf("exiftool failed: %w", err)
-		}
-
-		// Retry writing GPS after cleanup
-		retryCmd := exec.Command("exiftool",
-			"-overwrite_original",
-			"-m",
+	// gpsArgs returns the exiftool arguments for writing GPS coordinates.
+	gpsArgs := func() []string {
+		return []string{
+			"-overwrite_original", "-m",
 			fmt.Sprintf("-GPSLatitude=%.8f", absLat),
 			fmt.Sprintf("-GPSLatitudeRef=%s", latRef),
 			fmt.Sprintf("-GPSLongitude=%.8f", absLng),
 			fmt.Sprintf("-GPSLongitudeRef=%s", lngRef),
 			filePath,
-		)
-		retryOutput, retryErr := retryCmd.CombinedOutput()
-		if retryErr != nil {
-			log.Printf("EXIF WriteGPS: retry also failed for %s: %v, output: %s",
-				filepath.Base(filePath), retryErr, string(retryOutput))
-			return fmt.Errorf("exiftool failed: %w", retryErr)
 		}
-		log.Printf("EXIF WriteGPS: GPS written to %s after retry (lat=%.8f, lng=%.8f)", filepath.Base(filePath), lat, lng)
+	}
+
+	// Attempt 1: direct write with -m (ignoreMinorErrors).
+	// -m suppresses minor IFD errors common in older Canon JPEGs.
+	cmd := exec.Command("exiftool", gpsArgs()...)
+	output, err := cmd.CombinedOutput()
+	if err == nil {
+		log.Printf("EXIF WriteGPS: GPS written to %s (lat=%.8f, lng=%.8f)", filepath.Base(filePath), lat, lng)
 		return nil
 	}
 
-	log.Printf("EXIF WriteGPS: GPS written to %s (lat=%.8f, lng=%.8f)", filepath.Base(filePath), lat, lng)
+	log.Printf("EXIF WriteGPS: attempt 1 failed for %s: %v, output: %s", filepath.Base(filePath), err, string(output))
+
+	// Attempt 2: strip corrupted InteropIFD first, then retry GPS write.
+	// Some Canon JPEGs have a malformed InteropIFD that blocks all exiftool writes.
+	stripCmd := exec.Command("exiftool", "-overwrite_original", "-m", "-InteropIFD:all=", filePath)
+	if stripOut, stripErr := stripCmd.CombinedOutput(); stripErr != nil {
+		log.Printf("EXIF WriteGPS: InteropIFD strip failed for %s: %v, output: %s",
+			filepath.Base(filePath), stripErr, string(stripOut))
+		// Continue to attempt 3 even if strip failed — the file might still be writable after partial strip.
+	}
+
+	cmd = exec.Command("exiftool", gpsArgs()...)
+	output, err = cmd.CombinedOutput()
+	if err == nil {
+		log.Printf("EXIF WriteGPS: GPS written to %s after InteropIFD strip (lat=%.8f, lng=%.8f)", filepath.Base(filePath), lat, lng)
+		return nil
+	}
+
+	log.Printf("EXIF WriteGPS: attempt 2 failed for %s: %v, output: %s", filepath.Base(filePath), err, string(output))
+
+	// Attempt 3 (nuclear): strip ALL EXIF sub-IFDs, then restore GPS + all DB metadata.
+	// This loses file-embedded EXIF but the backup preserves the original.
+	nukeCmd := exec.Command("exiftool", "-overwrite_original", "-m", "-exif:all=", filePath)
+	if nukeOut, nukeErr := nukeCmd.CombinedOutput(); nukeErr != nil {
+		log.Printf("EXIF WriteGPS: EXIF strip failed for %s: %v, output: %s",
+			filepath.Base(filePath), nukeErr, string(nukeOut))
+		return fmt.Errorf("exiftool failed to write GPS (all attempts): %w", err)
+	}
+
+	// Build restore args: GPS + all available metadata from DB.
+	restoreArgs := []string{"-overwrite_original", "-m"}
+	restoreArgs = append(restoreArgs, gpsArgs()[2:len(gpsArgs())-1]...) // GPS tags only (skip flags & path)
+	restoreArgs = append(restoreArgs, metadataRestoreArgs(meta)...)
+	restoreArgs = append(restoreArgs, filePath)
+
+	cmd = exec.Command("exiftool", restoreArgs...)
+	output, err = cmd.CombinedOutput()
+	if err != nil {
+		log.Printf("EXIF WriteGPS: attempt 3 failed for %s: %v, output: %s", filepath.Base(filePath), err, string(output))
+		return fmt.Errorf("exiftool failed to write GPS (all attempts): %w", err)
+	}
+
+	log.Printf("EXIF WriteGPS: GPS + metadata restored for %s after full EXIF strip (lat=%.8f, lng=%.8f)", filepath.Base(filePath), lat, lng)
 	return nil
+}
+
+// metadataRestoreArgs builds exiftool arguments to restore DB-stored EXIF fields.
+// Returns an empty slice if meta is nil or has no restorable fields.
+func metadataRestoreArgs(meta *domain.ImageMetadata) []string {
+	if meta == nil {
+		return nil
+	}
+	var args []string
+
+	if meta.CameraModel != "" {
+		args = append(args, fmt.Sprintf("-Model=%s", meta.CameraModel))
+	}
+	if meta.LensModel != "" {
+		args = append(args, fmt.Sprintf("-LensModel=%s", meta.LensModel))
+	}
+	if meta.ISO != 0 {
+		args = append(args, fmt.Sprintf("-ISO#=%d", meta.ISO))
+	}
+	if meta.Aperture != "" {
+		// DB stores "f/2.8" → exiftool expects "2.8" for FNumber
+		val := strings.TrimPrefix(meta.Aperture, "f/")
+		args = append(args, fmt.Sprintf("-FNumber=%s", val))
+	}
+	if meta.ShutterSpeed != "" {
+		// DB stores "1/250s" or "2s" → exiftool expects "1/250" or "2"
+		val := strings.TrimSuffix(meta.ShutterSpeed, "s")
+		args = append(args, fmt.Sprintf("-ExposureTime=%s", val))
+	}
+	if meta.FocalLength != "" {
+		// DB stores "50mm" or "50.0mm" → exiftool expects "50" or "50.0"
+		val := strings.TrimSuffix(meta.FocalLength, "mm")
+		args = append(args, fmt.Sprintf("-FocalLength=%s", val))
+	}
+	if meta.DateTaken != nil {
+		// EXIF date format: "2006:01:02 15:04:05"
+		args = append(args, fmt.Sprintf("-DateTimeOriginal=%s", meta.DateTaken.Format("2006:01:02 15:04:05")))
+	}
+	if meta.Orientation != 0 {
+		// Use # to write the raw numeric value (bypass print conversion)
+		args = append(args, fmt.Sprintf("-Orientation#=%d", meta.Orientation))
+	}
+	if meta.ColorSpace != "" {
+		args = append(args, fmt.Sprintf("-ColorSpace=%s", meta.ColorSpace))
+	}
+	if meta.Software != "" {
+		args = append(args, fmt.Sprintf("-Software=%s", meta.Software))
+	}
+
+	return args
 }
 
 // createBackup copies the original file to a backup location before EXIF modification.
