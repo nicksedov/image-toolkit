@@ -441,8 +441,11 @@ func WriteGPS(filePath, trashDir string, lat, lng float64) error {
 	}
 
 	// Write GPS using exiftool CLI
+	// -m (ignoreMinorErrors) allows writing even when non-critical IFD sections
+	// (e.g. InteropIFD) are corrupted — common in older Canon JPEGs.
 	cmd := exec.Command("exiftool",
 		"-overwrite_original",
+		"-m",
 		fmt.Sprintf("-GPSLatitude=%.8f", absLat),
 		fmt.Sprintf("-GPSLatitudeRef=%s", latRef),
 		fmt.Sprintf("-GPSLongitude=%.8f", absLng),
@@ -451,8 +454,42 @@ func WriteGPS(filePath, trashDir string, lat, lng float64) error {
 	)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		log.Printf("EXIF WriteGPS: exiftool failed for %s: %v, output: %s", filepath.Base(filePath), err, string(output))
-		return fmt.Errorf("exiftool failed: %w", err)
+		// Fallback: strip all GPS tags first, then retry writing.
+		// This handles edge cases where -m alone is not enough.
+		log.Printf("EXIF WriteGPS: first attempt failed for %s: %v, output: %s — retrying with tag cleanup",
+			filepath.Base(filePath), err, string(output))
+
+		cleanCmd := exec.Command("exiftool",
+			"-overwrite_original",
+			"-m",
+			"-GPS:all=",
+			filePath,
+		)
+		if cleanOut, cleanErr := cleanCmd.CombinedOutput(); cleanErr != nil {
+			log.Printf("EXIF WriteGPS: cleanup attempt also failed for %s: %v, output: %s",
+				filepath.Base(filePath), cleanErr, string(cleanOut))
+			// Return original error, not cleanup error
+			return fmt.Errorf("exiftool failed: %w", err)
+		}
+
+		// Retry writing GPS after cleanup
+		retryCmd := exec.Command("exiftool",
+			"-overwrite_original",
+			"-m",
+			fmt.Sprintf("-GPSLatitude=%.8f", absLat),
+			fmt.Sprintf("-GPSLatitudeRef=%s", latRef),
+			fmt.Sprintf("-GPSLongitude=%.8f", absLng),
+			fmt.Sprintf("-GPSLongitudeRef=%s", lngRef),
+			filePath,
+		)
+		retryOutput, retryErr := retryCmd.CombinedOutput()
+		if retryErr != nil {
+			log.Printf("EXIF WriteGPS: retry also failed for %s: %v, output: %s",
+				filepath.Base(filePath), retryErr, string(retryOutput))
+			return fmt.Errorf("exiftool failed: %w", retryErr)
+		}
+		log.Printf("EXIF WriteGPS: GPS written to %s after retry (lat=%.8f, lng=%.8f)", filepath.Base(filePath), lat, lng)
+		return nil
 	}
 
 	log.Printf("EXIF WriteGPS: GPS written to %s (lat=%.8f, lng=%.8f)", filepath.Base(filePath), lat, lng)
