@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"sync"
 
 	"image-toolkit/internal/domain"
 	"image-toolkit/internal/infrastructure/llm"
@@ -55,7 +56,7 @@ type ToolEvent struct {
 type ToolEventHandler func(event ToolEvent)
 
 // ToolProvider supplies tool definitions and execution to the agent.
-// Implemented by mcpserver.PixelDriveMCPServer.
+// Implemented by mcpserver.FlashbacksMCPServer.
 type ToolProvider interface {
 	ToolDefinitions() []llm.ToolDefinition
 	ExecuteTool(ctx context.Context, name string, arguments json.RawMessage) (string, error)
@@ -66,6 +67,8 @@ type Agent struct {
 	conversationService *ConversationService
 	toolProvider        ToolProvider
 	config              AgentConfig
+	summaryMu           sync.Mutex
+	summaryInFlight     map[uint]bool // tracks convIDs with summary generation in progress
 }
 
 // NewAgent creates a new agent instance.
@@ -74,6 +77,7 @@ func NewAgent(convService *ConversationService, toolProvider ToolProvider, confi
 		conversationService: convService,
 		toolProvider:        toolProvider,
 		config:              config,
+		summaryInFlight:     make(map[uint]bool),
 	}
 }
 
@@ -268,7 +272,7 @@ func (a *Agent) ProcessMessage(ctx context.Context, convID uint, userMessage str
 
 // buildSystemPrompt creates the system prompt for the agent based on conversation context.
 func (a *Agent) buildSystemPrompt(conv *domain.Conversation) string {
-	prompt := `You are an AI assistant for the PixelDrive application. You help users analyze, search, and understand their image collection.
+	prompt := `You are an AI assistant for the Flashbacks application. You help users analyze, search, and understand their image collection.
 
 You have access to the following tools:
 - describe_image: Generate a detailed description of an image
@@ -318,8 +322,16 @@ func (a *Agent) maybeSummarize(convID uint, chatClient llm.ChatClient) {
 }
 
 // maybeGenerateSummary triggers summary generation in a goroutine if summary is empty
-// and there are at least 2 user messages.
+// and there are at least 2 user messages. Prevents duplicate goroutines for the same conversation.
 func (a *Agent) maybeGenerateSummary(convID uint, chatClient llm.ChatClient) {
+	// Check if summary generation is already in flight for this conversation
+	a.summaryMu.Lock()
+	if a.summaryInFlight[convID] {
+		a.summaryMu.Unlock()
+		return
+	}
+	a.summaryMu.Unlock()
+
 	conv, err := a.conversationService.GetConversationByID(convID)
 	if err != nil || conv.Summary != "" {
 		return
@@ -337,6 +349,21 @@ func (a *Agent) maybeGenerateSummary(convID uint, chatClient llm.ChatClient) {
 		}
 	}
 	if userMsgCount >= 2 {
-		go a.conversationService.GenerateDisplaySummary(convID, chatClient)
+		a.summaryMu.Lock()
+		if a.summaryInFlight[convID] {
+			a.summaryMu.Unlock()
+			return
+		}
+		a.summaryInFlight[convID] = true
+		a.summaryMu.Unlock()
+
+		go func() {
+			defer func() {
+				a.summaryMu.Lock()
+				delete(a.summaryInFlight, convID)
+				a.summaryMu.Unlock()
+			}()
+			a.conversationService.GenerateDisplaySummary(convID, chatClient)
+		}()
 	}
 }

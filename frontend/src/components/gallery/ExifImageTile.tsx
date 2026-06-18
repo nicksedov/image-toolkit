@@ -1,3 +1,4 @@
+import { memo } from "react"
 import { Download, Trash2, CalendarX2, MapPinX } from "lucide-react"
 import { useTranslation } from "@/i18n"
 import type { GalleryImageDTO } from "@/types"
@@ -10,7 +11,7 @@ interface ExifImageTileProps {
   onAddGeo?: (image: GalleryImageDTO) => void
 }
 
-export function ExifImageTile({
+export const ExifImageTile = memo(function ExifImageTile({
   image,
   onClick,
   onImageDownload,
@@ -20,9 +21,12 @@ export function ExifImageTile({
   const { t } = useTranslation()
 
   return (
-    <button
+    <div
+      role="button"
+      tabIndex={0}
       className="group flex flex-col cursor-pointer"
       onClick={() => onClick(image)}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(image); } }}
     >
       <div className="relative aspect-square overflow-hidden rounded-lg border bg-muted hover:ring-2 hover:ring-ring transition-all">
         {image.thumbnail ? (
@@ -107,6 +111,6 @@ export function ExifImageTile({
       <p className="text-[11px] text-muted-foreground truncate mt-1 px-0.5 w-full text-center" title={image.fileName}>
         {image.fileName}
       </p>
-    </button>
+    </div>
   )
-}
+})

@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"image-toolkit/internal/application/background"
 	"image-toolkit/internal/domain"
 	"image-toolkit/internal/infrastructure/ocr"
 
@@ -15,8 +16,8 @@ import (
 
 // OcrManager handles background OCR classification of images
 type OcrManager struct {
+	*background.Manager
 	mu             sync.RWMutex
-	isProcessing   bool
 	stopRequested  bool
 	incremental    bool
 	progress       string
@@ -39,6 +40,7 @@ type OcrStatusResponse struct {
 // NewOcrManager creates a new OCR manager
 func NewOcrManager(db *gorm.DB, ocrClient ocr.Client, maxWorkers int) *OcrManager {
 	return &OcrManager{
+		Manager:    background.New("ocr"),
 		db:         db,
 		ocrClient:  ocrClient,
 		maxWorkers: maxWorkers,
@@ -47,12 +49,10 @@ func NewOcrManager(db *gorm.DB, ocrClient ocr.Client, maxWorkers int) *OcrManage
 
 // StartClassification starts the OCR classification process in background
 func (om *OcrManager) StartClassification(incremental bool) error {
-	om.mu.Lock()
-	if om.isProcessing {
-		om.mu.Unlock()
+	if !om.TryStart() {
 		return fmt.Errorf("OCR classification already in progress")
 	}
-	om.isProcessing = true
+	om.mu.Lock()
 	om.stopRequested = false
 	om.incremental = incremental
 	if incremental {
@@ -75,7 +75,7 @@ func (om *OcrManager) GetStatus() OcrStatusResponse {
 	defer om.mu.RUnlock()
 
 	return OcrStatusResponse{
-		Processing:     om.isProcessing,
+		Processing:     om.IsRunning(),
 		Incremental:    om.incremental,
 		Progress:       om.progress,
 		FilesProcessed: om.filesProcessed,
@@ -85,16 +85,14 @@ func (om *OcrManager) GetStatus() OcrStatusResponse {
 
 // IsProcessing returns true if OCR classification is currently running
 func (om *OcrManager) IsProcessing() bool {
-	om.mu.RLock()
-	defer om.mu.RUnlock()
-	return om.isProcessing
+	return om.IsRunning()
 }
 
 // StopClassification requests a graceful stop of the current OCR classification
 func (om *OcrManager) StopClassification() {
 	om.mu.Lock()
 	defer om.mu.Unlock()
-	if om.isProcessing {
+	if om.IsRunning() {
 		om.stopRequested = true
 		om.progress = "Stopping OCR classification..."
 	}
@@ -129,9 +127,9 @@ func (om *OcrManager) processUnclassified(incremental bool) {
 		if r := recover(); r != nil {
 			log.Printf("[OCR] PANIC in processUnclassified: %v", r)
 			om.mu.Lock()
-			om.isProcessing = false
 			om.progress = fmt.Sprintf("OCR classification panic: %v", r)
 			om.mu.Unlock()
+			om.MarkStopped()
 		}
 	}()
 
@@ -139,14 +137,14 @@ func (om *OcrManager) processUnclassified(incremental bool) {
 
 	defer func() {
 		om.mu.Lock()
-		om.isProcessing = false
 		if om.stopRequested {
 			om.progress = "OCR classification stopped"
 		} else {
 			om.progress = "OCR classification complete"
 		}
-		log.Printf("[OCR] processUnclassified finished: isProcessing=false, stopRequested=%v", om.stopRequested)
+		log.Printf("[OCR] processUnclassified finished: stopRequested=%v", om.stopRequested)
 		om.mu.Unlock()
+		om.MarkStopped()
 	}()
 
 	// Query images that need classification
@@ -169,8 +167,8 @@ func (om *OcrManager) processUnclassified(incremental bool) {
 		} else {
 			om.progress = "No images found"
 		}
-		om.isProcessing = false
 		om.mu.Unlock()
+		om.MarkStopped()
 		return
 	}
 
@@ -194,7 +192,12 @@ func (om *OcrManager) launchWorkers(images []domain.ImageFile) {
 
 	// Semaphore to limit concurrent OCR requests
 	sem := make(chan struct{}, workers)
-	results := make(chan OcrResult, len(images))
+	// Bound the results channel to avoid excessive memory allocation for large image sets
+	resultsCap := workers * 2
+	if resultsCap > len(images) {
+		resultsCap = len(images)
+	}
+	results := make(chan OcrResult, resultsCap)
 	resultsDone := make(chan struct{})
 
 	var wg sync.WaitGroup

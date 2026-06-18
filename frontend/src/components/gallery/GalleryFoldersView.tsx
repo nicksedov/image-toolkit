@@ -78,7 +78,7 @@ export function GalleryFoldersView({ onImageClick, onImageDownload, onImageDelet
               value={searchInput}
               onChange={handleSearchChange}
               placeholder={t("gallery.search.placeholder")}
-              className="h-9 w-48 rounded-md border bg-background pl-8 pr-8 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              className="h-9 w-70 rounded-md border bg-background pl-8 pr-8 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             />
             {searchInput && (
               <button

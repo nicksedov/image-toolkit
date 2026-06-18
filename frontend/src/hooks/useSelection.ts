@@ -29,13 +29,7 @@ export function useSelection() {
   }, [])
 
   const selectAll = useCallback((paths: string[]) => {
-    setSelected((prev) => {
-      const next = new Set(prev)
-      for (const p of paths) {
-        next.add(p)
-      }
-      return next
-    })
+    setSelected(new Set(paths))
   }, [])
 
   const reset = useCallback(() => {

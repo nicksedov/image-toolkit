@@ -18,6 +18,7 @@ export function useOcrState(imagePath: string | null): UseOcrStateReturn {
   const [recognizing, setRecognizing] = useState(false)
   const prevImagePath = useRef<string | null>(null)
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const recognizingRef = useRef(false)
 
   const resetState = useCallback(() => {
     setOcrData(null)
@@ -67,8 +68,9 @@ export function useOcrState(imagePath: string | null): UseOcrStateReturn {
   }, [imagePath])
 
   const handleRecognize = useCallback(() => {
-    if (!imagePath || recognizing) return
+    if (!imagePath || recognizingRef.current) return
 
+    recognizingRef.current = true
     const hasExistingResult = llmData?.found && llmData.success
     setRecognizing(true)
 
@@ -90,6 +92,7 @@ export function useOcrState(imagePath: string | null): UseOcrStateReturn {
             success: true,
           })
           setRecognizing(false)
+          recognizingRef.current = false
           return
         }
 
@@ -112,6 +115,7 @@ export function useOcrState(imagePath: string | null): UseOcrStateReturn {
                   success: true,
                 })
                 setRecognizing(false)
+                recognizingRef.current = false
               } else if (status.status === "failed") {
                 if (pollingRef.current) {
                   clearInterval(pollingRef.current)
@@ -123,6 +127,7 @@ export function useOcrState(imagePath: string | null): UseOcrStateReturn {
                   success: false,
                 })
                 setRecognizing(false)
+                recognizingRef.current = false
               }
             })
             .catch(() => {
@@ -131,6 +136,7 @@ export function useOcrState(imagePath: string | null): UseOcrStateReturn {
                 pollingRef.current = null
               }
               setRecognizing(false)
+              recognizingRef.current = false
             })
         }, 2000)
       })
@@ -142,8 +148,9 @@ export function useOcrState(imagePath: string | null): UseOcrStateReturn {
           success: false,
         })
         setRecognizing(false)
+        recognizingRef.current = false
       })
-  }, [imagePath, recognizing, llmData])
+  }, [imagePath, llmData])
 
   return { ocrData, llmData, loading, recognizing, resetState, handleRecognize }
 }

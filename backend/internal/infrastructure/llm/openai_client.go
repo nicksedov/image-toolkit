@@ -1,11 +1,10 @@
 package llm
 
 import (
-	"bytes"
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -13,10 +12,10 @@ import (
 
 // OpenAIClient implements Client for OpenAI-compatible API
 type OpenAIClient struct {
-	BaseURL           string
-	APIKey            string
-	Model             string
-	Timeout           time.Duration
+	*apiClient
+	APIKey             string
+	Model              string
+	Timeout            time.Duration
 	MaxImageMegapixels float64
 }
 
@@ -25,11 +24,15 @@ type OpenAIClient struct {
 // so that endpoint paths like /v1/models are not duplicated.
 func NewOpenAIClient(baseURL, apiKey, model string, maxImageMegapixels float64) *OpenAIClient {
 	baseURL = normalizeOpenAIBaseURL(baseURL)
+	timeout := 5 * time.Minute
+	headers := map[string]string{
+		"Authorization": "Bearer " + apiKey,
+	}
 	return &OpenAIClient{
-		BaseURL:            baseURL,
+		apiClient:          newAPIClient(baseURL, timeout, headers),
 		APIKey:             apiKey,
 		Model:              model,
-		Timeout:            5 * time.Minute,
+		Timeout:            timeout,
 		MaxImageMegapixels: maxImageMegapixels,
 	}
 }
@@ -48,10 +51,10 @@ func normalizeOpenAIBaseURL(baseURL string) string {
 
 // openAIRequest represents OpenAI chat completion request
 type openAIRequest struct {
-	Model     string               `json:"model"`
-	Messages  []openAIChatMessage  `json:"messages"`
-	MaxTokens int                  `json:"max_tokens,omitempty"`
-	Tools     []openAIToolParam    `json:"tools,omitempty"`
+	Model     string              `json:"model"`
+	Messages  []openAIChatMessage `json:"messages"`
+	MaxTokens int                 `json:"max_tokens,omitempty"`
+	Tools     []openAIToolParam   `json:"tools,omitempty"`
 }
 
 type openAIChatMessage struct {
@@ -121,14 +124,10 @@ func (c *OpenAIClient) Recognize(imagePath string, systemPrompt string, userMess
 	base64Img := base64.StdEncoding.EncodeToString(imgData)
 	dataURL := fmt.Sprintf("data:%s;base64,%s", mediaType, base64Img)
 
-	// Prepare request using the multimodal message format
 	req := openAIRequest{
 		Model: c.Model,
 		Messages: []openAIChatMessage{
-			{
-				Role:    "system",
-				Content: systemPrompt,
-			},
+			{Role: "system", Content: systemPrompt},
 			{
 				Role: "user",
 				Content: []openAIContent{
@@ -140,36 +139,9 @@ func (c *OpenAIClient) Recognize(imagePath string, systemPrompt string, userMess
 		MaxTokens: 4000,
 	}
 
-	reqBody, err := json.Marshal(req)
-	if err != nil {
-		return "", fmt.Errorf("failed to marshal request: %w", err)
-	}
-
-	// Send request
-	client := &http.Client{Timeout: c.Timeout}
-	httpReq, err := http.NewRequest("POST", c.BaseURL+"/v1/chat/completions", bytes.NewBuffer(reqBody))
-	if err != nil {
-		return "", fmt.Errorf("failed to create request: %w", err)
-	}
-
-	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("Authorization", "Bearer "+c.APIKey)
-
-	resp, err := client.Do(httpReq)
-	if err != nil {
-		return "", fmt.Errorf("failed to send request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("OpenAI API error (status %d): %s", resp.StatusCode, string(body))
-	}
-
-	// Parse response
 	var openAIResp openAIResponse
-	if err := json.NewDecoder(resp.Body).Decode(&openAIResp); err != nil {
-		return "", fmt.Errorf("failed to decode response: %w", err)
+	if err := c.doJSON(context.Background(), http.MethodPost, "/v1/chat/completions", req, &openAIResp, nil); err != nil {
+		return "", fmt.Errorf("OpenAI recognize: %w", err)
 	}
 
 	if len(openAIResp.Choices) == 0 {
@@ -189,10 +161,8 @@ func (c *OpenAIClient) Chat(req ChatRequest) (*ChatResponse, error) {
 			ToolCallID: m.ToolCallID,
 		}
 		if m.Role == "tool" {
-			// Tool result messages have string content and a tool_call_id
 			msg.Content = m.Content
 		} else if len(m.ToolCalls) > 0 {
-			// Assistant message requesting tool invocations
 			msg.Content = m.Content
 			msg.ToolCalls = make([]openAIToolCallResp, len(m.ToolCalls))
 			for j, tc := range m.ToolCalls {
@@ -228,33 +198,9 @@ func (c *OpenAIClient) Chat(req ChatRequest) (*ChatResponse, error) {
 		Tools:     tools,
 	}
 
-	reqBody, err := json.Marshal(oaiReq)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal chat request: %w", err)
-	}
-
-	client := &http.Client{Timeout: c.Timeout}
-	httpReq, err := http.NewRequest("POST", c.BaseURL+"/v1/chat/completions", bytes.NewBuffer(reqBody))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("Authorization", "Bearer "+c.APIKey)
-
-	resp, err := client.Do(httpReq)
-	if err != nil {
-		return nil, fmt.Errorf("failed to send chat request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("OpenAI API error (status %d): %s", resp.StatusCode, string(body))
-	}
-
 	var oaiResp openAIResponse
-	if err := json.NewDecoder(resp.Body).Decode(&oaiResp); err != nil {
-		return nil, fmt.Errorf("failed to decode chat response: %w", err)
+	if err := c.doJSON(context.Background(), http.MethodPost, "/v1/chat/completions", oaiReq, &oaiResp, nil); err != nil {
+		return nil, fmt.Errorf("OpenAI chat: %w", err)
 	}
 
 	if len(oaiResp.Choices) == 0 {
@@ -298,29 +244,12 @@ type openAIModel struct {
 
 // ListModels returns a list of available models from OpenAI-compatible server
 func (c *OpenAIClient) ListModels() ([]ModelInfo, error) {
-	client := &http.Client{Timeout: 30 * time.Second}
-	httpReq, err := http.NewRequest("GET", c.BaseURL+"/v1/models", nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-
-	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("Authorization", "Bearer "+c.APIKey)
-
-	resp, err := client.Do(httpReq)
-	if err != nil {
-		return nil, fmt.Errorf("failed to connect to server: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
-	}
+	// Use a shorter timeout for model listing
+	shortClient := newAPIClient(c.baseURL, 30*time.Second, c.headers)
 
 	var modelsResp openAIModelsResponse
-	if err := json.NewDecoder(resp.Body).Decode(&modelsResp); err != nil {
-		return nil, fmt.Errorf("failed to decode response: %w", err)
+	if err := shortClient.doJSON(context.Background(), http.MethodGet, "/v1/models", nil, &modelsResp, nil); err != nil {
+		return nil, fmt.Errorf("OpenAI list models: %w", err)
 	}
 
 	models := make([]ModelInfo, len(modelsResp.Data))

@@ -1,6 +1,6 @@
 export const translationsEn = {
   // Header
-  "header.title": "PixelDrive",
+  "header.title": "Flashbacks",
   "header.toggleTheme": "Toggle theme",
   "header.toggleLanguage": "Toggle language",
   "header.menu": "Menu",
@@ -174,6 +174,10 @@ export const translationsEn = {
   "gallery.calendar.noImagesForDate": "No images for the selected date",
   "gallery.calendar.clearFilterHint": "Clear the filter to see all images.",
   "gallery.calendar.fullMonth": "Full Month",
+  "gallery.calendar.tooltipImages": "{count} images",
+  "gallery.calendar.tooltipLoaded": "loaded",
+  "gallery.calendar.tooltipVisible": "visible",
+  "gallery.calendar.tooltipOutsideFilter": "outside filter",
 
   // Gallery image overlay
   "gallery.overlay.download": "Download",
@@ -396,7 +400,7 @@ export const translationsEn = {
   "adminPanel.loginPlaceholder": "Enter login",
   "adminPanel.passwordPlaceholder": "Enter password",
   "adminPanel.adminSetup": "Primary Setup",
-  "adminPanel.loginTitle": "PixelDrive",
+  "adminPanel.loginTitle": "Flashbacks",
   "adminPanel.signIn": "Sign In",
   "adminPanel.bootstrapTitle": "Primary Setup",
   "adminPanel.bootstrapDescAdmin": "Log in as administrator for primary system setup",

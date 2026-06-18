@@ -1,4 +1,5 @@
 import { useMemo } from "react"
+import { useTranslation } from "@/i18n"
 import type { CalendarDateGroup, CalendarDateRange, TimelineDateMarker } from "@/types"
 
 interface TimelineBarProps {
@@ -20,6 +21,15 @@ export function TimelineBar({
   loadedDates,
   onNavigateToDate,
 }: TimelineBarProps) {
+  const { t } = useTranslation()
+
+  const buildTooltip = (date: string, imageCount: number, isLoaded: boolean, isVisible: boolean, isFiltered: boolean) => {
+    const parts = [`${date} (${t("gallery.calendar.tooltipImages", { count: imageCount })})`]
+    if (isVisible) parts.push(t("gallery.calendar.tooltipVisible"))
+    else if (isLoaded) parts.push(t("gallery.calendar.tooltipLoaded"))
+    if (isFiltered) parts.push(t("gallery.calendar.tooltipOutsideFilter"))
+    return parts.join(" - ")
+  }
   const visibleDateRange = useMemo(() => {
     if (groups.length === 0) return { start: null, end: null }
     return {
@@ -177,7 +187,7 @@ export function TimelineBar({
                   key={dateMarker.date}
                   className="absolute left-1/2 -translate-x-1/2 rounded-full transition-all bg-gray-400 cursor-not-allowed"
                   style={{ top: `${topPercent}%`, width: "8px", height: "8px", opacity: 0.4 }}
-                  title={`${dateMarker.date} (${dateMarker.imageCount} images)${isLoaded ? " - loaded" : ""}${isFiltered ? " - outside filter" : ""}`}
+                  title={buildTooltip(dateMarker.date, dateMarker.imageCount, isLoaded, false, isFiltered)}
                   onClick={(e) => {
                     e.stopPropagation()
                   }}
@@ -190,7 +200,7 @@ export function TimelineBar({
                   key={dateMarker.date}
                   className="absolute left-1/2 -translate-x-1/2 rounded-full transition-all bg-blue-500 cursor-pointer hover:scale-125"
                   style={{ top: `${topPercent}%`, width: "12px", height: "12px", opacity: 1 }}
-                  title={`${dateMarker.date} (${dateMarker.imageCount} images) - visible`}
+                  title={buildTooltip(dateMarker.date, dateMarker.imageCount, isLoaded, true, false)}
                   onClick={(e) => {
                     e.stopPropagation()
                     onNavigateToDate(dateMarker.date)
@@ -204,7 +214,7 @@ export function TimelineBar({
                   key={dateMarker.date}
                   className="absolute left-1/2 -translate-x-1/2 rounded-full transition-all bg-blue-500 cursor-pointer hover:scale-150"
                   style={{ top: `${topPercent}%`, width: "8px", height: "8px", opacity: 0.75 }}
-                  title={`${dateMarker.date} (${dateMarker.imageCount} images)${isLoaded ? " - loaded" : ""}${isFiltered ? " - outside filter" : ""}`}
+                  title={buildTooltip(dateMarker.date, dateMarker.imageCount, isLoaded, false, isFiltered)}
                   onClick={(e) => {
                     e.stopPropagation()
                     onNavigateToDate(dateMarker.date)
@@ -218,7 +228,7 @@ export function TimelineBar({
                   key={dateMarker.date}
                   className="absolute left-1/2 -translate-x-1/2 rounded-full transition-all bg-blue-400 cursor-pointer hover:scale-125"
                   style={{ top: `${topPercent}%`, width: "8px", height: "8px", opacity: 0.5 }}
-                  title={`${dateMarker.date} (${dateMarker.imageCount} images)${isLoaded ? " - loaded" : ""}${isFiltered ? " - outside filter" : ""}`}
+                  title={buildTooltip(dateMarker.date, dateMarker.imageCount, isLoaded, false, isFiltered)}
                   onClick={(e) => {
                     e.stopPropagation()
                     onNavigateToDate(dateMarker.date)

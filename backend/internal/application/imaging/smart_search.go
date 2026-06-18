@@ -74,8 +74,11 @@ func SearchByEmbedding(db *gorm.DB, query string, limit int) (SmartSearchRespons
 	// Convert to pgvector format for the SQL query
 	vecStr := llm.Float32SliceToPgVector(queryEmbeddings[0])
 
-	// Determine the per-model child table
-	childTable := domain.EmbeddingTableName(modelName)
+	// Determine the per-model child table (safely quoted)
+	childTable, err := database.QuotedEmbeddingTableName(modelName)
+	if err != nil {
+		return SmartSearchResponse{}, fmt.Errorf("invalid embedding table name: %w", err)
+	}
 
 	// Check if the child table exists; if not, return empty results
 	if !database.EmbeddingTableExists(db, modelName) {
@@ -86,24 +89,41 @@ func SearchByEmbedding(db *gorm.DB, query string, limit int) (SmartSearchRespons
 		}, nil
 	}
 
-	// Run nearest-neighbor search on the per-model child table, joined to parent for image_file_id
+	// HNSW-friendly nearest-neighbor search: ORDER BY distance ASC LIMIT ?
+	// Using the <=> (cosine distance) operator with ORDER BY + LIMIT enables
+	// the HNSW index for approximate nearest-neighbor search.
+	// We over-fetch (limit * 2) then deduplicate by image_file_id to handle
+	// multiple tag embeddings per image.
 	type searchResult struct {
 		ImageFileID uint    `gorm:"column:image_file_id"`
-		Similarity  float64 `gorm:"column:similarity"`
+		Distance    float64 `gorm:"column:distance"`
 	}
 
+	overFetchLimit := limit * 2
 	querySQL := fmt.Sprintf(`
-		SELECT te.image_file_id, MAX(1 - (m.embedding <=> ?::halfvec)) AS similarity
+		SELECT te.image_file_id, (m.embedding <=> ?::halfvec) AS distance
 		FROM %s m
 		INNER JOIN tag_embeddings te ON te.id = m.tag_embeddings_id
-		GROUP BY te.image_file_id
-		ORDER BY similarity DESC
+		ORDER BY distance ASC
 		LIMIT ?
 	`, childTable)
 
-	var results []searchResult
-	if err := db.Raw(querySQL, vecStr, limit).Scan(&results).Error; err != nil {
+	var rawResults []searchResult
+	if err := db.Raw(querySQL, vecStr, overFetchLimit).Scan(&rawResults).Error; err != nil {
 		return SmartSearchResponse{}, fmt.Errorf("semantic search query failed: %w", err)
+	}
+
+	// Deduplicate by image_file_id, keeping the closest distance
+	seen := make(map[uint]bool)
+	var results []searchResult
+	for _, r := range rawResults {
+		if !seen[r.ImageFileID] {
+			seen[r.ImageFileID] = true
+			results = append(results, r)
+			if len(results) >= limit {
+				break
+			}
+		}
 	}
 
 	if len(results) == 0 {
@@ -114,12 +134,12 @@ func SearchByEmbedding(db *gorm.DB, query string, limit int) (SmartSearchRespons
 		}, nil
 	}
 
-	// Collect image IDs and fetch image_files data
+	// Collect image IDs and build similarity map (convert distance to similarity)
 	imageIDs := make([]uint, len(results))
 	similarityMap := make(map[uint]float64)
 	for i, r := range results {
 		imageIDs[i] = r.ImageFileID
-		similarityMap[r.ImageFileID] = r.Similarity
+		similarityMap[r.ImageFileID] = 1.0 - r.Distance // cosine distance → similarity
 	}
 
 	var files []domain.ImageFile

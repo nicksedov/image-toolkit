@@ -234,6 +234,7 @@ func main() {
 	sessionRepo := auth.NewSessionRepository(db, sessionConfig)
 	bootstrap := auth.NewBootstrapService(db, cfg.BootstrapLogin, cfg.BootstrapPassword)
 	loginLimiter := auth.NewLoginRateLimiter(10, 15*time.Minute, 30*time.Minute)
+	defer loginLimiter.Stop()
 	authService := auth.NewAuthService(db, bootstrap, sessionRepo, loginLimiter)
 	userService := auth.NewUserService(db, sessionRepo)
 	authMiddleware := middleware.NewAuthMiddleware(sessionRepo, authService, i18nSvc)
@@ -248,6 +249,7 @@ func main() {
 
 	// Create LLM OCR service
 	llmOcrService := imaging.NewLlmOcrService(db)
+	defer llmOcrService.Stop()
 	fmt.Println("LLM OCR service initialized")
 
 	// Create tag scan manager
@@ -287,7 +289,7 @@ func main() {
 
 	// Create MCP server
 	llmFactory := helpers.NewLLMFactory(db, cfg.LlmMaxImageMegapixels)
-	mcpSrv := mcpserver.NewPixelDriveMCPServer(db, llmFactory, llmOcrService, cfg.LlmMaxImageMegapixels, embeddingBackfill)
+	mcpSrv := mcpserver.NewFlashbacksMCPServer(db, llmFactory, llmOcrService, cfg.LlmMaxImageMegapixels, embeddingBackfill)
 	fmt.Println("MCP server initialized with image analysis and search tools")
 
 	// Create conversation service and agent

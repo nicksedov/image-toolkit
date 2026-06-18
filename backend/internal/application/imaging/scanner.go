@@ -71,15 +71,32 @@ func flushBatch(db *gorm.DB, toCreate *[]domain.ImageFile, toUpdate *[]domain.Im
 		result.Created = append(result.Created, *toCreate...)
 		*toCreate = (*toCreate)[:0]
 	}
-	for _, f := range *toUpdate {
-		contentChanged := true // safe default: treat as content-changed
-		if f.Hash != "" {
-			var oldHash string
-			db.Model(&domain.ImageFile{}).Select("hash").Where("id = ?", f.ID).Scan(&oldHash)
-			contentChanged = oldHash != f.Hash
+
+	if len(*toUpdate) > 0 {
+		// Batch-fetch old hashes in a single query to avoid N+1
+		ids := make([]uint, len(*toUpdate))
+		for i, f := range *toUpdate {
+			ids[i] = f.ID
 		}
-		db.Save(&f)
-		result.Updated = append(result.Updated, updatedFile{File: f, ContentChanged: contentChanged})
+		oldHashMap := make(map[uint]string, len(ids))
+		type idHash struct {
+			ID   uint
+			Hash string
+		}
+		var oldRows []idHash
+		db.Table("image_files").Select("id, hash").Where("id IN ?", ids).Find(&oldRows)
+		for _, row := range oldRows {
+			oldHashMap[row.ID] = row.Hash
+		}
+
+		for _, f := range *toUpdate {
+			contentChanged := true
+			if f.Hash != "" {
+				contentChanged = oldHashMap[f.ID] != f.Hash
+			}
+			db.Save(&f)
+			result.Updated = append(result.Updated, updatedFile{File: f, ContentChanged: contentChanged})
+		}
 	}
 	*toUpdate = (*toUpdate)[:0]
 
@@ -569,17 +586,32 @@ func deleteImageFileCascade(db *gorm.DB, imageFileID uint) {
 }
 
 // cleanupMissingFiles removes database entries for files that no longer exist.
+// Processes in batches of 10000 to avoid loading all rows into memory at once.
 // Returns a ScanBatchResult with the deleted file records.
 func cleanupMissingFiles(db *gorm.DB, progressChan chan<- string) (ScanBatchResult, error) {
-	var files []domain.ImageFile
-	db.Find(&files)
 	batch := ScanBatchResult{}
+	const batchSize = 10000
 
-	for _, f := range files {
-		if _, err := os.Stat(f.Path); os.IsNotExist(err) {
-			progressChan <- fmt.Sprintf("Removing missing file from DB: %s", f.Path)
-			deleteImageFileCascade(db, f.ID)
-			batch.Deleted = append(batch.Deleted, f)
+	for {
+		var files []domain.ImageFile
+		if err := db.Limit(batchSize).Find(&files).Error; err != nil {
+			return batch, fmt.Errorf("cleanupMissingFiles: query failed: %w", err)
+		}
+		if len(files) == 0 {
+			break
+		}
+
+		for _, f := range files {
+			if _, err := os.Stat(f.Path); os.IsNotExist(err) {
+				progressChan <- fmt.Sprintf("Removing missing file from DB: %s", f.Path)
+				deleteImageFileCascade(db, f.ID)
+				batch.Deleted = append(batch.Deleted, f)
+			}
+		}
+
+		// If we fetched fewer than batchSize rows, we've processed everything
+		if len(files) < batchSize {
+			break
 		}
 	}
 

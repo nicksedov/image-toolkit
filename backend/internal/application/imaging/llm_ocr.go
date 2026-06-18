@@ -17,17 +17,19 @@ import (
 
 // LlmRecognitionStatus represents the status of an async recognition task
 type LlmRecognitionStatus struct {
-	Status string           // "processing", "completed", "failed"
-	Result *RecognizeResult // non-nil when Status == "completed"
-	Error  string           // non-empty when Status == "failed"
+	Status    string           // "processing", "completed", "failed"
+	Result    *RecognizeResult // non-nil when Status == "completed"
+	Error     string           // non-empty when Status == "failed"
+	CreatedAt time.Time        // when the task was created
 }
 
 // AiTaskStatus represents the status of an async AI action task
 type AiTaskStatus struct {
-	Status string          // "processing", "completed", "failed"
-	Result *AiActionResult // non-nil when Status == "completed"
-	Error  string          // non-empty when Status == "failed"
-	Action string          // the action type (describe, tags, etc.)
+	Status    string          // "processing", "completed", "failed"
+	Result    *AiActionResult // non-nil when Status == "completed"
+	Error     string          // non-empty when Status == "failed"
+	Action    string          // the action type (describe, tags, etc.)
+	CreatedAt time.Time       // when the task was created
 }
 
 // AiTaskCoordinator coordinates background scanning with AI tasks
@@ -35,6 +37,9 @@ type AiTaskCoordinator interface {
 	RequestPause()
 	Resume()
 }
+
+// taskTTL is the time after which completed/failed tasks are automatically cleaned up.
+const taskTTL = 30 * time.Minute
 
 // LlmOcrService handles VL LLM-based OCR recognition
 type LlmOcrService struct {
@@ -44,15 +49,59 @@ type LlmOcrService struct {
 	aiActionTasks   map[string]*AiTaskStatus // key: task ID
 	aiTaskMu        sync.Mutex
 	coordinator     AiTaskCoordinator
+	stopCleanup     chan struct{}
 }
 
 // NewLlmOcrService creates a new LLM OCR service
 func NewLlmOcrService(db *gorm.DB) *LlmOcrService {
-	return &LlmOcrService{
+	svc := &LlmOcrService{
 		db:              db,
 		processingTasks: make(map[uint]*LlmRecognitionStatus),
 		aiActionTasks:   make(map[string]*AiTaskStatus),
+		stopCleanup:     make(chan struct{}),
 	}
+	go svc.cleanupLoop()
+	return svc
+}
+
+// Stop terminates the background TTL cleanup goroutine.
+func (s *LlmOcrService) Stop() {
+	close(s.stopCleanup)
+}
+
+// cleanupLoop periodically removes completed/failed tasks older than taskTTL.
+func (s *LlmOcrService) cleanupLoop() {
+	ticker := time.NewTicker(5 * time.Minute)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			s.cleanupExpiredTasks()
+		case <-s.stopCleanup:
+			return
+		}
+	}
+}
+
+// cleanupExpiredTasks removes tasks that have completed/failed and are older than taskTTL.
+func (s *LlmOcrService) cleanupExpiredTasks() {
+	now := time.Now()
+
+	s.taskMu.Lock()
+	for id, task := range s.processingTasks {
+		if task.Status != "processing" && now.Sub(task.CreatedAt) > taskTTL {
+			delete(s.processingTasks, id)
+		}
+	}
+	s.taskMu.Unlock()
+
+	s.aiTaskMu.Lock()
+	for id, task := range s.aiActionTasks {
+		if task.Status != "processing" && now.Sub(task.CreatedAt) > taskTTL {
+			delete(s.aiActionTasks, id)
+		}
+	}
+	s.aiTaskMu.Unlock()
 }
 
 // SetCoordinator sets the AI task coordinator for pause/resume coordination
@@ -159,7 +208,7 @@ func (s *LlmOcrService) StartRecognizeAsync(imageFileID uint, client llm.Client,
 		return false // already processing
 	}
 
-	s.processingTasks[imageFileID] = &LlmRecognitionStatus{Status: "processing"}
+	s.processingTasks[imageFileID] = &LlmRecognitionStatus{Status: "processing", CreatedAt: time.Now()}
 
 	go func() {
 		if s.coordinator != nil {
@@ -173,13 +222,15 @@ func (s *LlmOcrService) StartRecognizeAsync(imageFileID uint, client llm.Client,
 
 		if err != nil {
 			s.processingTasks[imageFileID] = &LlmRecognitionStatus{
-				Status: "failed",
-				Error:  err.Error(),
+				Status:    "failed",
+				Error:     err.Error(),
+				CreatedAt: time.Now(),
 			}
 		} else {
 			s.processingTasks[imageFileID] = &LlmRecognitionStatus{
-				Status: "completed",
-				Result: result,
+				Status:    "completed",
+				Result:    result,
+				CreatedAt: time.Now(),
 			}
 		}
 	}()
@@ -313,6 +364,7 @@ func (s *LlmOcrService) ExecuteAiAction(imageFileID uint, action string, questio
 var hallucinationPrefixes = []string{
 	"tag1", "tag2", "tag3",
 	"тег1", "тег2", "тег3",
+	"русский тег", "russian tag", "english tag",
 }
 
 // containsCJK reports whether s contains any CJK Unified Ideograph.
@@ -393,8 +445,9 @@ func (s *LlmOcrService) StoreCachedTagsResult(taskID string, tags []string) {
 	s.aiTaskMu.Lock()
 	defer s.aiTaskMu.Unlock()
 	s.aiActionTasks[taskID] = &AiTaskStatus{
-		Status: "completed",
-		Action: "tags",
+		Status:    "completed",
+		Action:    "tags",
+		CreatedAt: time.Now(),
 		Result: &AiActionResult{
 			Success: true,
 			Tags:    tags,
@@ -429,8 +482,9 @@ func (s *LlmOcrService) SaveImageTags(imageFileID uint, tags []string) error {
 func (s *LlmOcrService) StartAiActionAsync(taskID string, imageFileID uint, action string, question string, language string, client llm.Client, provider domain.LlmProvider) {
 	s.aiTaskMu.Lock()
 	s.aiActionTasks[taskID] = &AiTaskStatus{
-		Status: "processing",
-		Action: action,
+		Status:    "processing",
+		Action:    action,
+		CreatedAt: time.Now(),
 	}
 	s.aiTaskMu.Unlock()
 
@@ -455,15 +509,17 @@ func (s *LlmOcrService) StartAiActionAsync(taskID string, imageFileID uint, acti
 
 		if err != nil {
 			s.aiActionTasks[taskID] = &AiTaskStatus{
-				Status: "failed",
-				Error:  err.Error(),
-				Action: action,
+				Status:    "failed",
+				Error:     err.Error(),
+				Action:    action,
+				CreatedAt: time.Now(),
 			}
 		} else {
 			s.aiActionTasks[taskID] = &AiTaskStatus{
-				Status: "completed",
-				Result: result,
-				Action: action,
+				Status:    "completed",
+				Result:    result,
+				Action:    action,
+				CreatedAt: time.Now(),
 			}
 		}
 	}()

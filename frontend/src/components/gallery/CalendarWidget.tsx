@@ -149,7 +149,7 @@ export function CalendarWidget({
           <select
             value={calendarViewDate.getMonth()}
             onChange={(e) => handleMonthChange(parseInt(e.target.value))}
-            className="text-sm font-medium bg-background dark:bg-zinc-900 text-foreground dark:text-zinc-100 border border-border rounded px-2 py-1 outline-none cursor-pointer"
+            className="text-sm font-medium bg-background text-foreground border border-border rounded px-2 py-1 outline-none cursor-pointer"
           >
             {MONTHS.map((m) => {
               const isActive = monthsWithImages.has(m.value)
@@ -159,8 +159,8 @@ export function CalendarWidget({
                   value={m.value}
                   className={
                     isActive
-                      ? "bg-background dark:bg-zinc-900 text-foreground dark:text-zinc-100"
-                      : "bg-background dark:bg-zinc-950 text-muted-foreground dark:text-zinc-600"
+                      ? "bg-background text-foreground"
+                      : "bg-background text-muted-foreground"
                   }
                 >
                   {new Date(2000, m.value, 1).toLocaleDateString(undefined, { month: "long" })}
@@ -173,7 +173,7 @@ export function CalendarWidget({
           <select
             value={calendarViewDate.getFullYear()}
             onChange={(e) => handleYearChange(parseInt(e.target.value))}
-            className="text-sm font-medium bg-background dark:bg-zinc-900 text-foreground dark:text-zinc-100 border border-border rounded px-2 py-1 outline-none cursor-pointer"
+            className="text-sm font-medium bg-background text-foreground border border-border rounded px-2 py-1 outline-none cursor-pointer"
           >
             {(() => {
               const currentYear = calendarViewDate.getFullYear()
@@ -234,8 +234,8 @@ export function CalendarWidget({
                 ${isSelected
                   ? "bg-primary/80 text-primary-foreground hover:bg-primary/90 font-medium cursor-pointer"
                   : day.hasImages
-                    ? "bg-emerald-50/80 dark:bg-zinc-800/60 hover:bg-emerald-100/80 dark:hover:bg-zinc-700/70 text-emerald-600 dark:text-emerald-400 font-semibold cursor-pointer"
-                    : "bg-zinc-100/40 dark:bg-zinc-800/40 hover:bg-zinc-200/50 dark:hover:bg-zinc-700/50 text-muted-foreground/70 dark:text-muted-foreground/80"
+                    ? "bg-emerald-100/80 bg-card hover:bg-emerald-200/80 text-emerald-600 font-semibold cursor-pointer"
+                    : "bg-muted/50 hover:bg-muted text-muted-foreground/70"
                 }
                 ${isRangeStart || isRangeEnd ? "ring-2 ring-primary ring-offset-2" : ""}
                 ${isSelected && !isRangeStart && !isRangeEnd ? "opacity-80" : ""}

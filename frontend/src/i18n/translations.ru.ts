@@ -1,6 +1,6 @@
 export const translationsRu = {
   // Header
-  "header.title": "PixelDrive",
+  "header.title": "Flashbacks",
   "header.toggleTheme": "Переключить тему",
   "header.toggleLanguage": "Переключить язык",
   "header.menu": "Меню",
@@ -174,6 +174,10 @@ export const translationsRu = {
   "gallery.calendar.noImagesForDate": "Нет изображений за выбранную дату",
   "gallery.calendar.clearFilterHint": "Очистите фильтр, чтобы увидеть все изображения.",
   "gallery.calendar.fullMonth": "Весь месяц",
+  "gallery.calendar.tooltipImages": "{count} изобр.",
+  "gallery.calendar.tooltipLoaded": "загружено",
+  "gallery.calendar.tooltipVisible": "видно",
+  "gallery.calendar.tooltipOutsideFilter": "вне фильтра",
 
   // Gallery image overlay
   "gallery.overlay.download": "Скачать",
@@ -396,7 +400,7 @@ export const translationsRu = {
   "adminPanel.loginPlaceholder": "Введите логин",
   "adminPanel.passwordPlaceholder": "Введите пароль",
   "adminPanel.adminSetup": "Первичная настройка",
-  "adminPanel.loginTitle": "PixelDrive",
+  "adminPanel.loginTitle": "Flashbacks",
   "adminPanel.signIn": "Войти",
   "adminPanel.bootstrapTitle": "Первичная настройка",
   "adminPanel.bootstrapDescAdmin": "Войдите под учетной записью администратора для первичной настройки системы",

@@ -214,7 +214,8 @@ export interface GeoImagesRequest {
 }
 
 export function fetchGalleryClusters(
-  params: GeoClusterRequest
+  params: GeoClusterRequest,
+  signal?: AbortSignal
 ): Promise<GeoClustersResponse> {
   return apiGet<GeoClustersResponse>("/api/gallery/clusters", {
     minLat: String(params.minLat),
@@ -224,7 +225,7 @@ export function fetchGalleryClusters(
     zoom: String(params.zoom),
     width: String(params.width),
     height: String(params.height),
-  })
+  }, signal)
 }
 
 export function fetchGeoImages(
@@ -537,8 +538,8 @@ export function fetchAiActionStatus(taskId: string): Promise<import("@/types").A
 
 // --- Geocode / GPS ---
 
-export function searchGeocodeLocations(query: string): Promise<GeocodeSearchResponse> {
-  return apiGet<GeocodeSearchResponse>("/api/geocode/search", { q: query })
+export function searchGeocodeLocations(query: string, signal?: AbortSignal): Promise<GeocodeSearchResponse> {
+  return apiGet<GeocodeSearchResponse>("/api/geocode/search", { q: query }, signal)
 }
 
 export function updateImageGps(req: UpdateGpsRequest): Promise<UpdateGpsResponse> {

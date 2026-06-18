@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"image-toolkit/internal/application/background"
 	"image-toolkit/internal/domain"
 	"image-toolkit/internal/infrastructure/llm"
 
@@ -33,10 +34,9 @@ type TagScanStatus struct {
 
 // TagScanManager manages background tag scanning of gallery images
 type TagScanManager struct {
+	*background.Manager
 	mu                 sync.Mutex
-	running            bool
 	paused             bool
-	stopCh             chan struct{}
 	scheduleCh         chan struct{}
 	resumeCh           chan struct{}
 	pauseDepth         int
@@ -57,6 +57,7 @@ type TagScanManager struct {
 // NewTagScanManager creates a new tag scan manager
 func NewTagScanManager(db *gorm.DB, llmOcrService *LlmOcrService, maxImageMegapixels float64) *TagScanManager {
 	return &TagScanManager{
+		Manager:            background.New("tag-scan"),
 		db:                 db,
 		llmOcrService:      llmOcrService,
 		enabled:            true,
@@ -64,7 +65,6 @@ func NewTagScanManager(db *gorm.DB, llmOcrService *LlmOcrService, maxImageMegapi
 		startMinute:        0,
 		endHour:            7,
 		endMinute:          0,
-		stopCh:             make(chan struct{}),
 		scheduleCh:         make(chan struct{}),
 		resumeCh:           make(chan struct{}, 1),
 		maxImageMegapixels: maxImageMegapixels,
@@ -80,20 +80,17 @@ func (tsm *TagScanManager) SetEmbeddingBackfill(eb *EmbeddingBackfillManager) {
 
 // Start begins the tag scanning loop with the given schedule
 func (tsm *TagScanManager) Start(enabled bool, startH, startM, endH, endM, tzOffset int) {
-	tsm.mu.Lock()
-	if tsm.running {
-		tsm.mu.Unlock()
+	if !tsm.TryStart() {
 		log.Println("Tag scanning already running")
 		return
 	}
-	tsm.running = true
+	tsm.mu.Lock()
 	tsm.enabled = enabled
 	tsm.startHour = startH
 	tsm.startMinute = startM
 	tsm.endHour = endH
 	tsm.endMinute = endM
 	tsm.timezoneOffset = tzOffset
-	tsm.stopCh = make(chan struct{})
 	tsm.scheduleCh = make(chan struct{})
 	tsm.mu.Unlock()
 
@@ -103,29 +100,19 @@ func (tsm *TagScanManager) Start(enabled bool, startH, startM, endH, endM, tzOff
 
 // Stop stops the tag scanning
 func (tsm *TagScanManager) Stop() {
-	tsm.mu.Lock()
-	if !tsm.running {
-		tsm.mu.Unlock()
-		return
-	}
-	tsm.running = false
-	close(tsm.stopCh)
-	tsm.mu.Unlock()
-
+	tsm.Manager.Stop()
 	log.Println("Background tag scanning stopped")
 }
 
 // IsRunning returns whether the tag scanning is currently running
 func (tsm *TagScanManager) IsRunning() bool {
-	tsm.mu.Lock()
-	defer tsm.mu.Unlock()
-	return tsm.running
+	return tsm.Manager.IsRunning()
 }
 
 // UpdateSchedule updates the schedule at runtime and restarts the loop
 func (tsm *TagScanManager) UpdateSchedule(enabled bool, startH, startM, endH, endM, tzOffset int) {
 	tsm.mu.Lock()
-	wasRunning := tsm.running
+	wasRunning := tsm.Manager.IsRunning()
 	tsm.enabled = enabled
 	tsm.startHour = startH
 	tsm.startMinute = startM
@@ -147,7 +134,7 @@ func (tsm *TagScanManager) UpdateSchedule(enabled bool, startH, startM, endH, en
 // RequestPause requests the scanner to pause (for AI task coordination)
 func (tsm *TagScanManager) RequestPause() {
 	tsm.mu.Lock()
-	if !tsm.running {
+	if !tsm.Manager.IsRunning() {
 		tsm.mu.Unlock()
 		return
 	}
@@ -193,17 +180,17 @@ func (tsm *TagScanManager) Resume() {
 // GetStatus returns the current tag scan status
 func (tsm *TagScanManager) GetStatus() TagScanStatus {
 	tsm.mu.Lock()
-	running := tsm.running
+	running := tsm.Manager.IsRunning()
 	paused := tsm.paused
 	enabled := tsm.enabled
 	schedule := fmt.Sprintf("%02d:%02d - %02d:%02d", tsm.startHour, tsm.startMinute, tsm.endHour, tsm.endMinute)
 	progress := tsm.progress
 	windowOpen := isWithinWindow(tsm.startHour, tsm.startMinute, tsm.endHour, tsm.endMinute, tsm.timezoneOffset)
+	needsTotalQuery := running && progress.Total == 0
 	tsm.mu.Unlock()
 
-	// If the manager is running but progress hasn't been initialized yet
-	// (i.e. waiting for scan window to open), query the DB for untagged count
-	if running && progress.Total == 0 {
+	// Query DB OUTSIDE the lock to avoid blocking Stop() and other operations
+	if needsTotalQuery {
 		var total int64
 		tsm.db.Table("image_files").
 			Joins("LEFT JOIN image_tags ON image_files.id = image_tags.image_file_id").
@@ -229,7 +216,7 @@ func (tsm *TagScanManager) scheduleLoop() {
 	for {
 		tsm.mu.Lock()
 		enabled := tsm.enabled
-		stopCh := tsm.stopCh
+		stopCh := tsm.Done()
 		tsm.mu.Unlock()
 
 		if !enabled {
@@ -259,7 +246,7 @@ func (tsm *TagScanManager) scheduleLoop() {
 			select {
 			case <-time.After(30 * time.Second):
 				log.Println("Tag scan: 30s wait complete, re-evaluating")
-			case <-tsm.stopCh:
+			case <-stopCh:
 				return
 			case <-tsm.scheduleCh:
 				log.Println("Tag scan: schedule change received during wait")
@@ -362,7 +349,7 @@ func (tsm *TagScanManager) scanWindow() {
 		startH, startM := tsm.startHour, tsm.startMinute
 		endH, endM := tsm.endHour, tsm.endMinute
 		tzOffset := tsm.timezoneOffset
-		stopCh := tsm.stopCh
+		stopCh := tsm.Done()
 		resumeCh := tsm.resumeCh
 		tsm.mu.Unlock()
 

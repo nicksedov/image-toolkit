@@ -150,8 +150,34 @@ func (s *Service) HasThumbnail(filePath string) bool {
 	return s.storage.Exists(filePath)
 }
 
-// GetOrGenerate получает миниатюру из кэша или генерирует её
+// GetOrGenerate obtains a thumbnail from cache or generates it.
+// Uses double-checked locking: RLock for cache hit, Lock only for cache miss.
 func (s *Service) GetOrGenerate(filePath string) (string, error) {
+	if !s.cfg.Enabled || !s.initialized {
+		return "", ErrThumbnailCacheDisabled
+	}
+
+	// Fast path: check cache under read lock
+	s.mu.RLock()
+	cachedPath := s.storage.Get(filePath)
+	s.mu.RUnlock()
+
+	if cachedPath != "" {
+		data, err := os.ReadFile(cachedPath)
+		if err != nil {
+			// Cache file lost; fall through to write-lock path
+			s.mu.Lock()
+			s.storage.Delete(filePath)
+			s.mu.Unlock()
+		} else {
+			s.mu.Lock()
+			s.stats.TotalFiles++
+			s.mu.Unlock()
+			return s.encodeToDataURL(data), nil
+		}
+	}
+
+	// Slow path: acquire write lock for generation
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -159,28 +185,24 @@ func (s *Service) GetOrGenerate(filePath string) (string, error) {
 		return "", ErrThumbnailCacheDisabled
 	}
 
-	// Проверяем кэш
-	cachedPath := s.storage.Get(filePath)
+	// Double-check after acquiring write lock
+	cachedPath = s.storage.Get(filePath)
 	if cachedPath != "" {
-		// Прочитать данные из файла
 		data, err := os.ReadFile(cachedPath)
-		if err != nil {
-			// Если файл утерян, удаляем запись из кэша
-			s.storage.Delete(filePath)
-			return "", &ErrCacheReadFailed{Path: filePath, Err: err}
+		if err == nil {
+			s.stats.TotalFiles++
+			return s.encodeToDataURL(data), nil
 		}
-
-		s.stats.TotalFiles++
-		return s.encodeToDataURL(data), nil
+		s.storage.Delete(filePath)
 	}
 
-	// Генерируем новую миниатюру
+	// Generate new thumbnail
 	encodedData, err := s.generateThumbnail(filePath)
 	if err != nil {
 		return "", err
 	}
 
-	// Сохраняем в кэш
+	// Save to cache
 	if err := s.storage.Set(filePath, encodedData); err != nil {
 		return "", err
 	}

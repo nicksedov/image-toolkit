@@ -86,8 +86,8 @@ func TestNewOpenAIClient_NormalizesBaseURL(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			client := NewOpenAIClient(tt.baseURL, "key", "model", 3.6)
-			if client.BaseURL != tt.wantBaseURL {
-				t.Errorf("BaseURL = %q, want %q", client.BaseURL, tt.wantBaseURL)
+			if client.apiClient.baseURL != tt.wantBaseURL {
+				t.Errorf("baseURL = %q, want %q", client.apiClient.baseURL, tt.wantBaseURL)
 			}
 		})
 	}

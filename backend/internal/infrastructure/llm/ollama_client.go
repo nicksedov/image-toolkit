@@ -1,11 +1,10 @@
 package llm
 
 import (
-	"bytes"
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"sync"
 	"time"
@@ -13,7 +12,7 @@ import (
 
 // OllamaClient implements Client for Ollama API
 type OllamaClient struct {
-	BaseURL            string
+	*apiClient
 	APIKey             string
 	Model              string
 	Timeout            time.Duration
@@ -22,21 +21,26 @@ type OllamaClient struct {
 
 // NewOllamaClient creates a new Ollama client
 func NewOllamaClient(baseURL, apiKey, model string, maxImageMegapixels float64) *OllamaClient {
+	timeout := 5 * time.Minute // VL models can be slow
+	headers := map[string]string{}
+	if apiKey != "" {
+		headers["Authorization"] = "Bearer " + apiKey
+	}
 	return &OllamaClient{
-		BaseURL:            baseURL,
+		apiClient:          newAPIClient(baseURL, timeout, headers),
 		APIKey:             apiKey,
 		Model:              model,
-		Timeout:            5 * time.Minute, // VL models can be slow
+		Timeout:            timeout,
 		MaxImageMegapixels: maxImageMegapixels,
 	}
 }
 
 // ollamaRequest represents Ollama chat request
 type ollamaRequest struct {
-	Model    string              `json:"model"`
-	Messages []ollamaMessage     `json:"messages"`
-	Stream   bool                `json:"stream"`
-	Tools    []ollamaToolParam   `json:"tools,omitempty"`
+	Model    string            `json:"model"`
+	Messages []ollamaMessage   `json:"messages"`
+	Stream   bool              `json:"stream"`
+	Tools    []ollamaToolParam `json:"tools,omitempty"`
 }
 
 type ollamaMessage struct {
@@ -86,53 +90,18 @@ func (c *OllamaClient) Recognize(imagePath string, systemPrompt string, userMess
 	// Encode image to base64
 	base64Img := base64.StdEncoding.EncodeToString(imgData)
 
-	// Prepare request
 	req := ollamaRequest{
 		Model: c.Model,
 		Messages: []ollamaMessage{
-			{
-				Role:    "system",
-				Content: systemPrompt,
-			},
-			{
-				Role:    "user",
-				Content: userMessage,
-				Images:  []string{base64Img},
-			},
+			{Role: "system", Content: systemPrompt},
+			{Role: "user", Content: userMessage, Images: []string{base64Img}},
 		},
 		Stream: false,
 	}
 
-	reqBody, err := json.Marshal(req)
-	if err != nil {
-		return "", fmt.Errorf("failed to marshal request: %w", err)
-	}
-
-	// Send request
-	client := &http.Client{Timeout: c.Timeout}
-	httpReq, err := http.NewRequest("POST", c.BaseURL+"/api/chat", bytes.NewBuffer(reqBody))
-	if err != nil {
-		return "", fmt.Errorf("failed to create request: %w", err)
-	}
-	httpReq.Header.Set("Content-Type", "application/json")
-	if c.APIKey != "" {
-		httpReq.Header.Set("Authorization", "Bearer "+c.APIKey)
-	}
-	resp, err := client.Do(httpReq)
-	if err != nil {
-		return "", fmt.Errorf("failed to send request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("Ollama API error (status %d): %s", resp.StatusCode, string(body))
-	}
-
-	// Parse response
 	var ollamaResp ollamaResponse
-	if err := json.NewDecoder(resp.Body).Decode(&ollamaResp); err != nil {
-		return "", fmt.Errorf("failed to decode response: %w", err)
+	if err := c.doJSON(context.Background(), http.MethodPost, "/api/chat", req, &ollamaResp, nil); err != nil {
+		return "", fmt.Errorf("Ollama recognize: %w", err)
 	}
 
 	return ollamaResp.Message.Content, nil
@@ -182,35 +151,9 @@ func (c *OllamaClient) Chat(req ChatRequest) (*ChatResponse, error) {
 		Tools:    tools,
 	}
 
-	reqBody, err := json.Marshal(oReq)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal chat request: %w", err)
-	}
-
-	client := &http.Client{Timeout: c.Timeout}
-	httpReq, err := http.NewRequest("POST", c.BaseURL+"/api/chat", bytes.NewBuffer(reqBody))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-	httpReq.Header.Set("Content-Type", "application/json")
-	if c.APIKey != "" {
-		httpReq.Header.Set("Authorization", "Bearer "+c.APIKey)
-	}
-
-	resp, err := client.Do(httpReq)
-	if err != nil {
-		return nil, fmt.Errorf("failed to send chat request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("Ollama API error (status %d): %s", resp.StatusCode, string(body))
-	}
-
 	var oResp ollamaResponse
-	if err := json.NewDecoder(resp.Body).Decode(&oResp); err != nil {
-		return nil, fmt.Errorf("failed to decode chat response: %w", err)
+	if err := c.doJSON(context.Background(), http.MethodPost, "/api/chat", oReq, &oResp, nil); err != nil {
+		return nil, fmt.Errorf("Ollama chat: %w", err)
 	}
 
 	chatResp := &ChatResponse{
@@ -255,28 +198,9 @@ type ollamaModel struct {
 // ListModels returns a list of available models from Ollama server.
 // It also fetches context length for each model via /api/show concurrently.
 func (c *OllamaClient) ListModels() ([]ModelInfo, error) {
-	httpReq, err := http.NewRequest("GET", c.BaseURL+"/api/tags", nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-	if c.APIKey != "" {
-		httpReq.Header.Set("Authorization", "Bearer "+c.APIKey)
-	}
-	client := &http.Client{Timeout: c.Timeout}
-	resp, err := client.Do(httpReq)
-	if err != nil {
-		return nil, fmt.Errorf("failed to connect to Ollama: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("Ollama API error (status %d): %s", resp.StatusCode, string(body))
-	}
-
 	var tagsResp ollamaTagsResponse
-	if err := json.NewDecoder(resp.Body).Decode(&tagsResp); err != nil {
-		return nil, fmt.Errorf("failed to decode response: %w", err)
+	if err := c.doJSON(context.Background(), http.MethodGet, "/api/tags", nil, &tagsResp, nil); err != nil {
+		return nil, fmt.Errorf("Ollama list models: %w", err)
 	}
 
 	models := make([]ModelInfo, len(tagsResp.Models))
@@ -314,28 +238,15 @@ func (c *OllamaClient) ListModels() ([]ModelInfo, error) {
 
 // fetchContextLength calls /api/show to extract context_length for a model.
 func (c *OllamaClient) fetchContextLength(modelName string) int {
-	httpReq, err := http.NewRequest("GET", c.BaseURL+"/api/show?name="+modelName, nil)
-	if err != nil {
-		return 0
-	}
-	if c.APIKey != "" {
-		httpReq.Header.Set("Authorization", "Bearer "+c.APIKey)
-	}
-	client := &http.Client{Timeout: 30 * time.Second}
-	resp, err := client.Do(httpReq)
-	if err != nil {
-		return 0
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return 0
-	}
+	// Use a short-lived client with 30s timeout for this call
+	shortClient := newAPIClient(c.baseURL, 30*time.Second, c.headers)
 
 	var showResp struct {
-		ModelInfo map[string]any `json:"model_info"`
+		ModelInfo  map[string]any `json:"model_info"`
 		Parameters string         `json:"parameters"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&showResp); err != nil {
+	err := shortClient.doJSON(context.Background(), http.MethodGet, "/api/show?name="+modelName, nil, &showResp, nil)
+	if err != nil {
 		return 0
 	}
 

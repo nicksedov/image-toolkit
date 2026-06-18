@@ -1,10 +1,8 @@
 package llm
 
 import (
-	"bytes"
-	"encoding/json"
+	"context"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
 )
@@ -33,38 +31,14 @@ func (c *OllamaClient) Embed(texts []string) ([][]float32, error) {
 		return nil, fmt.Errorf("no texts provided")
 	}
 
-	reqBody, err := json.Marshal(ollamaEmbedRequest{
+	req := ollamaEmbedRequest{
 		Model: c.Model,
 		Input: texts,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal embed request: %w", err)
-	}
-
-	client := &http.Client{Timeout: c.Timeout}
-	httpReq, err := http.NewRequest("POST", c.BaseURL+"/api/embed", bytes.NewBuffer(reqBody))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create embed request: %w", err)
-	}
-	httpReq.Header.Set("Content-Type", "application/json")
-	if c.APIKey != "" {
-		httpReq.Header.Set("Authorization", "Bearer "+c.APIKey)
-	}
-
-	resp, err := client.Do(httpReq)
-	if err != nil {
-		return nil, fmt.Errorf("failed to send embed request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("Ollama embed API error (status %d): %s", resp.StatusCode, string(body))
 	}
 
 	var embedResp ollamaEmbedResponse
-	if err := json.NewDecoder(resp.Body).Decode(&embedResp); err != nil {
-		return nil, fmt.Errorf("failed to decode embed response: %w", err)
+	if err := c.doJSON(context.Background(), http.MethodPost, "/api/embed", req, &embedResp, nil); err != nil {
+		return nil, fmt.Errorf("Ollama embed: %w", err)
 	}
 
 	if len(embedResp.Embeddings) != len(texts) {
@@ -95,36 +69,14 @@ func (c *OpenAIClient) Embed(texts []string) ([][]float32, error) {
 		return nil, fmt.Errorf("no texts provided")
 	}
 
-	reqBody, err := json.Marshal(openAIEmbedRequest{
+	req := openAIEmbedRequest{
 		Model: c.Model,
 		Input: texts,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal embed request: %w", err)
-	}
-
-	client := &http.Client{Timeout: c.Timeout}
-	httpReq, err := http.NewRequest("POST", c.BaseURL+"/v1/embeddings", bytes.NewBuffer(reqBody))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create embed request: %w", err)
-	}
-	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("Authorization", "Bearer "+c.APIKey)
-
-	resp, err := client.Do(httpReq)
-	if err != nil {
-		return nil, fmt.Errorf("failed to send embed request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("OpenAI embed API error (status %d): %s", resp.StatusCode, string(body))
 	}
 
 	var embedResp openAIEmbedResponse
-	if err := json.NewDecoder(resp.Body).Decode(&embedResp); err != nil {
-		return nil, fmt.Errorf("failed to decode embed response: %w", err)
+	if err := c.doJSON(context.Background(), http.MethodPost, "/v1/embeddings", req, &embedResp, nil); err != nil {
+		return nil, fmt.Errorf("OpenAI embed: %w", err)
 	}
 
 	if len(embedResp.Data) != len(texts) {

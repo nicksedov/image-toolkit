@@ -42,10 +42,18 @@ export function usePolling<T>(options: UsePollingOptions<T>): UsePollingResult<T
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const onCompleteRef = useRef(options.onComplete ?? null)
   const wasCompleteRef = useRef(false)
+  const isMountedRef = useRef(true)
+
+  // Track mounted state
+  useEffect(() => {
+    isMountedRef.current = true
+    return () => { isMountedRef.current = false }
+  }, [])
 
   const poll = useCallback(async () => {
     try {
       const result = await pollFn()
+      if (!isMountedRef.current) return
       setData(result)
       setError(null)
 
@@ -56,6 +64,7 @@ export function usePolling<T>(options: UsePollingOptions<T>): UsePollingResult<T
         }
       }
     } catch (err) {
+      if (!isMountedRef.current) return
       setError(err instanceof Error ? err.message : "Polling failed")
     }
   }, [pollFn, onCompleteCheck])

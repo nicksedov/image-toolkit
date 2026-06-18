@@ -27,6 +27,7 @@ export function useGeoClusters({ bounds, zoom, width, height }: UseGeoClustersPa
   const [initialized, setInitialized] = useState(false)
 
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const abortControllerRef = useRef<AbortController | null>(null)
 
   const fetchClusters = useCallback(async () => {
     if (!bounds) {
@@ -36,6 +37,11 @@ export function useGeoClusters({ bounds, zoom, width, height }: UseGeoClustersPa
       setInitialized(true)
       return
     }
+
+    // Cancel previous request
+    abortControllerRef.current?.abort()
+    const controller = new AbortController()
+    abortControllerRef.current = controller
 
     setIsLoading(true)
     setError(null)
@@ -48,11 +54,12 @@ export function useGeoClusters({ bounds, zoom, width, height }: UseGeoClustersPa
         zoom,
         width,
         height,
-      })
+      }, controller.signal)
       setClusters(result.clusters)
       setTotalImages(result.totalImages)
       setInitialized(true)
     } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") return
       setError(err instanceof Error ? err.message : "Failed to fetch clusters")
       setClusters([])
       setTotalImages(0)
@@ -76,6 +83,7 @@ export function useGeoClusters({ bounds, zoom, width, height }: UseGeoClustersPa
       if (debounceTimerRef.current) {
         clearTimeout(debounceTimerRef.current)
       }
+      abortControllerRef.current?.abort()
     }
   }, [fetchClusters, refetchKey])
 

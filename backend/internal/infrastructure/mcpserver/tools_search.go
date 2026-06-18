@@ -168,7 +168,7 @@ func semanticSearchToolDef() llm.ToolDefinition {
 
 // --- Registration ---
 
-func (s *PixelDriveMCPServer) registerSearchTools() {
+func (s *FlashbacksMCPServer) registerSearchTools() {
 	mcp.AddTool(s.server, &mcp.Tool{
 		Name:        "search_by_date",
 		Description: "Find images taken within a date range",
@@ -197,7 +197,7 @@ func (s *PixelDriveMCPServer) registerSearchTools() {
 
 // --- MCP SDK handlers ---
 
-func (s *PixelDriveMCPServer) handleSearchByDate(ctx context.Context, req *mcp.CallToolRequest, input SearchByDateInput) (*mcp.CallToolResult, ImageSearchOutput, error) {
+func (s *FlashbacksMCPServer) handleSearchByDate(ctx context.Context, req *mcp.CallToolRequest, input SearchByDateInput) (*mcp.CallToolResult, ImageSearchOutput, error) {
 	output, err := s.queryByDate(input.StartDate, input.EndDate, clampLimit(input.Limit))
 	if err != nil {
 		return nil, ImageSearchOutput{}, err
@@ -208,7 +208,7 @@ func (s *PixelDriveMCPServer) handleSearchByDate(ctx context.Context, req *mcp.C
 	}, output, nil
 }
 
-func (s *PixelDriveMCPServer) handleSearchByLocation(ctx context.Context, req *mcp.CallToolRequest, input SearchByLocationInput) (*mcp.CallToolResult, ImageSearchOutput, error) {
+func (s *FlashbacksMCPServer) handleSearchByLocation(ctx context.Context, req *mcp.CallToolRequest, input SearchByLocationInput) (*mcp.CallToolResult, ImageSearchOutput, error) {
 	output, err := s.queryByLocation(input.MinLat, input.MaxLat, input.MinLng, input.MaxLng, clampLimit(input.Limit))
 	if err != nil {
 		return nil, ImageSearchOutput{}, err
@@ -219,7 +219,7 @@ func (s *PixelDriveMCPServer) handleSearchByLocation(ctx context.Context, req *m
 	}, output, nil
 }
 
-func (s *PixelDriveMCPServer) handleSearchByPath(ctx context.Context, req *mcp.CallToolRequest, input SearchByPathInput) (*mcp.CallToolResult, ImageSearchOutput, error) {
+func (s *FlashbacksMCPServer) handleSearchByPath(ctx context.Context, req *mcp.CallToolRequest, input SearchByPathInput) (*mcp.CallToolResult, ImageSearchOutput, error) {
 	output, err := s.queryByPath(input.Query, clampLimit(input.Limit))
 	if err != nil {
 		return nil, ImageSearchOutput{}, err
@@ -230,7 +230,7 @@ func (s *PixelDriveMCPServer) handleSearchByPath(ctx context.Context, req *mcp.C
 	}, output, nil
 }
 
-func (s *PixelDriveMCPServer) handleGetImageMetadata(ctx context.Context, req *mcp.CallToolRequest, input GetImageMetadataInput) (*mcp.CallToolResult, ImageMetadataOutput, error) {
+func (s *FlashbacksMCPServer) handleGetImageMetadata(ctx context.Context, req *mcp.CallToolRequest, input GetImageMetadataInput) (*mcp.CallToolResult, ImageMetadataOutput, error) {
 	output, err := s.queryImageMetadata(input.ImagePath)
 	if err != nil {
 		return nil, ImageMetadataOutput{}, err
@@ -241,7 +241,7 @@ func (s *PixelDriveMCPServer) handleGetImageMetadata(ctx context.Context, req *m
 	}, output, nil
 }
 
-func (s *PixelDriveMCPServer) handleSemanticSearch(ctx context.Context, req *mcp.CallToolRequest, input SemanticSearchInput) (*mcp.CallToolResult, SemanticSearchOutput, error) {
+func (s *FlashbacksMCPServer) handleSemanticSearch(ctx context.Context, req *mcp.CallToolRequest, input SemanticSearchInput) (*mcp.CallToolResult, SemanticSearchOutput, error) {
 	output, err := s.querySemanticSearch(input.Query, clampLimit(input.Limit))
 	if err != nil {
 		return nil, SemanticSearchOutput{}, err
@@ -254,7 +254,7 @@ func (s *PixelDriveMCPServer) handleSemanticSearch(ctx context.Context, req *mcp
 
 // --- Direct execution methods (for agent) ---
 
-func (s *PixelDriveMCPServer) executeSearchByDate(ctx context.Context, args json.RawMessage) (string, error) {
+func (s *FlashbacksMCPServer) executeSearchByDate(ctx context.Context, args json.RawMessage) (string, error) {
 	var input SearchByDateInput
 	if err := json.Unmarshal(args, &input); err != nil {
 		return "", fmt.Errorf("invalid arguments: %w", err)
@@ -266,7 +266,7 @@ func (s *PixelDriveMCPServer) executeSearchByDate(ctx context.Context, args json
 	return formatSearchResultsJSON(output)
 }
 
-func (s *PixelDriveMCPServer) executeSearchByLocation(ctx context.Context, args json.RawMessage) (string, error) {
+func (s *FlashbacksMCPServer) executeSearchByLocation(ctx context.Context, args json.RawMessage) (string, error) {
 	var input SearchByLocationInput
 	if err := json.Unmarshal(args, &input); err != nil {
 		return "", fmt.Errorf("invalid arguments: %w", err)
@@ -278,7 +278,7 @@ func (s *PixelDriveMCPServer) executeSearchByLocation(ctx context.Context, args 
 	return formatSearchResultsJSON(output)
 }
 
-func (s *PixelDriveMCPServer) executeSearchByPath(ctx context.Context, args json.RawMessage) (string, error) {
+func (s *FlashbacksMCPServer) executeSearchByPath(ctx context.Context, args json.RawMessage) (string, error) {
 	var input SearchByPathInput
 	if err := json.Unmarshal(args, &input); err != nil {
 		return "", fmt.Errorf("invalid arguments: %w", err)
@@ -290,7 +290,7 @@ func (s *PixelDriveMCPServer) executeSearchByPath(ctx context.Context, args json
 	return formatSearchResultsJSON(output)
 }
 
-func (s *PixelDriveMCPServer) executeGetImageMetadata(ctx context.Context, args json.RawMessage) (string, error) {
+func (s *FlashbacksMCPServer) executeGetImageMetadata(ctx context.Context, args json.RawMessage) (string, error) {
 	var input GetImageMetadataInput
 	if err := json.Unmarshal(args, &input); err != nil {
 		return "", fmt.Errorf("invalid arguments: %w", err)
@@ -302,7 +302,7 @@ func (s *PixelDriveMCPServer) executeGetImageMetadata(ctx context.Context, args 
 	return formatMetadataJSON(output)
 }
 
-func (s *PixelDriveMCPServer) executeSemanticSearch(ctx context.Context, args json.RawMessage) (string, error) {
+func (s *FlashbacksMCPServer) executeSemanticSearch(ctx context.Context, args json.RawMessage) (string, error) {
 	var input SemanticSearchInput
 	if err := json.Unmarshal(args, &input); err != nil {
 		return "", fmt.Errorf("invalid arguments: %w", err)
@@ -320,7 +320,7 @@ func (s *PixelDriveMCPServer) executeSemanticSearch(ctx context.Context, args js
 
 // --- Query implementations ---
 
-func (s *PixelDriveMCPServer) queryByDate(startDate, endDate string, limit int) (ImageSearchOutput, error) {
+func (s *FlashbacksMCPServer) queryByDate(startDate, endDate string, limit int) (ImageSearchOutput, error) {
 	startTime, err := time.Parse("2006-01-02", startDate)
 	if err != nil {
 		return ImageSearchOutput{}, fmt.Errorf("invalid start_date format (use YYYY-MM-DD): %w", err)
@@ -352,7 +352,7 @@ func (s *PixelDriveMCPServer) queryByDate(startDate, endDate string, limit int) 
 	return toImageSearchOutput(files, int(total)), nil
 }
 
-func (s *PixelDriveMCPServer) queryByLocation(minLat, maxLat, minLng, maxLng float64, limit int) (ImageSearchOutput, error) {
+func (s *FlashbacksMCPServer) queryByLocation(minLat, maxLat, minLng, maxLng float64, limit int) (ImageSearchOutput, error) {
 	var files []domain.ImageFile
 	s.db.Table("image_files").
 		Select("image_files.id, image_files.path, image_files.mod_time").
@@ -375,7 +375,7 @@ func (s *PixelDriveMCPServer) queryByLocation(minLat, maxLat, minLng, maxLng flo
 	return toImageSearchOutput(files, int(total)), nil
 }
 
-func (s *PixelDriveMCPServer) queryByPath(query string, limit int) (ImageSearchOutput, error) {
+func (s *FlashbacksMCPServer) queryByPath(query string, limit int) (ImageSearchOutput, error) {
 	if query == "" {
 		return ImageSearchOutput{}, fmt.Errorf("query is required")
 	}
@@ -396,7 +396,7 @@ func (s *PixelDriveMCPServer) queryByPath(query string, limit int) (ImageSearchO
 	return toImageSearchOutput(files, int(total)), nil
 }
 
-func (s *PixelDriveMCPServer) queryImageMetadata(imagePath string) (ImageMetadataOutput, error) {
+func (s *FlashbacksMCPServer) queryImageMetadata(imagePath string) (ImageMetadataOutput, error) {
 	var imageFile domain.ImageFile
 	if err := s.db.Where("path = ?", imagePath).First(&imageFile).Error; err != nil {
 		return ImageMetadataOutput{}, fmt.Errorf("image not found: %s", imagePath)
@@ -532,7 +532,7 @@ func formatMetadataJSON(output ImageMetadataOutput) (string, error) {
 }
 
 // querySemanticSearch performs semantic search using vector similarity.
-func (s *PixelDriveMCPServer) querySemanticSearch(query string, limit int) (SemanticSearchOutput, error) {
+func (s *FlashbacksMCPServer) querySemanticSearch(query string, limit int) (SemanticSearchOutput, error) {
 	result, err := imaging.SearchByEmbedding(s.db, query, limit)
 	if err != nil {
 		return SemanticSearchOutput{}, err
