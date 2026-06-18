@@ -3162,19 +3162,17 @@ func (s *Server) handleUpdateGps(c *gin.Context) {
 		}
 	}
 
-	// Upsert ImageMetadata in DB
-	var meta domain.ImageMetadata
-	result := s.db.Where("image_file_id = ?", imageFile.ID).First(&meta)
-	if result.Error != nil {
-		// Create new metadata record
-		meta = domain.ImageMetadata{
+	// Upsert ImageMetadata in DB (reuse existingMeta already loaded above)
+	if existingMeta.ID == 0 {
+		// No existing record — create new
+		newMeta := domain.ImageMetadata{
 			ImageFileID:    imageFile.ID,
 			GeolocationRef: geoRef,
 		}
-		s.db.Create(&meta)
+		s.db.Create(&newMeta)
 	} else {
 		// Update existing record
-		s.db.Model(&meta).Updates(map[string]interface{}{
+		s.db.Model(&existingMeta).Updates(map[string]interface{}{
 			"geolocation_ref": geoRef,
 		})
 	}
@@ -3396,35 +3394,32 @@ func (s *Server) handleBatchUpdateGps(c *gin.Context) {
 
 		// Check if image already has geolocation - skip if it does
 		if existingMeta.GeolocationRef != nil {
-				skippedCount++
-				continue
-			}
+			skippedCount++
+			continue
 		}
 
 		// Convert to OS path
 		osPath := filepath.FromSlash(p)
 
 		// Write GPS to EXIF (creates backup first)
-		if err := imaging.WriteGPS(osPath, trashDir, req.Lat, req.Lng); err != nil {
+		if err := imaging.WriteGPS(osPath, trashDir, req.Lat, req.Lng, &existingMeta); err != nil {
 			log.Printf("BatchUpdateGps: WriteGPS failed for %s: %v", p, err)
 			failedCount++
 			failedFiles = append(failedFiles, p)
 			continue
 		}
 
-		// Upsert ImageMetadata in DB
-		var meta domain.ImageMetadata
-		result := s.db.Where("image_file_id = ?", imageFile.ID).First(&meta)
-		if result.Error != nil {
-			// Create new metadata record
-			meta = domain.ImageMetadata{
+		// Upsert ImageMetadata in DB (reuse existingMeta already loaded above)
+		if existingMeta.ID == 0 {
+			// No existing record — create new
+			newMeta := domain.ImageMetadata{
 				ImageFileID:    imageFile.ID,
 				GeolocationRef: geoRef,
 			}
-			s.db.Create(&meta)
+			s.db.Create(&newMeta)
 		} else {
 			// Update existing record
-			s.db.Model(&meta).Updates(map[string]interface{}{
+			s.db.Model(&existingMeta).Updates(map[string]interface{}{
 				"geolocation_ref": geoRef,
 			})
 		}
