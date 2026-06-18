@@ -562,6 +562,120 @@ func metadataRestoreArgs(meta *domain.ImageMetadata) []string {
 	return args
 }
 
+// EnrichMissingMetadata reads EXIF from the file and fills any empty fields
+// in the existing metadata. Returns a map of field→value for the enriched fields
+// (suitable for GORM .Updates()), or nil if nothing was enriched.
+func EnrichMissingMetadata(filePath string, meta *domain.ImageMetadata) map[string]interface{} {
+	// Quick check: are there any empty fields worth reading the file for?
+	if meta.CameraModel != "" && meta.LensModel != "" && meta.ISO != 0 &&
+		meta.Aperture != "" && meta.ShutterSpeed != "" && meta.FocalLength != "" &&
+		meta.DateTaken != nil && meta.Orientation != 0 && meta.ColorSpace != "" && meta.Software != "" {
+		return nil // all fields populated, nothing to enrich
+	}
+
+	if exifTool == nil {
+		return nil
+	}
+
+	fileInfos := exifTool.ExtractMetadata(filePath)
+	if len(fileInfos) == 0 || fileInfos[0].Err != nil {
+		return nil
+	}
+
+	fi := fileInfos[0]
+	baseName := filepath.Base(filePath)
+	enriched := make(map[string]interface{})
+
+	if meta.CameraModel == "" {
+		if model, err := fi.GetString("Model"); err == nil && model != "" {
+			meta.CameraModel = cleanString(model)
+			enriched["camera_model"] = meta.CameraModel
+			log.Printf("EXIF enrich %s: CameraModel=%s", baseName, meta.CameraModel)
+		}
+	}
+
+	if meta.LensModel == "" {
+		if lens, err := fi.GetString("LensModel"); err == nil && lens != "" {
+			meta.LensModel = cleanString(lens)
+			enriched["lens_model"] = meta.LensModel
+			log.Printf("EXIF enrich %s: LensModel=%s", baseName, meta.LensModel)
+		}
+	}
+
+	if meta.ISO == 0 {
+		if iso, err := fi.GetInt("ISO"); err == nil {
+			meta.ISO = int(iso)
+			enriched["iso"] = meta.ISO
+			log.Printf("EXIF enrich %s: ISO=%d", baseName, meta.ISO)
+		}
+	}
+
+	if meta.Aperture == "" {
+		if aperture, err := fi.GetFloat("FNumber"); err == nil {
+			meta.Aperture = fmt.Sprintf("f/%.1f", aperture)
+			enriched["aperture"] = meta.Aperture
+			log.Printf("EXIF enrich %s: Aperture=%s", baseName, meta.Aperture)
+		}
+	}
+
+	if meta.ShutterSpeed == "" {
+		if exposureTime, err := fi.GetFloat("ExposureTime"); err == nil {
+			meta.ShutterSpeed = formatExposureTimeFloat(exposureTime)
+			enriched["shutter_speed"] = meta.ShutterSpeed
+			log.Printf("EXIF enrich %s: ShutterSpeed=%s", baseName, meta.ShutterSpeed)
+		}
+	}
+
+	if meta.FocalLength == "" {
+		if focalLength, err := fi.GetFloat("FocalLength"); err == nil {
+			if focalLength == math.Trunc(focalLength) {
+				meta.FocalLength = fmt.Sprintf("%.0fmm", focalLength)
+			} else {
+				meta.FocalLength = fmt.Sprintf("%.1fmm", focalLength)
+			}
+			enriched["focal_length"] = meta.FocalLength
+			log.Printf("EXIF enrich %s: FocalLength=%s", baseName, meta.FocalLength)
+		}
+	}
+
+	if meta.DateTaken == nil {
+		extractDateTaken(fi, meta, baseName)
+		if meta.DateTaken != nil {
+			enriched["date_taken"] = meta.DateTaken
+			log.Printf("EXIF enrich %s: DateTaken=%s", baseName, meta.DateTaken.Format(time.RFC3339))
+		}
+	}
+
+	if meta.Orientation == 0 {
+		if orientation, err := fi.GetString("Orientation"); err == nil && orientation != "" {
+			meta.Orientation = parseOrientation(orientation)
+			enriched["orientation"] = meta.Orientation
+			log.Printf("EXIF enrich %s: Orientation=%d", baseName, meta.Orientation)
+		}
+	}
+
+	if meta.ColorSpace == "" {
+		if colorSpace, err := fi.GetString("ColorSpace"); err == nil && colorSpace != "" {
+			meta.ColorSpace = parseColorSpace(colorSpace)
+			enriched["color_space"] = meta.ColorSpace
+			log.Printf("EXIF enrich %s: ColorSpace=%s", baseName, meta.ColorSpace)
+		}
+	}
+
+	if meta.Software == "" {
+		if software, err := fi.GetString("Software"); err == nil && software != "" {
+			meta.Software = cleanString(software)
+			enriched["software"] = meta.Software
+			log.Printf("EXIF enrich %s: Software=%s", baseName, meta.Software)
+		}
+	}
+
+	if len(enriched) == 0 {
+		return nil
+	}
+	return enriched
+}
+
 // createBackup copies the original file to a backup location before EXIF modification.
 // Returns the path to the created backup file.
 func createBackup(filePath, trashDir string) (string, error) {

@@ -3148,6 +3148,9 @@ func (s *Server) handleUpdateGps(c *gin.Context) {
 		return
 	}
 
+	// Enrich any missing EXIF fields from the file into the DB record
+	enriched := imaging.EnrichMissingMetadata(osPath, &existingMeta)
+
 	// Reverse geocode via GeolocationService (cache + Nominatim)
 	var nameLocal, nameEng string
 	var geoRef *uint
@@ -3164,17 +3167,29 @@ func (s *Server) handleUpdateGps(c *gin.Context) {
 
 	// Upsert ImageMetadata in DB (reuse existingMeta already loaded above)
 	if existingMeta.ID == 0 {
-		// No existing record — create new
+		// No existing record — create new with all enriched fields
 		newMeta := domain.ImageMetadata{
 			ImageFileID:    imageFile.ID,
 			GeolocationRef: geoRef,
+			CameraModel:    existingMeta.CameraModel,
+			LensModel:      existingMeta.LensModel,
+			ISO:            existingMeta.ISO,
+			Aperture:       existingMeta.Aperture,
+			ShutterSpeed:   existingMeta.ShutterSpeed,
+			FocalLength:    existingMeta.FocalLength,
+			DateTaken:      existingMeta.DateTaken,
+			Orientation:    existingMeta.Orientation,
+			ColorSpace:     existingMeta.ColorSpace,
+			Software:       existingMeta.Software,
 		}
 		s.db.Create(&newMeta)
 	} else {
-		// Update existing record
-		s.db.Model(&existingMeta).Updates(map[string]interface{}{
-			"geolocation_ref": geoRef,
-		})
+		// Update existing record with geolocation + any enriched fields
+		updates := map[string]interface{}{"geolocation_ref": geoRef}
+		for k, v := range enriched {
+			updates[k] = v
+		}
+		s.db.Model(&existingMeta).Updates(updates)
 	}
 
 	s.respondJSON(c, http.StatusOK, dto.UpdateGpsResponse{
@@ -3409,19 +3424,34 @@ func (s *Server) handleBatchUpdateGps(c *gin.Context) {
 			continue
 		}
 
+		// Enrich any missing EXIF fields from the file into the DB record
+		enriched := imaging.EnrichMissingMetadata(osPath, &existingMeta)
+
 		// Upsert ImageMetadata in DB (reuse existingMeta already loaded above)
 		if existingMeta.ID == 0 {
-			// No existing record — create new
+			// No existing record — create new with all enriched fields
 			newMeta := domain.ImageMetadata{
 				ImageFileID:    imageFile.ID,
 				GeolocationRef: geoRef,
+				CameraModel:    existingMeta.CameraModel,
+				LensModel:      existingMeta.LensModel,
+				ISO:            existingMeta.ISO,
+				Aperture:       existingMeta.Aperture,
+				ShutterSpeed:   existingMeta.ShutterSpeed,
+				FocalLength:    existingMeta.FocalLength,
+				DateTaken:      existingMeta.DateTaken,
+				Orientation:    existingMeta.Orientation,
+				ColorSpace:     existingMeta.ColorSpace,
+				Software:       existingMeta.Software,
 			}
 			s.db.Create(&newMeta)
 		} else {
-			// Update existing record
-			s.db.Model(&existingMeta).Updates(map[string]interface{}{
-				"geolocation_ref": geoRef,
-			})
+			// Update existing record with geolocation + any enriched fields
+			updates := map[string]interface{}{"geolocation_ref": geoRef}
+			for k, v := range enriched {
+				updates[k] = v
+			}
+			s.db.Model(&existingMeta).Updates(updates)
 		}
 
 		successCount++
