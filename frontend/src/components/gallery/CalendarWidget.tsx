@@ -1,6 +1,6 @@
-import { useMemo } from "react"
+import { useMemo, useState, useRef, useEffect, useCallback } from "react"
 import { useTranslation } from "@/i18n"
-import { ChevronLeft, ChevronRight } from "lucide-react"
+import { ChevronLeft, ChevronRight, ChevronDown } from "lucide-react"
 import type { CalendarDateRange, CalendarMonthInfo } from "@/types"
 
 const MONTHS = [
@@ -80,6 +80,36 @@ export function CalendarWidget({
     return yearSet
   }, [dateRange.minDate, dateRange.maxDate])
 
+  // Custom dropdown state
+  const [monthOpen, setMonthOpen] = useState(false)
+  const [yearOpen, setYearOpen] = useState(false)
+  const monthRef = useRef<HTMLDivElement>(null)
+  const yearRef = useRef<HTMLDivElement>(null)
+
+  // Close dropdowns on outside click
+  const handleOutsideClick = useCallback((e: MouseEvent) => {
+    if (monthRef.current && !monthRef.current.contains(e.target as Node)) setMonthOpen(false)
+    if (yearRef.current && !yearRef.current.contains(e.target as Node)) setYearOpen(false)
+  }, [])
+
+  useEffect(() => {
+    document.addEventListener("mousedown", handleOutsideClick)
+    return () => document.removeEventListener("mousedown", handleOutsideClick)
+  }, [handleOutsideClick])
+
+  const currentYear = calendarViewDate.getFullYear()
+  const yearList = useMemo(() => {
+    let startYear = currentYear - 5
+    let endYear = currentYear + 5
+    if (dateRange.minDate && dateRange.maxDate) {
+      startYear = new Date(dateRange.minDate + "T00:00:00").getFullYear()
+      endYear = new Date(dateRange.maxDate + "T00:00:00").getFullYear()
+    }
+    const list: number[] = []
+    for (let y = startYear; y <= endYear; y++) list.push(y)
+    return list
+  }, [currentYear, dateRange.minDate, dateRange.maxDate])
+
   const prevMonth = () => {
     onMonthChange(new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth() - 1, 1))
   }
@@ -146,70 +176,66 @@ export function CalendarWidget({
 
         <div className="flex items-center gap-2">
           {/* Month dropdown */}
-          <select
-            value={calendarViewDate.getMonth()}
-            onChange={(e) => handleMonthChange(parseInt(e.target.value))}
-            className="text-sm font-medium bg-background text-foreground border border-border rounded px-2 py-1 outline-none cursor-pointer"
-          >
-            {MONTHS.map((m) => {
-              const isActive = monthsWithImages.has(m.value)
-              return (
-                <option
-                  key={m.value}
-                  value={m.value}
-                  className={
-                    isActive
-                      ? "bg-background text-foreground"
-                      : "bg-background text-muted-foreground"
-                  }
-                >
-                  {new Date(2000, m.value, 1).toLocaleDateString(undefined, { month: "long" })}
-                </option>
-              )
-            })}
-          </select>
+          <div ref={monthRef} className="relative">
+            <button
+              type="button"
+              onClick={() => { setMonthOpen(v => !v); setYearOpen(false) }}
+              className="inline-flex items-center gap-1 text-sm font-medium border border-border rounded-md px-2 py-1 bg-popover text-popover-foreground hover:bg-accent transition-colors cursor-pointer"
+            >
+              {new Date(2000, calendarViewDate.getMonth(), 1).toLocaleDateString(undefined, { month: "long" })}
+              <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+            </button>
+            {monthOpen && (
+              <div
+                className="absolute z-50 top-full left-0 mt-1 max-h-48 overflow-y-auto rounded-md border shadow-lg"
+                style={{ backgroundColor: 'var(--color-popover)', color: 'var(--color-popover-foreground)' }}
+              >
+                {MONTHS.map((m) => (
+                  <button
+                    key={m.value}
+                    type="button"
+                    className={`w-full text-left px-2.5 py-1.5 text-xs hover:bg-accent transition-colors ${
+                      m.value === calendarViewDate.getMonth() ? "font-semibold bg-accent/50" : ""
+                    } ${!monthsWithImages.has(m.value) ? "text-muted-foreground" : ""}`}
+                    onClick={() => { handleMonthChange(m.value); setMonthOpen(false) }}
+                  >
+                    {new Date(2000, m.value, 1).toLocaleDateString(undefined, { month: "long" })}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
 
           {/* Year dropdown */}
-          <select
-            value={calendarViewDate.getFullYear()}
-            onChange={(e) => handleYearChange(parseInt(e.target.value))}
-            className="text-sm font-medium bg-background text-foreground border border-border rounded px-2 py-1 outline-none cursor-pointer"
-          >
-            {(() => {
-              const currentYear = calendarViewDate.getFullYear()
-              let startYear = currentYear - 5
-              let endYear = currentYear + 5
-
-              if (dateRange.minDate && dateRange.maxDate) {
-                const minYear = new Date(dateRange.minDate + "T00:00:00").getFullYear()
-                const maxYear = new Date(dateRange.maxDate + "T00:00:00").getFullYear()
-                startYear = minYear
-                endYear = maxYear
-              }
-
-              const years = []
-              for (let y = startYear; y <= endYear; y++) {
-                years.push(y)
-              }
-
-              return years.map((year) => {
-                const isActive = yearsWithImages.has(year)
-                return (
-                  <option
+          <div ref={yearRef} className="relative">
+            <button
+              type="button"
+              onClick={() => { setYearOpen(v => !v); setMonthOpen(false) }}
+              className="inline-flex items-center gap-1 text-sm font-medium border border-border rounded-md px-2 py-1 bg-popover text-popover-foreground hover:bg-accent transition-colors cursor-pointer"
+            >
+              {currentYear}
+              <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+            </button>
+            {yearOpen && (
+              <div
+                className="absolute z-50 top-full left-0 mt-1 max-h-48 overflow-y-auto rounded-md border shadow-lg"
+                style={{ backgroundColor: 'var(--color-popover)', color: 'var(--color-popover-foreground)' }}
+              >
+                {yearList.map((year) => (
+                  <button
                     key={year}
-                    value={year}
-                    className={
-                      isActive
-                        ? "bg-background dark:bg-zinc-900 text-foreground dark:text-zinc-100"
-                        : "bg-background dark:bg-zinc-950 text-muted-foreground dark:text-zinc-600"
-                    }
+                    type="button"
+                    className={`w-full text-left px-2.5 py-1.5 text-xs hover:bg-accent transition-colors ${
+                      year === currentYear ? "font-semibold bg-accent/50" : ""
+                    } ${!yearsWithImages.has(year) ? "text-muted-foreground" : ""}`}
+                    onClick={() => { handleYearChange(year); setYearOpen(false) }}
                   >
                     {year}
-                  </option>
-                )
-              })
-            })()}
-          </select>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         <button onClick={nextMonth} className="p-1 hover:bg-muted rounded flex-shrink-0">
@@ -251,26 +277,41 @@ export function CalendarWidget({
       </div>
 
       {/* Date filter controls */}
-      <div className="mt-2 pt-2 border-t flex items-center justify-between">
-        <button
-          onClick={selectFullMonth}
-          className="text-xs px-2 py-1 bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors"
-        >
-          {t("gallery.calendar.fullMonth")}
-        </button>
+      <div className="mt-2 pt-2 border-t flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={selectFullMonth}
+            className="text-xs px-2 py-1 bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors"
+          >
+            {t("gallery.calendar.fullMonth")}
+          </button>
+          {onStartRangeSelect && !rangeSelecting && (
+            <button
+              onClick={() => {
+                const year = calendarViewDate.getFullYear()
+                const month = calendarViewDate.getMonth()
+                const firstDay = `${year}-${String(month + 1).padStart(2, "0")}-01`
+                onStartRangeSelect(firstDay)
+              }}
+              className="text-xs px-2 py-1 rounded border border-border bg-popover text-popover-foreground hover:bg-accent transition-colors"
+            >
+              {t("gallery.calendar.selectRange")}
+            </button>
+          )}
+        </div>
 
         {(dateRangeFilter.start || dateRangeFilter.end) && (
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-xs text-muted-foreground truncate">
               {rangeSelecting
-                ? `Selecting: ${dateRangeFilter.start}${dateRangeFilter.end ? ` — ${dateRangeFilter.end}` : " (click end date)"}`
+                ? `${t("gallery.calendar.selectingRange", { start: dateRangeFilter.start ?? "" })}${!dateRangeFilter.end ? ` (${t("gallery.calendar.clickEndDate")})` : ""}`
                 : dateRangeFilter.start === dateRangeFilter.end
                   ? dateRangeFilter.start
                   : `${dateRangeFilter.start} — ${dateRangeFilter.end}`}
             </span>
             <button
               onClick={onClearFilter}
-              className="text-xs text-primary hover:underline"
+              className="text-xs text-primary hover:underline flex-shrink-0"
             >
               {t("gallery.calendar.clearFilter")}
             </button>
