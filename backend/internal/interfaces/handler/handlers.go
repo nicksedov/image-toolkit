@@ -3218,6 +3218,10 @@ func (s *Server) handleGetLocationCandidates(c *gin.Context) {
 		dateStr = dateParam
 	}
 
+	// Parse the target date for range-based filtering (avoids DATE() which is not IMMUTABLE on timestamptz)
+	targetDate, _ := time.Parse("2006-01-02", dateStr)
+	nextDay := targetDate.AddDate(0, 0, 1)
+
 	// Query same-day photos with geolocation data via JOIN through geolocation_caches
 	type gpsRow struct {
 		GPSLatitude  float64
@@ -3232,7 +3236,7 @@ func (s *Server) handleGetLocationCandidates(c *gin.Context) {
 		Select("geolocation_caches.gps_latitude, geolocation_caches.gps_longitude, geolocation_caches.name_local, geolocation_caches.name_eng, image_files.path as file_path").
 		Joins("JOIN image_files ON image_files.id = image_metadata.image_file_id").
 		Joins("JOIN geolocation_caches ON geolocation_caches.id = image_metadata.geolocation_ref").
-		Where("DATE(image_metadata.date_taken) = ?", dateStr)
+		Where("image_metadata.date_taken >= ? AND image_metadata.date_taken < ?", targetDate, nextDay)
 
 	if excludePath != "" {
 		query = query.Where("image_files.path != ?", excludePath)
