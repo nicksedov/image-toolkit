@@ -423,8 +423,9 @@ func WriteGPS(filePath, trashDir string, lat, lng float64, meta *domain.ImageMet
 	}
 
 	// Create backup before modifying the file
-	if err := createBackup(filePath, trashDir); err != nil {
-		return fmt.Errorf("failed to create backup: %w", err)
+	backupPath, backupErr := createBackup(filePath, trashDir)
+	if backupErr != nil {
+		return fmt.Errorf("failed to create backup: %w", backupErr)
 	}
 
 	// Determine hemisphere references and absolute values for exiftool
@@ -482,8 +483,8 @@ func WriteGPS(filePath, trashDir string, lat, lng float64, meta *domain.ImageMet
 
 	log.Printf("EXIF WriteGPS: attempt 2 failed for %s: %v, output: %s", filepath.Base(filePath), err, string(output))
 
-	// Attempt 3 (nuclear): strip ALL EXIF sub-IFDs, then restore GPS + all DB metadata.
-	// This loses file-embedded EXIF but the backup preserves the original.
+	// Attempt 3 (nuclear): strip ALL EXIF, then restore from backup + GPS + DB overrides.
+	// Step 1: strip all EXIF sub-IFDs from the target file.
 	nukeCmd := exec.Command("exiftool", "-overwrite_original", "-m", "-exif:all=", filePath)
 	if nukeOut, nukeErr := nukeCmd.CombinedOutput(); nukeErr != nil {
 		log.Printf("EXIF WriteGPS: EXIF strip failed for %s: %v, output: %s",
@@ -491,9 +492,12 @@ func WriteGPS(filePath, trashDir string, lat, lng float64, meta *domain.ImageMet
 		return fmt.Errorf("exiftool failed to write GPS (all attempts): %w", err)
 	}
 
-	// Build restore args: GPS + all available metadata from DB.
-	restoreArgs := []string{"-overwrite_original", "-m"}
-	restoreArgs = append(restoreArgs, gpsArgs()[2:len(gpsArgs())-1]...) // GPS tags only (skip flags & path)
+	// Step 2: copy ALL metadata from backup, then apply GPS + DB overrides.
+	// -tagsFromFile copies every tag from the backup (the pristine original).
+	// Subsequent -Tag=Value args override specific fields (DB metadata + GPS).
+	// exiftool processes arguments left-to-right, so overrides win.
+	restoreArgs := []string{"-overwrite_original", "-m", "-tagsFromFile", backupPath, "-all:all"}
+	restoreArgs = append(restoreArgs, gpsArgs()[2:len(gpsArgs())-1]...) // GPS tags (skip flags & path)
 	restoreArgs = append(restoreArgs, metadataRestoreArgs(meta)...)
 	restoreArgs = append(restoreArgs, filePath)
 
@@ -504,7 +508,7 @@ func WriteGPS(filePath, trashDir string, lat, lng float64, meta *domain.ImageMet
 		return fmt.Errorf("exiftool failed to write GPS (all attempts): %w", err)
 	}
 
-	log.Printf("EXIF WriteGPS: GPS + metadata restored for %s after full EXIF strip (lat=%.8f, lng=%.8f)", filepath.Base(filePath), lat, lng)
+	log.Printf("EXIF WriteGPS: GPS + full metadata restored from backup for %s (lat=%.8f, lng=%.8f)", filepath.Base(filePath), lat, lng)
 	return nil
 }
 
@@ -559,12 +563,13 @@ func metadataRestoreArgs(meta *domain.ImageMetadata) []string {
 }
 
 // createBackup copies the original file to a backup location before EXIF modification.
-func createBackup(filePath, trashDir string) error {
+// Returns the path to the created backup file.
+func createBackup(filePath, trashDir string) (string, error) {
 	dir := filepath.Dir(filePath)
 	if trashDir != "" {
 		dir = trashDir
 		if err := os.MkdirAll(dir, 0755); err != nil {
-			return fmt.Errorf("failed to create trash directory: %w", err)
+			return "", fmt.Errorf("failed to create trash directory: %w", err)
 		}
 	}
 
@@ -575,20 +580,20 @@ func createBackup(filePath, trashDir string) error {
 
 	src, err := os.Open(filePath)
 	if err != nil {
-		return fmt.Errorf("failed to open source file: %w", err)
+		return "", fmt.Errorf("failed to open source file: %w", err)
 	}
 	defer src.Close()
 
 	dst, err := os.Create(backupPath)
 	if err != nil {
-		return fmt.Errorf("failed to create backup file: %w", err)
+		return "", fmt.Errorf("failed to create backup file: %w", err)
 	}
 	defer dst.Close()
 
 	if _, err := io.Copy(dst, src); err != nil {
-		return fmt.Errorf("failed to copy file: %w", err)
+		return "", fmt.Errorf("failed to copy file: %w", err)
 	}
 
 	log.Printf("EXIF WriteGPS: backup created at %s", backupPath)
-	return nil
+	return backupPath, nil
 }
