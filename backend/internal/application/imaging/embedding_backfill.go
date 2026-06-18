@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 
+	"image-toolkit/internal/application/background"
 	"image-toolkit/internal/domain"
 	"image-toolkit/internal/infrastructure/database"
 	"image-toolkit/internal/infrastructure/llm"
@@ -30,9 +31,8 @@ type EmbeddingBackfillStatus struct {
 
 // EmbeddingBackfillManager generates embeddings for images that have tags but no embeddings.
 type EmbeddingBackfillManager struct {
+	*background.Manager
 	mu       sync.Mutex
-	running  bool
-	stopCh   chan struct{}
 	db       *gorm.DB
 	progress EmbeddingBackfillProgress
 }
@@ -40,20 +40,17 @@ type EmbeddingBackfillManager struct {
 // NewEmbeddingBackfillManager creates a new embedding backfill manager.
 func NewEmbeddingBackfillManager(db *gorm.DB) *EmbeddingBackfillManager {
 	return &EmbeddingBackfillManager{
-		db:     db,
-		stopCh: make(chan struct{}),
+		Manager: background.New("embedding-backfill"),
+		db:      db,
 	}
 }
 
 // Start begins the embedding backfill process in a goroutine.
 func (m *EmbeddingBackfillManager) Start() error {
-	m.mu.Lock()
-	if m.running {
-		m.mu.Unlock()
+	if !m.TryStart() {
 		return fmt.Errorf("embedding backfill already running")
 	}
-	m.running = true
-	m.stopCh = make(chan struct{})
+	m.mu.Lock()
 	m.progress = EmbeddingBackfillProgress{}
 	m.mu.Unlock()
 
@@ -61,33 +58,13 @@ func (m *EmbeddingBackfillManager) Start() error {
 	return nil
 }
 
-// Stop stops the embedding backfill process.
-func (m *EmbeddingBackfillManager) Stop() {
-	m.mu.Lock()
-	if !m.running {
-		m.mu.Unlock()
-		return
-	}
-	m.running = false
-	close(m.stopCh)
-	m.mu.Unlock()
-}
-
-// IsRunning returns whether the backfill is currently running.
-func (m *EmbeddingBackfillManager) IsRunning() bool {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	return m.running
-}
-
 // GetStatus returns the current backfill status.
 func (m *EmbeddingBackfillManager) GetStatus() EmbeddingBackfillStatus {
 	m.mu.Lock()
-	running := m.running
 	progress := m.progress
 	m.mu.Unlock()
 	return EmbeddingBackfillStatus{
-		Running:  running,
+		Running:  m.IsRunning(),
 		Progress: progress,
 	}
 }
@@ -96,9 +73,7 @@ func (m *EmbeddingBackfillManager) GetStatus() EmbeddingBackfillStatus {
 func (m *EmbeddingBackfillManager) run() {
 	log.Println("Embedding backfill: started")
 	defer func() {
-		m.mu.Lock()
-		m.running = false
-		m.mu.Unlock()
+		m.MarkStopped()
 		log.Println("Embedding backfill: finished")
 	}()
 
@@ -115,7 +90,11 @@ func (m *EmbeddingBackfillManager) run() {
 		return
 	}
 
-	childTable := domain.EmbeddingTableName(modelName)
+	childTable, err := database.QuotedEmbeddingTableName(modelName)
+	if err != nil {
+		m.setError(fmt.Sprintf("Invalid embedding table name: %v", err))
+		return
+	}
 
 	// Count images that need embeddings for this model
 	var total int64
@@ -148,7 +127,7 @@ func (m *EmbeddingBackfillManager) run() {
 
 	for {
 		select {
-		case <-m.stopCh:
+		case <-m.Done():
 			log.Println("Embedding backfill: stopped by user")
 			return
 		default:
@@ -336,7 +315,11 @@ func GenerateAndSaveEmbedding(db *gorm.DB, imageFileID uint, tags []string) {
 	}
 
 	vecStr := llm.Float32SliceToPgVector(embeddings[0])
-	childTable := domain.EmbeddingTableName(modelName)
+	childTable, err := database.QuotedEmbeddingTableName(modelName)
+	if err != nil {
+		log.Printf("Embedding hook: invalid table name: %v", err)
+		return
+	}
 
 	if err := upsertEmbedding(db, imageFileID, childTable, dimension, vecStr, len(tags)); err != nil {
 		log.Printf("Embedding hook: failed to save embedding for image %d: %v", imageFileID, err)

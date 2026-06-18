@@ -2,6 +2,7 @@ package auth
 
 import (
 	"log"
+	"sync"
 	"time"
 )
 
@@ -10,6 +11,8 @@ type SessionCleanupJob struct {
 	sessionRepo *SessionRepository
 	interval    time.Duration
 	stopCh      chan struct{}
+	mu          sync.Mutex
+	running     bool
 }
 
 // NewSessionCleanupJob creates a new session cleanup job
@@ -24,8 +27,18 @@ func NewSessionCleanupJob(sessionRepo *SessionRepository, interval time.Duration
 	}
 }
 
-// Start begins the periodic cleanup job
+// Start begins the periodic cleanup job.
+// Safe to call multiple times; subsequent calls are no-ops while running.
 func (j *SessionCleanupJob) Start() {
+	j.mu.Lock()
+	if j.running {
+		j.mu.Unlock()
+		return
+	}
+	j.running = true
+	j.stopCh = make(chan struct{}) // recreate for reuse after Stop/Start cycle
+	j.mu.Unlock()
+
 	go func() {
 		ticker := time.NewTicker(j.interval)
 		defer ticker.Stop()
@@ -37,6 +50,9 @@ func (j *SessionCleanupJob) Start() {
 			case <-ticker.C:
 				j.runCleanup()
 			case <-j.stopCh:
+				j.mu.Lock()
+				j.running = false
+				j.mu.Unlock()
 				log.Println("[SessionCleanup] Stopped")
 				return
 			}
@@ -44,8 +60,14 @@ func (j *SessionCleanupJob) Start() {
 	}()
 }
 
-// Stop stops the cleanup job
+// Stop stops the cleanup job. Safe to call multiple times.
 func (j *SessionCleanupJob) Stop() {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	if !j.running {
+		return
+	}
+	j.running = false
 	close(j.stopCh)
 }
 

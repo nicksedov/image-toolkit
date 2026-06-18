@@ -12,6 +12,8 @@ type LoginRateLimiter struct {
 	maxAttempts int
 	window      time.Duration
 	banDuration time.Duration
+	stopCh      chan struct{}
+	stopped     bool
 }
 
 // LoginAttempt tracks login attempts for an IP address
@@ -32,12 +34,25 @@ func NewLoginRateLimiter(maxAttempts int, window, banDuration time.Duration) *Lo
 		maxAttempts: maxAttempts,
 		window:      window,
 		banDuration: banDuration,
+		stopCh:      make(chan struct{}),
 	}
 
 	// Start cleanup goroutine
 	go limiter.cleanup()
 
 	return limiter
+}
+
+// Stop terminates the background cleanup goroutine.
+// Safe to call multiple times.
+func (l *LoginRateLimiter) Stop() {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.stopped {
+		return
+	}
+	l.stopped = true
+	close(l.stopCh)
 }
 
 // Allow checks if an IP address is allowed to attempt login
@@ -114,9 +129,14 @@ func (l *LoginRateLimiter) cleanup() {
 	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
 
-	for range ticker.C {
-		l.mu.Lock()
-		l.cleanupExpired()
-		l.mu.Unlock()
+	for {
+		select {
+		case <-ticker.C:
+			l.mu.Lock()
+			l.cleanupExpired()
+			l.mu.Unlock()
+		case <-l.stopCh:
+			return
+		}
 	}
 }

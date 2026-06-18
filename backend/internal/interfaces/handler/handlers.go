@@ -492,20 +492,27 @@ func (s *Server) handleServeImage(c *gin.Context) {
 		return
 	}
 
+	// Security: normalize and resolve path to prevent path traversal attacks
+	cleanPath := filepath.Clean(filepath.FromSlash(path))
+	absPath, err := filepath.Abs(cleanPath)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, i18n.ErrorResponse(i18n.MsgImagePathRequired))
+		return
+	}
+	// Use the normalized path for gallery access check and serving
+	normalizedPath := filepath.ToSlash(absPath)
+
 	// Security: verify the path is within a gallery folder
-	if !s.galleryAccess.VerifyGalleryAccess(c, path) {
+	if !s.galleryAccess.VerifyGalleryAccess(c, normalizedPath) {
 		return
 	}
 
-	// Convert slash path to OS path for file serving
-	osPath := filepath.FromSlash(path)
-
-	if _, err := os.Stat(osPath); os.IsNotExist(err) {
+	if _, err := os.Stat(absPath); os.IsNotExist(err) {
 		c.JSON(http.StatusNotFound, i18n.ErrorResponse(i18n.MsgImageNotFound))
 		return
 	}
 
-	c.File(osPath)
+	c.File(absPath)
 }
 
 // handleServeOcrImage serves an image scaled and rotated for OCR overlay display
@@ -531,14 +538,21 @@ func (s *Server) handleServeOcrImage(c *gin.Context) {
 		return
 	}
 
+	// Security: normalize and resolve path to prevent path traversal attacks
+	cleanPath := filepath.Clean(filepath.FromSlash(path))
+	absPath, err := filepath.Abs(cleanPath)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, i18n.ErrorResponse(i18n.MsgImagePathRequired))
+		return
+	}
+	normalizedPath := filepath.ToSlash(absPath)
+
 	// Security: verify the path is within a gallery folder
-	if !s.galleryAccess.VerifyGalleryAccess(c, path) {
+	if !s.galleryAccess.VerifyGalleryAccess(c, normalizedPath) {
 		return
 	}
 
-	osPath := filepath.FromSlash(path)
-
-	data, err := imaging.PrepareOcrImage(osPath, scaleFactor, angle)
+	data, err := imaging.PrepareOcrImage(absPath, scaleFactor, angle)
 	if err != nil {
 		if os.IsNotExist(err) {
 			c.JSON(http.StatusNotFound, i18n.ErrorResponse(i18n.MsgImageNotFound))
