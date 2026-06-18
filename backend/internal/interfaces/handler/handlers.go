@@ -1282,14 +1282,14 @@ func (s *Server) handleGetGalleryCalendar(c *gin.Context) {
 					).Order(orderClause).Find(&extra)
 				}
 				results = append(results[:pageSize], extra...)
-				// Cursor at the end of the completed date group (date-only for correct day-level comparison)
+				// Cursor at the end of the completed date group
 				lastResult := results[len(results)-1]
-				cursorStr := helpers.EncodeCursor(lastResult.DateTaken.Format(helpers.DateOnlyFormat), lastResult.ID)
+				cursorStr := helpers.EncodeCursor(lastResult.DateTaken.Format(helpers.DateTimeFormat), lastResult.ID)
 				nextCursor = &cursorStr
 			} else {
-				// Clean date boundary - cursor points to last kept item;
+				// Clean date boundary - cursor points to last kept item (with full timestamp);
 				// next page starts from the overflow item via strict > comparison
-				cursorStr := helpers.EncodeCursor(lastKept.DateTaken.Format(helpers.DateOnlyFormat), lastKept.ID)
+				cursorStr := helpers.EncodeCursor(lastKept.DateTaken.Format(helpers.DateTimeFormat), lastKept.ID)
 				nextCursor = &cursorStr
 				results = results[:pageSize]
 			}
@@ -1346,14 +1346,14 @@ func (s *Server) handleGetGalleryCalendar(c *gin.Context) {
 					).Order(orderClause).Find(&extra)
 				}
 				results = append(results[:pageSize], extra...)
-				// Cursor at the end of the completed date group (date-only for correct day-level comparison)
+				// Cursor at the end of the completed date group
 				lastResult := results[len(results)-1]
-				cursorStr := helpers.EncodeCursor(lastResult.DateTaken.Format(helpers.DateOnlyFormat), lastResult.ID)
+				cursorStr := helpers.EncodeCursor(lastResult.DateTaken.Format(helpers.DateTimeFormat), lastResult.ID)
 				nextCursor = &cursorStr
 			} else {
-				// Clean date boundary - cursor points to last kept item;
+				// Clean date boundary - cursor points to last kept item (with full timestamp);
 				// next page starts from the overflow item via strict > comparison
-				cursorStr := helpers.EncodeCursor(lastKept.DateTaken.Format(helpers.DateOnlyFormat), lastKept.ID)
+				cursorStr := helpers.EncodeCursor(lastKept.DateTaken.Format(helpers.DateTimeFormat), lastKept.ID)
 				nextCursor = &cursorStr
 				results = results[:pageSize]
 			}
@@ -1630,14 +1630,9 @@ func (s *Server) handleGetCalendarSeek(c *gin.Context) {
 		First(&firstResult).Error
 
 	if err == nil {
-		// Found images on this exact date.
-		// Position cursor BEFORE the first image so the strict > comparison includes it.
-		var preID uint
-		if firstResult.ID > 0 {
-			preID = firstResult.ID - 1
-		}
+		// Found images on this exact date
 		c.JSON(http.StatusOK, dto.CalendarSeekResponse{
-			Cursor:     helpers.EncodeCursor(firstResult.DateTaken.Format(helpers.DateOnlyFormat), preID),
+			Cursor:     helpers.EncodeCursor(firstResult.DateTaken.Format(helpers.DateTimeFormat), firstResult.ID),
 			ActualDate: firstResult.DateTaken.Format(helpers.DateOnlyFormat),
 		})
 		return
