@@ -187,7 +187,7 @@ export function CalendarWidget({
             </button>
             {monthOpen && (
               <div
-                className="absolute z-50 top-full left-0 mt-1 max-h-48 overflow-y-auto rounded-md border shadow-lg"
+                className="absolute z-50 top-full left-0 mt-1 rounded-md border shadow-lg"
                 style={{ backgroundColor: 'var(--color-popover)', color: 'var(--color-popover-foreground)' }}
               >
                 {MONTHS.map((m) => (
@@ -218,7 +218,7 @@ export function CalendarWidget({
             </button>
             {yearOpen && (
               <div
-                className="absolute z-50 top-full left-0 mt-1 max-h-48 overflow-y-auto rounded-md border shadow-lg"
+                className="absolute z-50 top-full left-0 mt-1 max-h-80 overflow-y-auto rounded-md border shadow-lg"
                 style={{ backgroundColor: 'var(--color-popover)', color: 'var(--color-popover-foreground)' }}
               >
                 {yearList.map((year) => (
