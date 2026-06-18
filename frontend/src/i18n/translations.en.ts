@@ -709,6 +709,8 @@ export const translationsEn = {
   "geo.batchSavePartial": "Saved {success} of {total}. {failed} failed.",
   "geo.editLocation": "Edit Location",
   "geo.changeSelection": "Change",
+  "geo.batchProgress": "Processing {current} of {total} photos...",
+  "geo.batchComplete": "Done! {success} updated, {skipped} skipped, {failed} failed.",
  
   // LLM Providers
   "llm_providers.alias": "Alias",
