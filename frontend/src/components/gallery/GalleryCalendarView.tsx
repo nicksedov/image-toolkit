@@ -179,8 +179,16 @@ export function GalleryCalendarView({ onImageClick, onImageDownload, onImageDele
   }
 
   const handleNavigateToDate = async (date: string) => {
-    // If the date is already in the current groups, just scroll to it
-    if (calendar.groups.some((g) => g.date === date)) {
+    // Check if the date is already in loaded groups
+    const existingGroupIndex = calendar.groups.findIndex((g) => g.date === date)
+    if (existingGroupIndex !== -1) {
+      // If this is the last group and more data exists, continue loading
+      // to ensure all images for this date are fetched
+      const isLastGroup = existingGroupIndex === calendar.groups.length - 1
+      if (isLastGroup && calendar.hasMore && !calendar.isLoading) {
+        calendar.loadMore()
+      }
+      // Scroll to the group
       const element = document.getElementById(`date-group-${date}`)
       if (element) {
         element.scrollIntoView({ behavior: "smooth", block: "start" })
