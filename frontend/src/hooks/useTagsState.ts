@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react"
-import { startAiAction, fetchAiActionStatus } from "@/api/endpoints"
+import { fetchImageTags, startAiAction, fetchAiActionStatus } from "@/api/endpoints"
 
 export interface TagsStateData {
   tags: string[]
@@ -36,83 +36,30 @@ export function useTagsState(imagePath: string | null): UseTagsStateReturn {
       clearInterval(pollingRef.current)
       pollingRef.current = null
     }
+    generatingRef.current = false
   }, [])
 
-  // Fetch tags when image changes: call POST /api/ai/action with action "tags"
+  // Check for existing tags when image changes (read-only, no generation)
   useEffect(() => {
     if (!imagePath) return
 
     if (prevImagePath.current === imagePath) return
     prevImagePath.current = imagePath
 
-    let isMounted = true
     setLoading(true)
     setError(null)
-    generatingRef.current = false
+    setTagsData(null)
 
-    startAiAction({ imagePath, action: "tags" })
-      .then((startResponse) => {
-        if (!isMounted) return
-
-        const taskId = startResponse.taskId
-
-        // Poll for status
-        pollingRef.current = setInterval(() => {
-          fetchAiActionStatus(taskId)
-            .then((status) => {
-              if (!isMounted) return
-
-              if (status.status === "completed") {
-                if (pollingRef.current) {
-                  clearInterval(pollingRef.current)
-                  pollingRef.current = null
-                }
-                const tags = status.tags ?? []
-                setTagsData({
-                  tags,
-                  provider: status.provider,
-                  model: status.model,
-                  processingTimeMs: status.processingTimeMs,
-                })
-                setLoading(false)
-                setGenerating(false)
-                generatingRef.current = false
-              } else if (status.status === "failed") {
-                if (pollingRef.current) {
-                  clearInterval(pollingRef.current)
-                  pollingRef.current = null
-                }
-                setError(status.error ?? "Tag generation failed")
-                setLoading(false)
-                setGenerating(false)
-                generatingRef.current = false
-              }
-              // "processing" status - keep polling
-            })
-            .catch(() => {
-              if (pollingRef.current) {
-                clearInterval(pollingRef.current)
-                pollingRef.current = null
-              }
-              if (isMounted) {
-                setError("Failed to check tag generation status")
-                setLoading(false)
-                setGenerating(false)
-                generatingRef.current = false
-              }
-            })
-        }, 2000)
-      })
-      .catch((err) => {
-        if (isMounted) {
-          setError(err.message ?? "Failed to start tag generation")
-          setLoading(false)
+    fetchImageTags(imagePath)
+      .then((response) => {
+        if (response.tags.length > 0) {
+          setTagsData({ tags: response.tags })
         }
+        setLoading(false)
       })
-
-    return () => {
-      isMounted = false
-    }
+      .catch(() => {
+        setLoading(false)
+      })
   }, [imagePath])
 
   // Cleanup polling on unmount
@@ -137,11 +84,6 @@ export function useTagsState(imagePath: string | null): UseTagsStateReturn {
       pollingRef.current = null
     }
 
-    // Force regeneration by calling the API again
-    // The backend checks if tags exist and returns cached result;
-    // to force regeneration we'd need a force flag, but the backend
-    // StartAiActionAsync always regenerates. The cached path is only
-    // for when tags already exist in DB at initial POST time.
     startAiAction({ imagePath, action: "tags" })
       .then((startResponse) => {
         const taskId = startResponse.taskId
@@ -172,6 +114,7 @@ export function useTagsState(imagePath: string | null): UseTagsStateReturn {
                 setGenerating(false)
                 generatingRef.current = false
               }
+              // "processing" status — keep polling
             })
             .catch(() => {
               if (pollingRef.current) {

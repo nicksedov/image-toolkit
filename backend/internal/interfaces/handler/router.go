@@ -118,6 +118,9 @@ func (s *Server) SetupRouter(authMiddleware *middleware.AuthMiddleware, csrfProt
 			protected.GET("/llm/models", s.handleGetLlmModels)
 			protected.POST("/llm/embedding/probe", s.handleProbeEmbeddingDimension)
 
+			// Image tags endpoint (read-only, no generation)
+			protected.GET("/image-tags", s.handleGetImageTags)
+
 			// AI Assistant endpoints
 			protected.POST("/ai/action", s.handleAiAction)
 			protected.GET("/ai/status/:taskId", s.handleAiActionStatus)

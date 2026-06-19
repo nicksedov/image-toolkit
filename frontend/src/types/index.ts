@@ -834,6 +834,14 @@ export interface TagSearchResponse {
 
 // --- Smart Search Types ---
 
+// --- Image Tags Types ---
+
+export interface ImageTagsResponse {
+  tags: string[]
+}
+
+// --- Smart Search Types ---
+
 export interface SmartSearchResult {
   id: number
   path: string

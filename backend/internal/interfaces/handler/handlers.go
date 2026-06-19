@@ -2832,6 +2832,31 @@ func (s *Server) handleGetLlmModels(c *gin.Context) {
 	})
 }
 
+// handleGetImageTags returns existing tags for an image (without generating new ones).
+func (s *Server) handleGetImageTags(c *gin.Context) {
+	path := c.Query("path")
+	if path == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Path is required"})
+		return
+	}
+
+	var imageFile domain.ImageFile
+	if err := s.db.Where("path = ?", path).First(&imageFile).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Image not found"})
+		return
+	}
+
+	var existingTags []domain.ImageTag
+	s.db.Where("image_file_id = ?", imageFile.ID).Find(&existingTags)
+
+	tags := make([]string, len(existingTags))
+	for i, t := range existingTags {
+		tags[i] = t.Tag
+	}
+
+	c.JSON(http.StatusOK, dto.ImageTagsResponse{Tags: tags})
+}
+
 // handleAiAction executes an AI action (describe, tags, recognizeText, askQuestion) asynchronously
 func (s *Server) handleAiAction(c *gin.Context) {
 	var req dto.AiActionRequest

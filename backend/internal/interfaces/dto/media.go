@@ -657,6 +657,11 @@ type AiActionResponse struct {
 	ProcessingTimeMs int          `json:"processingTimeMs,omitempty"`
 }
 
+// ImageTagsResponse for GET /api/image-tags
+type ImageTagsResponse struct {
+	Tags []string `json:"tags"`
+}
+
 // --- Geocode / GPS API ---
 
 // GeocodeSearchResult represents a single location from the Nominatim geocoding API.
