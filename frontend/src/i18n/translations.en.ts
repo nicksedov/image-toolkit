@@ -217,6 +217,7 @@ export const translationsEn = {
   "lightbox.tab.ai": "AI Assistant",
   "lightbox.tab.exif": "Details",
   "lightbox.tab.ocr": "OCR",
+  "lightbox.tab.tags": "Tags",
 
   // Metadata panel
   "metadata.title": "Image Details",
@@ -606,6 +607,22 @@ export const translationsEn = {
   "llm_ocr.filePath": "File path",
   "llm_ocr.sectionResult": "Result",
   "llm_ocr.sectionDetected": "Detected",
+
+  // Tags panel
+  "tags.title": "Image Tags",
+  "tags.description": "AI-generated descriptive tags for this image",
+  "tags.generateButton": "Generate Tags",
+  "tags.regenerateButton": "Regenerate Tags",
+  "tags.generating": "Generating tags...",
+  "tags.generated": "Tags generated",
+  "tags.failed": "Tag generation failed",
+  "tags.noData": "No tags yet",
+  "tags.sectionTags": "Tags",
+  "tags.sectionResult": "Generation Info",
+  "tags.processingTime": "Processing time",
+  "tags.provider": "Provider",
+  "tags.model": "Model",
+  "tags.count": "{count} tags",
   "llm_ocr.settings": "LLM Settings",
   "llm_ocr.vlSettings": "VL LLM Settings",
   "llm_ocr.vlSettingsDescription": "Configure AI: image description, tags, OCR, visual Q&A",

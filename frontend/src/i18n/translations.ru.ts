@@ -217,6 +217,7 @@ export const translationsRu = {
   "lightbox.tab.ai": "ИИ-ассистент",
   "lightbox.tab.exif": "Детали",
   "lightbox.tab.ocr": "OCR",
+  "lightbox.tab.tags": "Теги",
 
   // Metadata panel
   "metadata.title": "Информация об изображении",
@@ -516,6 +517,22 @@ export const translationsRu = {
   "llm_ocr.filePath": "Путь к файлу",
   "llm_ocr.sectionResult": "Результат",
   "llm_ocr.sectionDetected": "Обнаружено",
+
+  // Tags panel
+  "tags.title": "Теги изображения",
+  "tags.description": "Сгенерированные ИИ описательные теги для этого изображения",
+  "tags.generateButton": "Создать теги",
+  "tags.regenerateButton": "Пересоздать теги",
+  "tags.generating": "Генерация тегов...",
+  "tags.generated": "Теги созданы",
+  "tags.failed": "Ошибка создания тегов",
+  "tags.noData": "Тегов ещё нет",
+  "tags.sectionTags": "Теги",
+  "tags.sectionResult": "Информация о генерации",
+  "tags.processingTime": "Время обработки",
+  "tags.provider": "Провайдер",
+  "tags.model": "Модель",
+  "tags.count": "{count} тегов",
   "llm_ocr.settings": "Настройки LLM",
   "llm_ocr.vlSettings": "Настройки VL LLM",
   "llm_ocr.vlSettingsDescription": "Настройка ИИ: описание, теги, OCR, визуальные ответы",
