@@ -623,6 +623,7 @@ type AiActionRequest struct {
 	Action    AiActionType `json:"action" binding:"required"`
 	Question  string       `json:"question,omitempty"` // Only for askQuestion
 	Language  string       `json:"language,omitempty"` // UI language code (e.g. "en", "ru")
+	Force     bool         `json:"force,omitempty"`    // Force regeneration, skip cached results; defaults to false
 }
 
 // AiActionStartResponse for POST /api/ai/action (async start)
@@ -655,6 +656,11 @@ type AiActionResponse struct {
 	Provider         string       `json:"provider,omitempty"`
 	Model            string       `json:"model,omitempty"`
 	ProcessingTimeMs int          `json:"processingTimeMs,omitempty"`
+}
+
+// ImageTagsResponse for GET /api/image-tags
+type ImageTagsResponse struct {
+	Tags []string `json:"tags"`
 }
 
 // --- Geocode / GPS API ---

@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useState } from "react"
-import { Sparkles, Info, ScanText } from "lucide-react"
+import { Sparkles, Info, ScanText, Tags } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 import { useTranslation } from "@/i18n"
 import { LightboxDialog } from "./lightbox/LightboxDialog"
 import { buildImageUrl } from "@/utils/buildImageUrl"
 import { OcrImagePanel } from "./lightbox/OcrImagePanel"
 import { OcrResultPanel } from "./lightbox/OcrResultPanel"
+import { TagsPanel } from "./lightbox/TagsPanel"
 import { ChatPanel } from "./lightbox/ChatPanel"
 import { useOcrState } from "@/hooks/useOcrState"
+import { useTagsState } from "@/hooks/useTagsState"
 import { useImageDimensions } from "@/hooks/useImageDimensions"
 import { useFileExport } from "@/hooks/useFileExport"
 import { useChatAgent } from "@/hooks/useChatAgent"
@@ -19,7 +21,7 @@ import { GeoSearchForm } from "./GeoSearchForm"
 import { UnderlineTabs } from "@/components/ui/underline-tabs"
 import type { ImageMetadataDTO } from "@/types"
 
-export type LightboxMode = "ai" | "exif" | "ocr"
+export type LightboxMode = "ai" | "exif" | "ocr" | "tags"
 
 interface UnifiedLightboxProps {
   imagePath: string | null
@@ -29,10 +31,11 @@ interface UnifiedLightboxProps {
   onShowGeoFormChange?: (show: boolean) => void
 }
 
-const TAB_CONFIG: { id: LightboxMode; labelKey: "lightbox.tab.ai" | "lightbox.tab.exif" | "lightbox.tab.ocr"; icon: LucideIcon }[] = [
+const TAB_CONFIG: { id: LightboxMode; labelKey: "lightbox.tab.ai" | "lightbox.tab.exif" | "lightbox.tab.ocr" | "lightbox.tab.tags"; icon: LucideIcon }[] = [
   { id: "ai", labelKey: "lightbox.tab.ai", icon: Sparkles },
   { id: "exif", labelKey: "lightbox.tab.exif", icon: Info },
   { id: "ocr", labelKey: "lightbox.tab.ocr", icon: ScanText },
+  { id: "tags", labelKey: "lightbox.tab.tags", icon: Tags },
 ]
 
 export function UnifiedLightbox({
@@ -45,6 +48,7 @@ export function UnifiedLightbox({
   const { t, language } = useTranslation()
   const [activeMode, setActiveMode] = useState<LightboxMode>(initialMode)
   const [internalShowGeoForm, setInternalShowGeoForm] = useState(false)
+  const [standardImageLoaded, setStandardImageLoaded] = useState(false)
   const isGeoFormVisible = showGeoForm ?? internalShowGeoForm
 
   const handleShowGeoForm = useCallback((show: boolean) => {
@@ -55,17 +59,25 @@ export function UnifiedLightbox({
     }
   }, [onShowGeoFormChange])
 
-  // Reset mode when lightbox opens
-  useEffect(() => {
-    if (imagePath) {
-      setActiveMode(initialMode)
-      setInternalShowGeoForm(false)
-    }
-  }, [imagePath, initialMode])
+  // Reset per-image state when imagePath changes (during render, not in effect)
+  const [prevImagePath, setPrevImagePath] = useState(imagePath)
+  const [prevInitialMode, setPrevInitialMode] = useState(initialMode)
+  if (imagePath !== prevImagePath || initialMode !== prevInitialMode) {
+    setPrevImagePath(imagePath)
+    setPrevInitialMode(initialMode)
+    setActiveMode(initialMode)
+    setInternalShowGeoForm(false)
+    setStandardImageLoaded(false)
+  }
 
   // OCR state
   const { ocrData, llmData, loading: ocrLoading, recognizing, resetState: resetOcr, handleRecognize } = useOcrState(
     activeMode === "ocr" ? imagePath : null
+  )
+
+  // Tags state
+  const { tagsData, loading: tagsLoading, generating: tagsGenerating, error: tagsError, resetState: resetTags, handleGenerate: handleGenerateTags } = useTagsState(
+    activeMode === "tags" ? imagePath : null
   )
   const isTextDocument = ocrData?.isTextDocument ?? false
   const ocrImageUrl = imagePath
@@ -137,12 +149,6 @@ export function UnifiedLightbox({
     activeMode === "exif" ? imagePath : null
   )
 
-  // Standard image loading state
-  const [standardImageLoaded, setStandardImageLoaded] = useState(false)
-  useEffect(() => {
-    setStandardImageLoaded(false)
-  }, [imagePath])
-
   const handleGpsSaved = useCallback(() => {
     reloadMetadata()
     handleShowGeoForm(false)
@@ -154,10 +160,11 @@ export function UnifiedLightbox({
   const handleClose = useCallback(() => {
     abortStream()
     resetOcr()
+    resetTags()
     resetForImage("")
     setInternalShowGeoForm(false)
     onClose()
-  }, [abortStream, resetOcr, resetForImage, onClose])
+  }, [abortStream, resetOcr, resetTags, resetForImage, onClose])
 
   const formatProcessingTime = (ms?: number) => {
     if (!ms) return ""
@@ -247,6 +254,17 @@ export function UnifiedLightbox({
                 onRecognize={handleRecognize}
                 onSaveMd={handleSaveMd}
                 onSaveHtml={handleSaveHtml}
+                formatProcessingTime={formatProcessingTime}
+                className="w-full bg-card p-4 h-full flex flex-col"
+              />
+            )}
+            {activeMode === "tags" && (
+              <TagsPanel
+                tagsData={tagsData}
+                loading={tagsLoading}
+                generating={tagsGenerating}
+                error={tagsError}
+                onGenerate={handleGenerateTags}
                 formatProcessingTime={formatProcessingTime}
                 className="w-full bg-card p-4 h-full flex flex-col"
               />

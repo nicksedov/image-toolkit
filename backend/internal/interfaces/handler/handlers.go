@@ -1287,8 +1287,9 @@ func (s *Server) handleGetGalleryCalendar(c *gin.Context) {
 				cursorStr := helpers.EncodeCursor(lastResult.DateTaken.Format(helpers.DateTimeFormat), lastResult.ID)
 				nextCursor = &cursorStr
 			} else {
-				// Clean date boundary - use overflow item as cursor
-				cursorStr := helpers.EncodeCursor(overflowItem.DateTaken.Format(helpers.DateTimeFormat), overflowItem.ID)
+				// Clean date boundary - cursor points to last kept item (with full timestamp);
+				// next page starts from the overflow item via strict > comparison
+				cursorStr := helpers.EncodeCursor(lastKept.DateTaken.Format(helpers.DateTimeFormat), lastKept.ID)
 				nextCursor = &cursorStr
 				results = results[:pageSize]
 			}
@@ -1350,8 +1351,9 @@ func (s *Server) handleGetGalleryCalendar(c *gin.Context) {
 				cursorStr := helpers.EncodeCursor(lastResult.DateTaken.Format(helpers.DateTimeFormat), lastResult.ID)
 				nextCursor = &cursorStr
 			} else {
-				// Clean date boundary - use overflow item as cursor
-				cursorStr := helpers.EncodeCursor(overflowItem.DateTaken.Format(helpers.DateTimeFormat), overflowItem.ID)
+				// Clean date boundary - cursor points to last kept item (with full timestamp);
+				// next page starts from the overflow item via strict > comparison
+				cursorStr := helpers.EncodeCursor(lastKept.DateTaken.Format(helpers.DateTimeFormat), lastKept.ID)
 				nextCursor = &cursorStr
 				results = results[:pageSize]
 			}
@@ -1628,9 +1630,14 @@ func (s *Server) handleGetCalendarSeek(c *gin.Context) {
 		First(&firstResult).Error
 
 	if err == nil {
-		// Found images on this exact date
+		// Found images on this exact date.
+		// Position cursor BEFORE the first image so the strict > comparison includes it.
+		var preID uint
+		if firstResult.ID > 0 {
+			preID = firstResult.ID - 1
+		}
 		c.JSON(http.StatusOK, dto.CalendarSeekResponse{
-			Cursor:     helpers.EncodeCursor(firstResult.DateTaken.Format(helpers.DateTimeFormat), firstResult.ID),
+			Cursor:     helpers.EncodeCursor(firstResult.DateTaken.Format(helpers.DateOnlyFormat), preID),
 			ActualDate: firstResult.DateTaken.Format(helpers.DateOnlyFormat),
 		})
 		return
@@ -2825,6 +2832,31 @@ func (s *Server) handleGetLlmModels(c *gin.Context) {
 	})
 }
 
+// handleGetImageTags returns existing tags for an image (without generating new ones).
+func (s *Server) handleGetImageTags(c *gin.Context) {
+	path := c.Query("path")
+	if path == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Path is required"})
+		return
+	}
+
+	var imageFile domain.ImageFile
+	if err := s.db.Where("path = ?", path).First(&imageFile).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Image not found"})
+		return
+	}
+
+	var existingTags []domain.ImageTag
+	s.db.Where("image_file_id = ?", imageFile.ID).Find(&existingTags)
+
+	tags := make([]string, len(existingTags))
+	for i, t := range existingTags {
+		tags[i] = t.Tag
+	}
+
+	c.JSON(http.StatusOK, dto.ImageTagsResponse{Tags: tags})
+}
+
 // handleAiAction executes an AI action (describe, tags, recognizeText, askQuestion) asynchronously
 func (s *Server) handleAiAction(c *gin.Context) {
 	var req dto.AiActionRequest
@@ -2873,8 +2905,8 @@ func (s *Server) handleAiAction(c *gin.Context) {
 	// Generate unique task ID
 	taskID := uuid.New().String()
 
-	// For "tags" action, check if tags already exist in DB
-	if req.Action == dto.AiActionTags {
+	// For "tags" action, check if tags already exist in DB (unless force regeneration requested)
+	if req.Action == dto.AiActionTags && !req.Force {
 		var existingTags []domain.ImageTag
 		s.db.Where("image_file_id = ?", imageFile.ID).Find(&existingTags)
 		if len(existingTags) > 0 {
@@ -3117,6 +3149,10 @@ func (s *Server) handleUpdateGps(c *gin.Context) {
 		return
 	}
 
+	// Load existing metadata for EXIF restore in case of nuclear fallback
+	var existingMeta domain.ImageMetadata
+	s.db.Where("image_file_id = ?", imageFile.ID).First(&existingMeta)
+
 	// Convert to OS path
 	osPath := filepath.FromSlash(req.Path)
 
@@ -3127,7 +3163,7 @@ func (s *Server) handleUpdateGps(c *gin.Context) {
 	}
 
 	// Write GPS to EXIF (creates backup first)
-	if err := imaging.WriteGPS(osPath, trashDir, req.Lat, req.Lng); err != nil {
+	if err := imaging.WriteGPS(osPath, trashDir, req.Lat, req.Lng, &existingMeta); err != nil {
 		log.Printf("UpdateGps: WriteGPS failed for %s: %v", req.Path, err)
 		if strings.Contains(err.Error(), "backup") {
 			s.respondError(c, http.StatusInternalServerError, i18n.MsgGpsBackupFailed)
@@ -3136,6 +3172,9 @@ func (s *Server) handleUpdateGps(c *gin.Context) {
 		}
 		return
 	}
+
+	// Enrich any missing EXIF fields from the file into the DB record
+	enriched := imaging.EnrichMissingMetadata(osPath, &existingMeta)
 
 	// Reverse geocode via GeolocationService (cache + Nominatim)
 	var nameLocal, nameEng string
@@ -3151,21 +3190,31 @@ func (s *Server) handleUpdateGps(c *gin.Context) {
 		}
 	}
 
-	// Upsert ImageMetadata in DB
-	var meta domain.ImageMetadata
-	result := s.db.Where("image_file_id = ?", imageFile.ID).First(&meta)
-	if result.Error != nil {
-		// Create new metadata record
-		meta = domain.ImageMetadata{
+	// Upsert ImageMetadata in DB (reuse existingMeta already loaded above)
+	if existingMeta.ID == 0 {
+		// No existing record — create new with all enriched fields
+		newMeta := domain.ImageMetadata{
 			ImageFileID:    imageFile.ID,
 			GeolocationRef: geoRef,
+			CameraModel:    existingMeta.CameraModel,
+			LensModel:      existingMeta.LensModel,
+			ISO:            existingMeta.ISO,
+			Aperture:       existingMeta.Aperture,
+			ShutterSpeed:   existingMeta.ShutterSpeed,
+			FocalLength:    existingMeta.FocalLength,
+			DateTaken:      existingMeta.DateTaken,
+			Orientation:    existingMeta.Orientation,
+			ColorSpace:     existingMeta.ColorSpace,
+			Software:       existingMeta.Software,
 		}
-		s.db.Create(&meta)
+		s.db.Create(&newMeta)
 	} else {
-		// Update existing record
-		s.db.Model(&meta).Updates(map[string]interface{}{
-			"geolocation_ref": geoRef,
-		})
+		// Update existing record with geolocation + any enriched fields
+		updates := map[string]interface{}{"geolocation_ref": geoRef}
+		for k, v := range enriched {
+			updates[k] = v
+		}
+		s.db.Model(&existingMeta).Updates(updates)
 	}
 
 	s.respondJSON(c, http.StatusOK, dto.UpdateGpsResponse{
@@ -3216,6 +3265,10 @@ func (s *Server) handleGetLocationCandidates(c *gin.Context) {
 		dateStr = dateParam
 	}
 
+	// Parse the target date for range-based filtering (avoids DATE() which is not IMMUTABLE on timestamptz)
+	targetDate, _ := time.Parse("2006-01-02", dateStr)
+	nextDay := targetDate.AddDate(0, 0, 1)
+
 	// Query same-day photos with geolocation data via JOIN through geolocation_caches
 	type gpsRow struct {
 		GPSLatitude  float64
@@ -3230,7 +3283,7 @@ func (s *Server) handleGetLocationCandidates(c *gin.Context) {
 		Select("geolocation_caches.gps_latitude, geolocation_caches.gps_longitude, geolocation_caches.name_local, geolocation_caches.name_eng, image_files.path as file_path").
 		Joins("JOIN image_files ON image_files.id = image_metadata.image_file_id").
 		Joins("JOIN geolocation_caches ON geolocation_caches.id = image_metadata.geolocation_ref").
-		Where("DATE(image_metadata.date_taken) = ?", dateStr)
+		Where("image_metadata.date_taken >= ? AND image_metadata.date_taken < ?", targetDate, nextDay)
 
 	if excludePath != "" {
 		query = query.Where("image_files.path != ?", excludePath)
@@ -3375,41 +3428,55 @@ func (s *Server) handleBatchUpdateGps(c *gin.Context) {
 			continue
 		}
 
-		// Check if image already has geolocation - skip if it does
+		// Load existing metadata for EXIF restore in case of nuclear fallback
 		var existingMeta domain.ImageMetadata
-		if s.db.Where("image_file_id = ?", imageFile.ID).First(&existingMeta).Error == nil {
-			if existingMeta.GeolocationRef != nil {
-				skippedCount++
-				continue
-			}
+		s.db.Where("image_file_id = ?", imageFile.ID).First(&existingMeta)
+
+		// Check if image already has geolocation - skip if it does
+		if existingMeta.GeolocationRef != nil {
+			skippedCount++
+			continue
 		}
 
 		// Convert to OS path
 		osPath := filepath.FromSlash(p)
 
 		// Write GPS to EXIF (creates backup first)
-		if err := imaging.WriteGPS(osPath, trashDir, req.Lat, req.Lng); err != nil {
+		if err := imaging.WriteGPS(osPath, trashDir, req.Lat, req.Lng, &existingMeta); err != nil {
 			log.Printf("BatchUpdateGps: WriteGPS failed for %s: %v", p, err)
 			failedCount++
 			failedFiles = append(failedFiles, p)
 			continue
 		}
 
-		// Upsert ImageMetadata in DB
-		var meta domain.ImageMetadata
-		result := s.db.Where("image_file_id = ?", imageFile.ID).First(&meta)
-		if result.Error != nil {
-			// Create new metadata record
-			meta = domain.ImageMetadata{
+		// Enrich any missing EXIF fields from the file into the DB record
+		enriched := imaging.EnrichMissingMetadata(osPath, &existingMeta)
+
+		// Upsert ImageMetadata in DB (reuse existingMeta already loaded above)
+		if existingMeta.ID == 0 {
+			// No existing record — create new with all enriched fields
+			newMeta := domain.ImageMetadata{
 				ImageFileID:    imageFile.ID,
 				GeolocationRef: geoRef,
+				CameraModel:    existingMeta.CameraModel,
+				LensModel:      existingMeta.LensModel,
+				ISO:            existingMeta.ISO,
+				Aperture:       existingMeta.Aperture,
+				ShutterSpeed:   existingMeta.ShutterSpeed,
+				FocalLength:    existingMeta.FocalLength,
+				DateTaken:      existingMeta.DateTaken,
+				Orientation:    existingMeta.Orientation,
+				ColorSpace:     existingMeta.ColorSpace,
+				Software:       existingMeta.Software,
 			}
-			s.db.Create(&meta)
+			s.db.Create(&newMeta)
 		} else {
-			// Update existing record
-			s.db.Model(&meta).Updates(map[string]interface{}{
-				"geolocation_ref": geoRef,
-			})
+			// Update existing record with geolocation + any enriched fields
+			updates := map[string]interface{}{"geolocation_ref": geoRef}
+			for k, v := range enriched {
+				updates[k] = v
+			}
+			s.db.Model(&existingMeta).Updates(updates)
 		}
 
 		successCount++

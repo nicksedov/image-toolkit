@@ -536,6 +536,12 @@ export function fetchAiActionStatus(taskId: string): Promise<import("@/types").A
   return apiGet<import("@/types").AiActionStatusResponse>(`/api/ai/status/${taskId}`)
 }
 
+// --- Image Tags ---
+
+export function fetchImageTags(path: string): Promise<import("@/types").ImageTagsResponse> {
+  return apiGet<import("@/types").ImageTagsResponse>("/api/image-tags", { path })
+}
+
 // --- Geocode / GPS ---
 
 export function searchGeocodeLocations(query: string, signal?: AbortSignal): Promise<GeocodeSearchResponse> {

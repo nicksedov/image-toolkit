@@ -174,6 +174,9 @@ export const translationsRu = {
   "gallery.calendar.noImagesForDate": "Нет изображений за выбранную дату",
   "gallery.calendar.clearFilterHint": "Очистите фильтр, чтобы увидеть все изображения.",
   "gallery.calendar.fullMonth": "Весь месяц",
+  "gallery.calendar.selectRange": "Выбрать диапазон",
+  "gallery.calendar.selectingRange": "Выбор: {start}",
+  "gallery.calendar.clickEndDate": "выберите конечную дату",
   "gallery.calendar.tooltipImages": "{count} изобр.",
   "gallery.calendar.tooltipLoaded": "загружено",
   "gallery.calendar.tooltipVisible": "видно",
@@ -214,6 +217,7 @@ export const translationsRu = {
   "lightbox.tab.ai": "ИИ-ассистент",
   "lightbox.tab.exif": "Детали",
   "lightbox.tab.ocr": "OCR",
+  "lightbox.tab.tags": "Теги",
 
   // Metadata panel
   "metadata.title": "Информация об изображении",
@@ -513,6 +517,23 @@ export const translationsRu = {
   "llm_ocr.filePath": "Путь к файлу",
   "llm_ocr.sectionResult": "Результат",
   "llm_ocr.sectionDetected": "Обнаружено",
+
+  // Tags panel
+  "tags.title": "Теги изображения",
+  "tags.description": "Сгенерированные ИИ описательные теги для этого изображения",
+  "tags.generateButton": "Создать теги",
+  "tags.regenerateButton": "Пересоздать теги",
+  "tags.loading": "Проверка тегов...",
+  "tags.generating": "Генерация тегов...",
+  "tags.generated": "Теги созданы",
+  "tags.failed": "Ошибка создания тегов",
+  "tags.noData": "Тегов ещё нет",
+  "tags.sectionTags": "Теги",
+  "tags.sectionResult": "Информация о генерации",
+  "tags.processingTime": "Время обработки",
+  "tags.provider": "Провайдер",
+  "tags.model": "Модель",
+  "tags.count": "{count} тегов",
   "llm_ocr.settings": "Настройки LLM",
   "llm_ocr.vlSettings": "Настройки VL LLM",
   "llm_ocr.vlSettingsDescription": "Настройка ИИ: описание, теги, OCR, визуальные ответы",
@@ -709,6 +730,8 @@ export const translationsRu = {
   "geo.batchSavePartial": "Сохранено {success} из {total}. Ошибок: {failed}.",
   "geo.editLocation": "Изменить местоположение",
   "geo.changeSelection": "Изменить",
+  "geo.batchProgress": "Обработка {current} из {total} фото...",
+  "geo.batchComplete": "Готово! {success} обновлено, {skipped} пропущено, {failed} ошибок.",
  
   // LLM Providers
   "llm_providers.alias": "Алиас",

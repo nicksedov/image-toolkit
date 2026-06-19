@@ -174,6 +174,9 @@ export const translationsEn = {
   "gallery.calendar.noImagesForDate": "No images for the selected date",
   "gallery.calendar.clearFilterHint": "Clear the filter to see all images.",
   "gallery.calendar.fullMonth": "Full Month",
+  "gallery.calendar.selectRange": "Select Range",
+  "gallery.calendar.selectingRange": "Selecting: {start}",
+  "gallery.calendar.clickEndDate": "click end date",
   "gallery.calendar.tooltipImages": "{count} images",
   "gallery.calendar.tooltipLoaded": "loaded",
   "gallery.calendar.tooltipVisible": "visible",
@@ -214,6 +217,7 @@ export const translationsEn = {
   "lightbox.tab.ai": "AI Assistant",
   "lightbox.tab.exif": "Details",
   "lightbox.tab.ocr": "OCR",
+  "lightbox.tab.tags": "Tags",
 
   // Metadata panel
   "metadata.title": "Image Details",
@@ -603,6 +607,23 @@ export const translationsEn = {
   "llm_ocr.filePath": "File path",
   "llm_ocr.sectionResult": "Result",
   "llm_ocr.sectionDetected": "Detected",
+
+  // Tags panel
+  "tags.title": "Image Tags",
+  "tags.description": "AI-generated descriptive tags for this image",
+  "tags.generateButton": "Generate Tags",
+  "tags.regenerateButton": "Regenerate Tags",
+  "tags.loading": "Checking for tags...",
+  "tags.generating": "Generating tags...",
+  "tags.generated": "Tags generated",
+  "tags.failed": "Tag generation failed",
+  "tags.noData": "No tags yet",
+  "tags.sectionTags": "Tags",
+  "tags.sectionResult": "Generation Info",
+  "tags.processingTime": "Processing time",
+  "tags.provider": "Provider",
+  "tags.model": "Model",
+  "tags.count": "{count} tags",
   "llm_ocr.settings": "LLM Settings",
   "llm_ocr.vlSettings": "VL LLM Settings",
   "llm_ocr.vlSettingsDescription": "Configure AI: image description, tags, OCR, visual Q&A",
@@ -709,6 +730,8 @@ export const translationsEn = {
   "geo.batchSavePartial": "Saved {success} of {total}. {failed} failed.",
   "geo.editLocation": "Edit Location",
   "geo.changeSelection": "Change",
+  "geo.batchProgress": "Processing {current} of {total} photos...",
+  "geo.batchComplete": "Done! {success} updated, {skipped} skipped, {failed} failed.",
  
   // LLM Providers
   "llm_providers.alias": "Alias",

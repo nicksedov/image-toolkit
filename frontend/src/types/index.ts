@@ -657,6 +657,7 @@ export interface AiActionRequest {
   action: AiActionType
   question?: string  // Only for "askQuestion" action
   language?: string  // UI language code (e.g. "en", "ru")
+  force?: boolean    // Force regeneration, skip cached results
 }
 
 export interface AiActionStartResponse {
@@ -830,6 +831,14 @@ export interface TagSearchResult {
 export interface TagSearchResponse {
   images: TagSearchResult[]
   total: number
+}
+
+// --- Smart Search Types ---
+
+// --- Image Tags Types ---
+
+export interface ImageTagsResponse {
+  tags: string[]
 }
 
 // --- Smart Search Types ---

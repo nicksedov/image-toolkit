@@ -53,7 +53,7 @@ func createTempJPEG(t *testing.T, dir, name string) string {
 
 func TestWriteGPS_InvalidCoordinates(t *testing.T) {
 	// Latitude out of range
-	err := WriteGPS("/tmp/test.jpg", "", 100, 50)
+	err := WriteGPS("/tmp/test.jpg", "", 100, 50, nil)
 	if err == nil {
 		t.Fatal("expected error for invalid latitude, got nil")
 	}
@@ -62,7 +62,7 @@ func TestWriteGPS_InvalidCoordinates(t *testing.T) {
 	}
 
 	// Longitude out of range
-	err = WriteGPS("/tmp/test.jpg", "", 50, 200)
+	err = WriteGPS("/tmp/test.jpg", "", 50, 200, nil)
 	if err == nil {
 		t.Fatal("expected error for invalid longitude, got nil")
 	}
@@ -78,7 +78,7 @@ func TestWriteGPS_NotJpeg(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err := WriteGPS(pngPath, "", 40.0, -74.0)
+	err := WriteGPS(pngPath, "", 40.0, -74.0, nil)
 	if err == nil {
 		t.Fatal("expected error for non-JPEG file, got nil")
 	}
@@ -94,7 +94,7 @@ func TestWriteGPS_NotJpeg(t *testing.T) {
 }
 
 func TestWriteGPS_FileNotFound(t *testing.T) {
-	err := WriteGPS("/nonexistent/path/test.jpg", "", 40.0, -74.0)
+	err := WriteGPS("/nonexistent/path/test.jpg", "", 40.0, -74.0, nil)
 	if err == nil {
 		t.Fatal("expected error for non-existent file, got nil")
 	}
@@ -107,7 +107,7 @@ func TestWriteGPS_BackupCreated(t *testing.T) {
 	jpegPath := createTempJPEG(t, tmpDir, "photo.jpg")
 	origInfo, _ := os.Stat(jpegPath)
 
-	err := WriteGPS(jpegPath, trashDir, 48.8566, 2.3522)
+	err := WriteGPS(jpegPath, trashDir, 48.8566, 2.3522, nil)
 	// exiftool might not be available in CI, so check backup first
 	entries, readErr := os.ReadDir(trashDir)
 	if readErr != nil {
@@ -143,7 +143,7 @@ func TestWriteGPS_BackupInSameDirWhenNoTrash(t *testing.T) {
 	tmpDir := t.TempDir()
 	jpegPath := createTempJPEG(t, tmpDir, "photo.jpg")
 
-	_ = WriteGPS(jpegPath, "", 48.8566, 2.3522)
+	_ = WriteGPS(jpegPath, "", 48.8566, 2.3522, nil)
 
 	// Check that backup was created in the same directory
 	entries, _ := os.ReadDir(tmpDir)
@@ -168,7 +168,7 @@ func TestWriteGPS_Success(t *testing.T) {
 	trashDir := t.TempDir()
 	jpegPath := createTempJPEG(t, tmpDir, "photo.jpg")
 
-	err := WriteGPS(jpegPath, trashDir, 48.8566, 2.3522)
+	err := WriteGPS(jpegPath, trashDir, 48.8566, 2.3522, nil)
 	if err != nil {
 		t.Fatalf("WriteGPS failed: %v", err)
 	}
@@ -199,7 +199,7 @@ func TestWriteGPS_NegativeCoordinates(t *testing.T) {
 	jpegPath := createTempJPEG(t, tmpDir, "photo.jpg")
 
 	// Sydney, Australia: -33.8688, 151.2093
-	err := WriteGPS(jpegPath, trashDir, -33.8688, 151.2093)
+	err := WriteGPS(jpegPath, trashDir, -33.8688, 151.2093, nil)
 	if err != nil {
 		t.Fatalf("WriteGPS failed: %v", err)
 	}
