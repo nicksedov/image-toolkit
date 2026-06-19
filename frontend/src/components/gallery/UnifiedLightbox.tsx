@@ -48,6 +48,7 @@ export function UnifiedLightbox({
   const { t, language } = useTranslation()
   const [activeMode, setActiveMode] = useState<LightboxMode>(initialMode)
   const [internalShowGeoForm, setInternalShowGeoForm] = useState(false)
+  const [standardImageLoaded, setStandardImageLoaded] = useState(false)
   const isGeoFormVisible = showGeoForm ?? internalShowGeoForm
 
   const handleShowGeoForm = useCallback((show: boolean) => {
@@ -58,13 +59,16 @@ export function UnifiedLightbox({
     }
   }, [onShowGeoFormChange])
 
-  // Reset mode when lightbox opens
-  useEffect(() => {
-    if (imagePath) {
-      setActiveMode(initialMode)
-      setInternalShowGeoForm(false)
-    }
-  }, [imagePath, initialMode])
+  // Reset per-image state when imagePath changes (during render, not in effect)
+  const [prevImagePath, setPrevImagePath] = useState(imagePath)
+  const [prevInitialMode, setPrevInitialMode] = useState(initialMode)
+  if (imagePath !== prevImagePath || initialMode !== prevInitialMode) {
+    setPrevImagePath(imagePath)
+    setPrevInitialMode(initialMode)
+    setActiveMode(initialMode)
+    setInternalShowGeoForm(false)
+    setStandardImageLoaded(false)
+  }
 
   // OCR state
   const { ocrData, llmData, loading: ocrLoading, recognizing, resetState: resetOcr, handleRecognize } = useOcrState(
@@ -144,12 +148,6 @@ export function UnifiedLightbox({
   const { metadata, isLoading: metadataLoading, reload: reloadMetadata } = useImageMetadata(
     activeMode === "exif" ? imagePath : null
   )
-
-  // Standard image loading state
-  const [standardImageLoaded, setStandardImageLoaded] = useState(false)
-  useEffect(() => {
-    setStandardImageLoaded(false)
-  }, [imagePath])
 
   const handleGpsSaved = useCallback(() => {
     reloadMetadata()

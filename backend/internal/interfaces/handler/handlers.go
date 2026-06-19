@@ -2905,8 +2905,8 @@ func (s *Server) handleAiAction(c *gin.Context) {
 	// Generate unique task ID
 	taskID := uuid.New().String()
 
-	// For "tags" action, check if tags already exist in DB
-	if req.Action == dto.AiActionTags {
+	// For "tags" action, check if tags already exist in DB (unless force regeneration requested)
+	if req.Action == dto.AiActionTags && !req.Force {
 		var existingTags []domain.ImageTag
 		s.db.Where("image_file_id = ?", imageFile.ID).Find(&existingTags)
 		if len(existingTags) > 0 {

@@ -623,6 +623,7 @@ type AiActionRequest struct {
 	Action    AiActionType `json:"action" binding:"required"`
 	Question  string       `json:"question,omitempty"` // Only for askQuestion
 	Language  string       `json:"language,omitempty"` // UI language code (e.g. "en", "ru")
+	Force     bool         `json:"force"`              // Force regeneration, skip cached results
 }
 
 // AiActionStartResponse for POST /api/ai/action (async start)

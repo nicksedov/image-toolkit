@@ -84,7 +84,7 @@ export function useTagsState(imagePath: string | null): UseTagsStateReturn {
       pollingRef.current = null
     }
 
-    startAiAction({ imagePath, action: "tags" })
+    startAiAction({ imagePath, action: "tags", force: true })
       .then((startResponse) => {
         const taskId = startResponse.taskId
 
