@@ -613,6 +613,7 @@ export const translationsEn = {
   "tags.description": "AI-generated descriptive tags for this image",
   "tags.generateButton": "Generate Tags",
   "tags.regenerateButton": "Regenerate Tags",
+  "tags.loading": "Checking for tags...",
   "tags.generating": "Generating tags...",
   "tags.generated": "Tags generated",
   "tags.failed": "Tag generation failed",

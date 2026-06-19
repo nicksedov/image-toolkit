@@ -523,6 +523,7 @@ export const translationsRu = {
   "tags.description": "Сгенерированные ИИ описательные теги для этого изображения",
   "tags.generateButton": "Создать теги",
   "tags.regenerateButton": "Пересоздать теги",
+  "tags.loading": "Проверка тегов...",
   "tags.generating": "Генерация тегов...",
   "tags.generated": "Теги созданы",
   "tags.failed": "Ошибка создания тегов",

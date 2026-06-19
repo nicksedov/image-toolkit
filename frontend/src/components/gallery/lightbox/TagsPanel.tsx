@@ -30,7 +30,7 @@ export function TagsPanel({
       <div className={panelClass}>
         <div className="flex flex-col items-center justify-center h-full">
           <Loader2 className="h-8 w-8 animate-spin text-primary mb-3" />
-          <p className="text-sm font-medium">{t("tags.generating")}</p>
+          <p className="text-sm font-medium">{t("tags.loading")}</p>
         </div>
       </div>
     )
