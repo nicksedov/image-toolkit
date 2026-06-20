@@ -133,6 +133,17 @@ export const translationsRu = {
   "trash.cleanFailed": "Не удалось очистить корзину",
   "trash.saveFailed": "Не удалось сохранить директорию корзины",
 
+  // EXIF Backup settings
+  "exifBackup.title": "Резервные копии EXIF",
+  "exifBackup.description": "Настройте директорию для резервных копий оригинальных файлов перед изменением EXIF.",
+  "exifBackup.dirLabel": "Директория резервных копий",
+  "exifBackup.dirPlaceholder": "Введите путь, напр. C:\\Backups или /home/user/exif-backup",
+  "exifBackup.save": "Сохранить",
+  "exifBackup.saving": "Сохранение...",
+  "exifBackup.saved": "Директория резервных копий EXIF сохранена",
+  "exifBackup.saveFailed": "Не удалось сохранить директорию резервных копий EXIF",
+  "exifBackup.notConfigured": "Директория резервных копий EXIF не настроена",
+
   // Add folder form
   "addFolder.placeholder": "Введите путь к папке, напр. C:\\Фото или /home/user/photos",
   "addFolder.button": "Добавить папку",

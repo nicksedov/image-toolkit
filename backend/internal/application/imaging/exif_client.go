@@ -17,7 +17,8 @@ type ExifClient interface {
 	ExtractGPS(ctx context.Context, filePath string) (lat, lng float64, ok bool, err error)
 
 	// WriteGPS writes GPS coordinates to an image file's EXIF.
-	WriteGPS(ctx context.Context, filePath string, lat, lng float64, meta *domain.ImageMetadata) error
+	// backupDir is the directory where the EXIF service stores a backup of the original file before modification.
+	WriteGPS(ctx context.Context, filePath string, lat, lng float64, backupDir string, meta *domain.ImageMetadata) error
 
 	// EnrichMissingMetadata fills empty fields in existing metadata from the file.
 	EnrichMissingMetadata(ctx context.Context, filePath string, meta *domain.ImageMetadata) (map[string]interface{}, error)

@@ -126,17 +126,20 @@ func (c *HTTPExifClient) ExtractGPS(ctx context.Context, filePath string) (lat, 
 }
 
 // WriteGPS writes GPS coordinates to an image file's EXIF via the EXIF service.
-func (c *HTTPExifClient) WriteGPS(ctx context.Context, filePath string, lat, lng float64, meta *domain.ImageMetadata) error {
+// backupDir is sent to the EXIF service so it can store a backup of the original file before modification.
+func (c *HTTPExifClient) WriteGPS(ctx context.Context, filePath string, lat, lng float64, backupDir string, meta *domain.ImageMetadata) error {
 	url := fmt.Sprintf("%s/exif/gps", c.baseURL)
 
 	reqBody := struct {
 		Path      string  `json:"path"`
 		Latitude  float64 `json:"latitude"`
 		Longitude float64 `json:"longitude"`
+		BackupDir string  `json:"backupDir"`
 	}{
 		Path:      filePath,
 		Latitude:  lat,
 		Longitude: lng,
+		BackupDir: backupDir,
 	}
 
 	bodyBytes, _ := json.Marshal(reqBody)

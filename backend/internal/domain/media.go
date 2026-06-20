@@ -93,10 +93,11 @@ type GalleryFolder struct {
 }
 
 // AppSettings stores global application settings (singleton, ID=1)
-// Contains application-level settings: trash directory and thumbnail cache configuration
+// Contains application-level settings: trash directory, EXIF backup directory, and thumbnail cache configuration
 type AppSettings struct {
 	ID                    uint      `gorm:"primaryKey" json:"id"`
 	TrashDir              string    `gorm:"default:''" json:"trashDir"`
+	ExifBackupDir         string    `gorm:"default:''" json:"exifBackupDir"`
 	ThumbnailCachePath    string    `gorm:"default:''" json:"thumbnailCachePath"`
 	ThumbnailCacheSize    int       `gorm:"default:0" json:"thumbnailCacheSize"`
 	OcrConcurrentRequests int       `gorm:"default:4" json:"ocrConcurrentRequests"`

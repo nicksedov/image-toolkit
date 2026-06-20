@@ -15,13 +15,16 @@ import (
 // ExifAgent is a sub-agent that delegates EXIF metadata operations to the EXIF microservice via MCP.
 type ExifAgent struct {
 	serviceURL string
+	backupDir  string
 	httpClient *http.Client
 }
 
 // NewExifAgent creates a new EXIF agent that connects to the EXIF service MCP endpoint.
-func NewExifAgent(serviceURL string) *ExifAgent {
+// backupDir is injected into write_gps calls so the EXIF service can back up originals.
+func NewExifAgent(serviceURL, backupDir string) *ExifAgent {
 	return &ExifAgent{
 		serviceURL: serviceURL,
+		backupDir:  backupDir,
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
@@ -51,8 +54,22 @@ func (ea *ExifAgent) ToolDefinitions() []llm.ToolDefinition {
 }
 
 // ExecuteTool calls the EXIF service MCP endpoint to execute a tool.
+// For write_gps, backup_dir is automatically injected into arguments if not already present.
 func (ea *ExifAgent) ExecuteTool(ctx context.Context, name string, arguments json.RawMessage) (string, error) {
 	url := fmt.Sprintf("%s/exif/mcp", ea.serviceURL)
+
+	// Inject backup_dir for write_gps if not already provided
+	if name == "write_gps" && ea.backupDir != "" {
+		var args map[string]interface{}
+		if err := json.Unmarshal(arguments, &args); err == nil {
+			if _, hasBackupDir := args["backup_dir"]; !hasBackupDir {
+				args["backup_dir"] = ea.backupDir
+				if patched, err := json.Marshal(args); err == nil {
+					arguments = patched
+				}
+			}
+		}
+	}
 
 	// Build MCP request
 	mcpReq := map[string]interface{}{
@@ -164,11 +181,12 @@ func exifToolParams(name string) map[string]interface{} {
 		return map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
-				"path":      map[string]interface{}{"type": "string", "description": "Absolute path to the image file"},
-				"latitude":  map[string]interface{}{"type": "number", "description": "GPS latitude (-90 to 90)"},
-				"longitude": map[string]interface{}{"type": "number", "description": "GPS longitude (-180 to 180)"},
+				"path":       map[string]interface{}{"type": "string", "description": "Absolute path to the image file"},
+				"latitude":   map[string]interface{}{"type": "number", "description": "GPS latitude (-90 to 90)"},
+				"longitude":  map[string]interface{}{"type": "number", "description": "GPS longitude (-180 to 180)"},
+				"backup_dir": map[string]interface{}{"type": "string", "description": "Directory where a backup copy of the original file will be stored before modification"},
 			},
-			"required": []string{"path", "latitude", "longitude"},
+			"required": []string{"path", "latitude", "longitude", "backup_dir"},
 		}
 	case "write_exif_field":
 		return map[string]interface{}{

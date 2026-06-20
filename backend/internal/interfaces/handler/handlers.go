@@ -573,6 +573,7 @@ func (s *Server) handleGetSettings(c *gin.Context) {
 	settings := s.settingsLoader.AppSettings()
 	c.JSON(http.StatusOK, dto.AppSettingsDTO{
 		TrashDir:              settings.TrashDir,
+		ExifBackupDir:         settings.ExifBackupDir,
 		ThumbnailCachePath:    settings.ThumbnailCachePath,
 		ThumbnailCacheSize:    settings.ThumbnailCacheSize,
 		OcrConcurrentRequests: settings.OcrConcurrentRequests,
@@ -620,6 +621,31 @@ func (s *Server) handleUpdateSettings(c *gin.Context) {
 			settings.TrashDir = normalizedTrash
 		} else {
 			settings.TrashDir = ""
+		}
+	}
+	if req.ExifBackupDir != nil {
+		newBackupDir := strings.TrimSpace(*req.ExifBackupDir)
+		if newBackupDir != "" {
+			// Normalize the backup dir path
+			absBackup, err := filepath.Abs(newBackupDir)
+			if err != nil {
+				c.JSON(http.StatusBadRequest, i18n.ErrorResponse(i18n.MsgImageInvalidBackupPath))
+				return
+			}
+			normalizedBackup := filepath.ToSlash(absBackup)
+
+			// Check conflict with all gallery folders
+			var galleryFolders []domain.GalleryFolder
+			s.db.Find(&galleryFolders)
+			for _, gf := range galleryFolders {
+				if helpers.CheckPathsConflict(normalizedBackup, gf.Path) {
+					c.JSON(http.StatusBadRequest, i18n.ErrorResponse(i18n.MsgImageBackupConflict))
+					return
+				}
+			}
+			settings.ExifBackupDir = normalizedBackup
+		} else {
+			settings.ExifBackupDir = ""
 		}
 	}
 	if req.ThumbnailCachePath != nil {
@@ -701,6 +727,7 @@ func (s *Server) handleUpdateSettings(c *gin.Context) {
 
 	c.JSON(http.StatusOK, dto.AppSettingsDTO{
 		TrashDir:              settings.TrashDir,
+		ExifBackupDir:         settings.ExifBackupDir,
 		ThumbnailCachePath:    settings.ThumbnailCachePath,
 		ThumbnailCacheSize:    settings.ThumbnailCacheSize,
 		OcrConcurrentRequests: settings.OcrConcurrentRequests,
@@ -3192,7 +3219,7 @@ func (s *Server) handleUpdateGps(c *gin.Context) {
 	osPath := filepath.FromSlash(req.Path)
 
 	// Write GPS to EXIF via EXIF service
-	if err := s.exifClient.WriteGPS(context.Background(), osPath, req.Lat, req.Lng, &existingMeta); err != nil {
+	if err := s.exifClient.WriteGPS(context.Background(), osPath, req.Lat, req.Lng, s.settingsLoader.AppSettings().ExifBackupDir, &existingMeta); err != nil {
 		log.Printf("UpdateGps: WriteGPS failed for %s: %v", req.Path, err)
 		if strings.Contains(err.Error(), "backup") {
 			s.respondError(c, http.StatusInternalServerError, i18n.MsgGpsBackupFailed)
@@ -3421,7 +3448,7 @@ func (s *Server) handleBatchUpdateGps(c *gin.Context) {
 		osPath := filepath.FromSlash(p)
 
 		// Write GPS to EXIF via EXIF service
-		if err := s.exifClient.WriteGPS(context.Background(), osPath, req.Lat, req.Lng, &existingMeta); err != nil {
+		if err := s.exifClient.WriteGPS(context.Background(), osPath, req.Lat, req.Lng, s.settingsLoader.AppSettings().ExifBackupDir, &existingMeta); err != nil {
 			log.Printf("BatchUpdateGps: WriteGPS failed for %s: %v", p, err)
 			failedCount++
 			failedFiles = append(failedFiles, p)

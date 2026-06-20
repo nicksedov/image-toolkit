@@ -71,6 +71,8 @@ const (
 	MsgImageInvalidLanguage    MessageKey = "image.invalid_language"
 	MsgImageInvalidTrashPath   MessageKey = "image.invalid_trash_path"
 	MsgImageTrashConflict      MessageKey = "image.trash_conflict"
+	MsgImageInvalidBackupPath  MessageKey = "image.invalid_backup_path"
+	MsgImageBackupConflict     MessageKey = "image.backup_conflict"
 	MsgImageTrashNotConfigured MessageKey = "image.trash_not_configured"
 	MsgImageTrashNotExists     MessageKey = "image.trash_not_exists"
 	MsgImageTrashReadFailed    MessageKey = "image.trash_read_failed"

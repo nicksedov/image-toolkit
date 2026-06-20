@@ -66,6 +66,8 @@
     "invalid_language": "Invalid language. Must be 'en' or 'ru'",
     "invalid_trash_path": "Invalid trash directory path",
     "trash_conflict": "Trash directory conflicts with gallery folder",
+    "invalid_backup_path": "Invalid EXIF backup directory path",
+    "backup_conflict": "EXIF backup directory conflicts with gallery folder",
     "trash_not_configured": "Trash directory is not configured",
     "trash_not_exists": "Trash directory does not exist",
     "trash_read_failed": "Failed to read trash directory",

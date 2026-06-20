@@ -155,6 +155,7 @@ export interface GalleryImagesResponse {
 
 export interface AppSettingsDTO {
   trashDir: string
+  exifBackupDir: string
   thumbnailCachePath?: string
   thumbnailCacheSize?: number
   ocrConcurrentRequests?: number
@@ -185,6 +186,7 @@ export interface UserSettingsDTO {
 
 export interface UpdateSettingsRequest {
   trashDir?: string
+  exifBackupDir?: string
   thumbnailCachePath?: string
   ocrConcurrentRequests?: number
   syncDays?: string

@@ -133,6 +133,17 @@ export const translationsEn = {
   "trash.cleanFailed": "Failed to clean trash",
   "trash.saveFailed": "Failed to save trash directory",
 
+  // EXIF Backup settings
+  "exifBackup.title": "EXIF Backup",
+  "exifBackup.description": "Configure the directory where original files are backed up before EXIF modifications.",
+  "exifBackup.dirLabel": "Backup directory",
+  "exifBackup.dirPlaceholder": "Enter path, e.g. C:\\Backups or /home/user/exif-backup",
+  "exifBackup.save": "Save",
+  "exifBackup.saving": "Saving...",
+  "exifBackup.saved": "EXIF backup directory saved",
+  "exifBackup.saveFailed": "Failed to save EXIF backup directory",
+  "exifBackup.notConfigured": "EXIF backup directory is not configured",
+
   // Add folder form
   "addFolder.placeholder": "Enter folder path, e.g. C:\\Photos or /home/user/photos",
   "addFolder.button": "Add Folder",

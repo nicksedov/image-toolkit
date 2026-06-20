@@ -75,7 +75,7 @@ func (m *MockExifClient) ExtractGPS(ctx context.Context, filePath string) (float
 	return m.GPSLat, m.GPSLng, m.GPSOk, nil
 }
 
-func (m *MockExifClient) WriteGPS(ctx context.Context, filePath string, lat, lng float64, meta *domain.ImageMetadata) error {
+func (m *MockExifClient) WriteGPS(ctx context.Context, filePath string, lat, lng float64, backupDir string, meta *domain.ImageMetadata) error {
 	m.WriteCalls++
 	return m.WriteErr
 }

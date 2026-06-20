@@ -70,6 +70,11 @@ export function AdminGeneralTab() {
   const [isCleaning, setIsCleaning] = useState(false)
   const [isSavingTrash, setIsSavingTrash] = useState(false)
 
+  // EXIF Backup Directory state
+  const [exifBackupDir, setExifBackupDir] = useState("")
+  const [exifBackupInput, setExifBackupInput] = useState("")
+  const [isSavingExifBackup, setIsSavingExifBackup] = useState(false)
+
   // Thumbnail Cache Settings state
   const [thumbnailCacheStats, setThumbnailCacheStats] = useState<{ enabled: boolean; cacheDir: string; totalFiles: number; totalSize: number } | null>(null)
   const [isThumbnailLoading, setIsThumbnailLoading] = useState(false)
@@ -114,6 +119,8 @@ export function AdminGeneralTab() {
     fetchSettings().then((settings) => {
       setTrashInput(settings.trashDir || "")
       setTrashDir(settings.trashDir || "")
+      setExifBackupDir(settings.exifBackupDir || "")
+      setExifBackupInput(settings.exifBackupDir || "")
       setThumbnailCachePath(settings.thumbnailCachePath || "")
       setSyncDays(parseSyncDaysString(settings.syncDays ?? "1,2,3,4,5"))
       setDailySyncHour(settings.dailySyncHour ?? 3)
@@ -236,6 +243,20 @@ export function AdminGeneralTab() {
       setIsSavingTrash(false)
     }
   }, [trashInput, setTrashDir, loadTrashInfo, t])
+
+  const handleSaveExifBackupDir = useCallback(async () => {
+    setIsSavingExifBackup(true)
+    try {
+      const result = await updateSettings({ exifBackupDir: exifBackupInput.trim() })
+      setExifBackupDir(result.exifBackupDir)
+      setExifBackupInput(result.exifBackupDir)
+      toast.success(t("exifBackup.saved"))
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("exifBackup.saveFailed"))
+    } finally {
+      setIsSavingExifBackup(false)
+    }
+  }, [exifBackupInput, t])
 
   const handleCleanTrash = useCallback(async () => {
     if (trashFileCount === 0) return
@@ -567,6 +588,45 @@ export function AdminGeneralTab() {
               {isCleaning ? t("trash.cleaning") : t("trash.cleanButton")}
             </Button>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* EXIF Backup Settings */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <DatabaseBackup className="h-5 w-5" />
+            {t("exifBackup.title")}
+          </CardTitle>
+          <CardDescription>{t("exifBackup.description")}</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="exif-backup-dir-input">{t("exifBackup.dirLabel")}</Label>
+            <div className="flex gap-2">
+              <Input
+                id="exif-backup-dir-input"
+                placeholder={t("exifBackup.dirPlaceholder")}
+                value={exifBackupInput}
+                onChange={(e) => setExifBackupInput(e.target.value)}
+                className="flex-1"
+              />
+              <Button
+                onClick={handleSaveExifBackupDir}
+                disabled={isSavingExifBackup || exifBackupInput === exifBackupDir}
+                size="default"
+              >
+                {isSavingExifBackup ? t("exifBackup.saving") : t("exifBackup.save")}
+              </Button>
+            </div>
+          </div>
+
+          {!exifBackupDir && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <DatabaseBackup className="h-4 w-4" />
+              <span>{t("exifBackup.notConfigured")}</span>
+            </div>
+          )}
         </CardContent>
       </Card>
 
