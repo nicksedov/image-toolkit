@@ -6,7 +6,7 @@ import { MapPin, Loader2, Check, X, StopCircle } from "lucide-react"
 import { useTranslation } from "@/i18n"
 import { useGeocodeSearch } from "@/hooks/useGeocodeSearch"
 import { useBatchGps } from "@/hooks/useBatchGps"
-import { updateImageGps, fetchLocationCandidates, fetchLocationCandidatesByDate } from "@/api/endpoints"
+import { updateImageGps, fetchLocationCandidatesByDate } from "@/api/endpoints"
 import type { GeocodeSearchResult, LocationCandidate } from "@/types"
 
 interface GeoSearchFormProps {
@@ -14,7 +14,7 @@ interface GeoSearchFormProps {
   imagePath?: string
   /** For batch mode (calendar): array of image paths to update */
   paths?: string[]
-  /** For batch mode: the date string to fetch candidates for */
+  /** Date string (YYYY-MM-DD) for fetching location candidates */
   date?: string
   /** For batch mode: number of photos that will be affected */
   affectedCount?: number
@@ -40,18 +40,14 @@ export function GeoSearchForm({ imagePath, paths, date, affectedCount, onGpsSave
 
   const isBatchMode = paths != null && paths.length > 0
 
-  // Load location candidates on mount
+  // Load location candidates on mount (always by date)
   useEffect(() => {
     let cancelled = false
 
     const loadCandidates = async () => {
+      if (!date) return
       try {
-        const res = imagePath
-          ? await fetchLocationCandidates(imagePath)
-          : date
-            ? await fetchLocationCandidatesByDate(date)
-            : null
-
+        const res = await fetchLocationCandidatesByDate(date)
         if (!cancelled && res && res.candidates.length > 0) {
           setCandidates(res.candidates)
         }
@@ -62,7 +58,7 @@ export function GeoSearchForm({ imagePath, paths, date, affectedCount, onGpsSave
 
     loadCandidates()
     return () => { cancelled = true }
-  }, [imagePath, date])
+  }, [date])
 
   const handleSelectCandidate = (c: LocationCandidate) => {
     const label = [c.nameLocal, c.nameEng].filter(Boolean).join(", ")

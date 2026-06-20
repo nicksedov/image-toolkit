@@ -148,6 +148,7 @@ const (
 
 	// Geocode / GPS messages
 	MsgGeocodeQueryRequired    MessageKey = "geocode.query_required"
+	MsgGeocodeDateRequired     MessageKey = "geocode.date_required"
 	MsgGeocodeSearchFailed    MessageKey = "geocode.search_failed"
 	MsgGpsUpdateFailed       MessageKey = "geocode.gps_update_failed"
 	MsgGpsInvalidCoordinates MessageKey = "geocode.invalid_coordinates"

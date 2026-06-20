@@ -559,10 +559,6 @@ export function updateImageGps(req: UpdateGpsRequest): Promise<UpdateGpsResponse
   return apiPut<UpdateGpsResponse>("/api/image-metadata/gps", req)
 }
 
-export function fetchLocationCandidates(path: string): Promise<LocationCandidatesResponse> {
-  return apiGet<LocationCandidatesResponse>("/api/image-metadata/location-candidates", { path })
-}
-
 export function fetchLocationCandidatesByDate(date: string): Promise<LocationCandidatesResponse> {
   return apiGet<LocationCandidatesResponse>("/api/image-metadata/location-candidates", { date })
 }

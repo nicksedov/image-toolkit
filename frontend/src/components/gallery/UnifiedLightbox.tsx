@@ -144,10 +144,8 @@ export function UnifiedLightbox({
     loadConversation(id)
   }, [loadConversation])
 
-  // EXIF metadata state
-  const { metadata, isLoading: metadataLoading, reload: reloadMetadata } = useImageMetadata(
-    activeMode === "exif" ? imagePath : null
-  )
+  // EXIF metadata state (always loaded - needed for geo form date resolution)
+  const { metadata, isLoading: metadataLoading, reload: reloadMetadata } = useImageMetadata(imagePath)
 
   const handleGpsSaved = useCallback(() => {
     reloadMetadata()
@@ -473,7 +471,7 @@ function MetadataContent({ metadata, imagePath, showGeoForm, onShowGeoForm, onGp
         </div>
 
         {showGeoForm ? (
-          <GeoSearchForm imagePath={imagePath} onGpsSaved={onGpsSaved} />
+          <GeoSearchForm imagePath={imagePath} date={metadata.dateTaken.slice(0, 10)} onGpsSaved={onGpsSaved} />
         ) : metadata.hasGps ? (
           <>
             <div className="space-y-1.5">

@@ -163,6 +163,7 @@
   "description_geocode": "Сообщения геокодирования / GPS",
   "geocode": {
     "query_required": "Требуется поисковый запрос",
+    "date_required": "Требуется дата (формат ГГГГ-ММ-ДД)",
     "search_failed": "Ошибка поиска местоположения",
     "gps_update_failed": "Не удалось обновить GPS координаты",
     "invalid_coordinates": "Неверные GPS координаты",

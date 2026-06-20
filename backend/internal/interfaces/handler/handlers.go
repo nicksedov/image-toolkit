@@ -3256,69 +3256,36 @@ func (s *Server) handleUpdateGps(c *gin.Context) {
 }
 
 // handleGetLocationCandidates returns suggested locations from same-day photos.
-// Accepts either "path" (image file path) or "date" (YYYY-MM-DD) query param.
+// Requires "date" (YYYY-MM-DD) query param. Queries image_metadata + geolocation_caches only.
 func (s *Server) handleGetLocationCandidates(c *gin.Context) {
-	path := c.Query("path")
 	dateParam := c.Query("date")
-
-	if path == "" && dateParam == "" {
-		s.respondValidationError(c, http.StatusBadRequest, i18n.MsgImagePathRequired)
+	if dateParam == "" {
+		s.respondValidationError(c, http.StatusBadRequest, i18n.MsgGeocodeDateRequired)
 		return
 	}
 
-	var dateStr string
-	var excludePath string
-
-	if path != "" {
-		// Look up the target image and its metadata
-		var imageFile domain.ImageFile
-		if result := s.db.Where("path = ?", path).First(&imageFile); result.Error != nil {
-			s.respondJSON(c, http.StatusOK, dto.LocationCandidatesResponse{Candidates: []dto.LocationCandidate{}})
-			return
-		}
-
-		var meta domain.ImageMetadata
-		if result := s.db.Where("image_file_id = ?", imageFile.ID).First(&meta); result.Error != nil || meta.DateTaken == nil {
-			s.respondJSON(c, http.StatusOK, dto.LocationCandidatesResponse{Candidates: []dto.LocationCandidate{}})
-			return
-		}
-
-		dateStr = meta.DateTaken.Format("2006-01-02")
-		excludePath = path
-	} else {
-		// Validate date format
-		if _, err := time.Parse("2006-01-02", dateParam); err != nil {
-			s.respondValidationError(c, http.StatusBadRequest, i18n.MsgGpsInvalidCoordinates)
-			return
-		}
-		dateStr = dateParam
+	// Validate date format
+	targetDate, err := time.Parse("2006-01-02", dateParam)
+	if err != nil {
+		s.respondValidationError(c, http.StatusBadRequest, i18n.MsgGpsInvalidCoordinates)
+		return
 	}
-
-	// Parse the target date for range-based filtering (avoids DATE() which is not IMMUTABLE on timestamptz)
-	targetDate, _ := time.Parse("2006-01-02", dateStr)
 	nextDay := targetDate.AddDate(0, 0, 1)
 
-	// Query same-day photos with geolocation data via JOIN through geolocation_caches
+	// Query same-day photos with geolocation data via geolocation_caches (no image_files join)
 	type gpsRow struct {
 		GPSLatitude  float64
 		GPSLongitude float64
 		NameLocal    string
 		NameEng      string
-		FilePath     string
 	}
 
 	var rows []gpsRow
-	query := s.db.Table("image_metadata").
-		Select("geolocation_caches.gps_latitude, geolocation_caches.gps_longitude, geolocation_caches.name_local, geolocation_caches.name_eng, image_files.path as file_path").
-		Joins("JOIN image_files ON image_files.id = image_metadata.image_file_id").
+	s.db.Table("image_metadata").
+		Select("geolocation_caches.gps_latitude, geolocation_caches.gps_longitude, geolocation_caches.name_local, geolocation_caches.name_eng").
 		Joins("JOIN geolocation_caches ON geolocation_caches.id = image_metadata.geolocation_ref").
-		Where("image_metadata.date_taken >= ? AND image_metadata.date_taken < ?", targetDate, nextDay)
-
-	if excludePath != "" {
-		query = query.Where("image_files.path != ?", excludePath)
-	}
-
-	query.Limit(200).Find(&rows)
+		Where("image_metadata.date_taken >= ? AND image_metadata.date_taken < ?", targetDate, nextDay).
+		Limit(200).Find(&rows)
 
 	if len(rows) == 0 {
 		s.respondJSON(c, http.StatusOK, dto.LocationCandidatesResponse{Candidates: []dto.LocationCandidate{}})
@@ -3336,7 +3303,6 @@ func (s *Server) handleGetLocationCandidates(c *gin.Context) {
 		NameLocal  string
 		NameEng    string
 		PhotoCount int
-		FirstPath  string
 	}
 
 	groupMap := make(map[locationKey]*locationGroup)
@@ -3359,35 +3325,25 @@ func (s *Server) handleGetLocationCandidates(c *gin.Context) {
 				NameLocal:  r.NameLocal,
 				NameEng:    r.NameEng,
 				PhotoCount: 1,
-				FirstPath:  r.FilePath,
 			}
 			order = append(order, key)
 		}
 	}
 
-	// Build candidates with thumbnails (limit 20)
+	// Build candidates (limit 20, no thumbnails since image_files is not joined)
 	candidates := make([]dto.LocationCandidate, 0, len(order))
 	for i, key := range order {
 		if i >= 20 {
 			break
 		}
 		g := groupMap[key]
-		candidate := dto.LocationCandidate{
+		candidates = append(candidates, dto.LocationCandidate{
 			Lat:        g.LatSum / float64(g.PhotoCount),
 			Lng:        g.LngSum / float64(g.PhotoCount),
 			NameLocal:  g.NameLocal,
 			NameEng:    g.NameEng,
 			PhotoCount: g.PhotoCount,
-		}
-
-		// Generate thumbnail for the first image in this group
-		if s.thumbnailService != nil {
-			if thumb, err := s.thumbnailService.GetOrGenerate(g.FirstPath); err == nil {
-				candidate.Thumbnail = thumb
-			}
-		}
-
-		candidates = append(candidates, candidate)
+		})
 	}
 
 	// Sort by photo count descending

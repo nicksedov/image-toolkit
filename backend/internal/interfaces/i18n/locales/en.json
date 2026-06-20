@@ -163,6 +163,7 @@
   "description_geocode": "Geocode / GPS messages",
   "geocode": {
     "query_required": "Search query is required",
+    "date_required": "Date is required (YYYY-MM-DD format)",
     "search_failed": "Location search failed",
     "gps_update_failed": "Failed to update GPS coordinates",
     "invalid_coordinates": "Invalid GPS coordinates",
