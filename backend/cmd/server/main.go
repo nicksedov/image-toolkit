@@ -61,7 +61,7 @@ func main() {
 	if cfg.OCREnabled {
 		fmt.Println("Initializing OCR classifier client...")
 		ocrCheckInterval = cfg.OCRCheckInterval
-		fmt.Printf("OCR classifier enabled: host=%s, port=%s, check interval=%ds\n", cfg.OCRHost, cfg.OCRPort, ocrCheckInterval)
+		fmt.Printf("OCR classifier enabled: serviceURL=%s, check interval=%ds\n", cfg.OCRServiceURL, ocrCheckInterval)
 	} else {
 		fmt.Println("OCR classifier integration disabled")
 		ocrCheckInterval = 0
@@ -73,7 +73,7 @@ func main() {
 	// Create OCR manager (background classification)
 	var ocrManager *imaging.OcrManager
 	if cfg.OCREnabled {
-		ocrClient := ocr.NewClient(cfg.OCRHost, cfg.OCRPort)
+		ocrClient := ocr.NewClient(cfg.OCRServiceURL)
 
 		// Read OCR concurrent requests from DB, fallback to env var (default: 4)
 		ocrWorkers := cfg.OCRConcurrentRequests

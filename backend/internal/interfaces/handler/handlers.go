@@ -1990,7 +1990,7 @@ func (s *Server) handleGetOCRStatus(c *gin.Context) {
 			Health:     string(status.HealthStatus),
 			LastCheck:  status.LastCheck.Format(helpers.DateTimeFormat),
 			Error:      status.Error,
-			ServiceURL: fmt.Sprintf("http://%s:%s", s.config.OCRHost, s.config.OCRPort),
+			ServiceURL: s.config.OCRServiceURL,
 		},
 	})
 }

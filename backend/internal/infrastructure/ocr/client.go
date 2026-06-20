@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 )
 
@@ -91,8 +92,8 @@ type clientImpl struct {
 }
 
 // NewClient creates a new OCR client
-func NewClient(host string, port string) Client {
-	baseURL := fmt.Sprintf("http://%s:%s/ocr-classifier/api", host, port)
+func NewClient(serviceURL string) Client {
+	baseURL := fmt.Sprintf("%s/ocr-classifier/api", strings.TrimRight(serviceURL, "/"))
 	return &clientImpl{
 		baseURL:    baseURL,
 		httpClient: &http.Client{Timeout: 5 * time.Second},

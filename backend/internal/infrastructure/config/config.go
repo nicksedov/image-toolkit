@@ -23,8 +23,7 @@ type AppConfig struct {
 
 	// OCR classifier configuration
 	OCREnabled            bool
-	OCRHost               string
-	OCRPort               string
+	OCRServiceURL         string
 	OCRCheckInterval      int
 	OCRConcurrentRequests int // Max concurrent OCR requests (default: 4)
 
@@ -80,8 +79,7 @@ func LoadConfig() *AppConfig {
 		CORSOrigins:                 origins,
 		ScanWorkers:                 scanWorkers,
 		OCREnabled:                  getEnv("OCR_ENABLED", "true") == "true",
-		OCRHost:                     getEnv("OCR_HOST", "localhost"),
-		OCRPort:                     getEnv("OCR_PORT", "8080"),
+		OCRServiceURL:               getEnv("OCR_SERVICE_URL", "http://localhost:5174"),
 		OCRCheckInterval:            getEnvInt("OCR_CHECK_INTERVAL", 10),
 		OCRConcurrentRequests:       getEnvInt("OCR_CONCURRENT_REQUESTS", 4),
 		BootstrapLogin:              getEnv("BOOTSTRAP_LOGIN", "admin"),
@@ -96,7 +94,7 @@ func LoadConfig() *AppConfig {
 		BackgroundSyncEnabled:       getEnv("BACKGROUND_SYNC_ENABLED", "true") == "true",
 		LlmMaxImageMegapixels:       getEnvFloat("LLM_MAX_IMAGE_MEGAPIXELS", 2.0),
 		AgentMaxConversationTokens:  getEnvInt("AGENT_MAX_CONVERSATION_TOKENS", 128000),
-		ExifServiceURL:              getEnv("EXIF_SERVICE_URL", "http://localhost:5171"),
+		ExifServiceURL:              getEnv("EXIF_SERVICE_URL", "http://localhost:5172"),
 	}
 }
 
