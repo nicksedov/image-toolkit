@@ -437,6 +437,18 @@ export const translationsRu = {
   "adminPanel.ocr.concurrentWorkersSaved": "Количество потоков обновлено",
   "adminPanel.ocr.concurrentWorkersSaveFailed": "Не удалось обновить количество потоков",
 
+  // EXIF Metadata Service
+  "adminPanel.exif.title": "Сервис метаданных EXIF",
+  "adminPanel.exif.description": "Внешний сервис для чтения и записи метаданных EXIF изображений",
+  "adminPanel.exif.status": "Статус сервиса",
+  "adminPanel.exif.statusHealthy": "Сервис работает",
+  "adminPanel.exif.statusUnhealthy": "Сервис недоступен",
+  "adminPanel.exif.statusDisabled": "Отключён",
+  "adminPanel.exif.serviceURL": "URL сервиса",
+  "adminPanel.exif.lastCheck": "Последняя проверка",
+  "adminPanel.exif.refresh": "Обновить",
+  "adminPanel.exif.refreshFailed": "Не удалось проверить статус сервиса EXIF",
+
   // Thumbnail Cache
   "adminPanel.thumbnailCache.title": "Кэш миниатюр",
   "adminPanel.thumbnailCache.description": "Настройки кэширования миниатюр для ускорения отображения галереи",

@@ -49,6 +49,9 @@ type AppConfig struct {
 
 	// Agent configuration
 	AgentMaxConversationTokens int
+
+	// EXIF service configuration
+	ExifServiceURL string
 }
 
 // LoadConfig reads configuration from environment variables
@@ -93,6 +96,7 @@ func LoadConfig() *AppConfig {
 		BackgroundSyncEnabled:       getEnv("BACKGROUND_SYNC_ENABLED", "true") == "true",
 		LlmMaxImageMegapixels:       getEnvFloat("LLM_MAX_IMAGE_MEGAPIXELS", 2.0),
 		AgentMaxConversationTokens:  getEnvInt("AGENT_MAX_CONVERSATION_TOKENS", 128000),
+		ExifServiceURL:              getEnv("EXIF_SERVICE_URL", "http://localhost:5171"),
 	}
 }
 

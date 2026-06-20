@@ -1,6 +1,7 @@
 package imaging
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -39,6 +40,7 @@ type BackgroundSyncManager struct {
 	db                 *gorm.DB
 	thumbnailService   *thumbnail.Service
 	geolocationService *geocoder.GeolocationService
+	exifClient         ExifClient
 	syncDays           []time.Weekday
 	hour               int
 	minute             int
@@ -56,11 +58,12 @@ type BackgroundSyncManager struct {
 }
 
 // NewBackgroundSyncManager creates a new background sync manager
-func NewBackgroundSyncManager(db *gorm.DB, thumbnailService *thumbnail.Service, geoService *geocoder.GeolocationService) *BackgroundSyncManager {
+func NewBackgroundSyncManager(db *gorm.DB, thumbnailService *thumbnail.Service, geoService *geocoder.GeolocationService, exifClient ExifClient) *BackgroundSyncManager {
 	return &BackgroundSyncManager{
 		db:                 db,
 		thumbnailService:   thumbnailService,
 		geolocationService: geoService,
+		exifClient:         exifClient,
 		syncDays:           []time.Weekday{time.Monday, time.Tuesday, time.Wednesday, time.Thursday, time.Friday},
 		hour:               3,
 		minute:             30,
@@ -538,7 +541,12 @@ func (bsm *BackgroundSyncManager) incrementProcessed() {
 
 // ExtractAndSaveMetadata extracts EXIF and geo metadata for a file and saves to the database.
 func (bsm *BackgroundSyncManager) ExtractAndSaveMetadata(filePath string, imageFileID uint) {
-	meta, err := extractMetadata(filePath)
+	if bsm.exifClient == nil {
+		return
+	}
+	ctx := context.Background()
+
+	meta, err := bsm.exifClient.ExtractMetadata(ctx, filePath)
 	if err != nil {
 		log.Printf("Background sync: failed to extract metadata for %s: %v", filePath, err)
 		return
@@ -548,7 +556,7 @@ func (bsm *BackgroundSyncManager) ExtractAndSaveMetadata(filePath string, imageF
 
 	// Resolve geolocation via GeolocationService if GPS coordinates are present.
 	if bsm.geolocationService != nil {
-		lat, lng, hasGPS := extractGPSCoordinates(filePath)
+		lat, lng, hasGPS, _ := bsm.exifClient.ExtractGPS(ctx, filePath)
 		if hasGPS {
 			geoEntry, err := bsm.geolocationService.ResolveGeolocation(lat, lng)
 			if err != nil {

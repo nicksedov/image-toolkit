@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -1967,6 +1968,40 @@ func (s *Server) handleGetOCRStatus(c *gin.Context) {
 	})
 }
 
+// handleGetExifStatus returns the EXIF service health status.
+func (s *Server) handleGetExifStatus(c *gin.Context) {
+	if s.exifClient == nil {
+		c.JSON(http.StatusOK, gin.H{
+			"enabled":    false,
+			"health":     "disabled",
+			"lastCheck":  "",
+			"error":      "",
+			"serviceURL": "",
+		})
+		return
+	}
+
+	health, err := s.exifClient.Health(context.Background())
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"enabled":    true,
+			"health":     "unhealthy",
+			"lastCheck":  time.Now().Format(helpers.DateTimeFormat),
+			"error":      err.Error(),
+			"serviceURL": s.config.ExifServiceURL,
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"enabled":    true,
+		"health":     health.Status,
+		"lastCheck":  time.Now().Format(helpers.DateTimeFormat),
+		"error":      "",
+		"serviceURL": s.config.ExifServiceURL,
+	})
+}
+
 // handleStartOcrClassification starts the OCR classification process
 func (s *Server) handleStartOcrClassification(c *gin.Context) {
 	if s.ocrManager == nil {
@@ -3156,14 +3191,8 @@ func (s *Server) handleUpdateGps(c *gin.Context) {
 	// Convert to OS path
 	osPath := filepath.FromSlash(req.Path)
 
-	// Get trash dir from settings
-	var trashDir string
-	if settings, ok := s.settingsLoader.AppSettingsIfExists(); ok && settings.TrashDir != "" {
-		trashDir = settings.TrashDir
-	}
-
-	// Write GPS to EXIF (creates backup first)
-	if err := imaging.WriteGPS(osPath, trashDir, req.Lat, req.Lng, &existingMeta); err != nil {
+	// Write GPS to EXIF via EXIF service
+	if err := s.exifClient.WriteGPS(context.Background(), osPath, req.Lat, req.Lng, &existingMeta); err != nil {
 		log.Printf("UpdateGps: WriteGPS failed for %s: %v", req.Path, err)
 		if strings.Contains(err.Error(), "backup") {
 			s.respondError(c, http.StatusInternalServerError, i18n.MsgGpsBackupFailed)
@@ -3174,7 +3203,7 @@ func (s *Server) handleUpdateGps(c *gin.Context) {
 	}
 
 	// Enrich any missing EXIF fields from the file into the DB record
-	enriched := imaging.EnrichMissingMetadata(osPath, &existingMeta)
+	enriched, _ := s.exifClient.EnrichMissingMetadata(context.Background(), osPath, &existingMeta)
 
 	// Reverse geocode via GeolocationService (cache + Nominatim)
 	var nameLocal, nameEng string
@@ -3388,12 +3417,6 @@ func (s *Server) handleBatchUpdateGps(c *gin.Context) {
 		return
 	}
 
-	// Get trash dir from settings
-	var trashDir string
-	if settings, ok := s.settingsLoader.AppSettingsIfExists(); ok && settings.TrashDir != "" {
-		trashDir = settings.TrashDir
-	}
-
 	// Reverse geocode once for all photos via GeolocationService
 	var nameLocal, nameEng string
 	var geoRef *uint
@@ -3441,8 +3464,8 @@ func (s *Server) handleBatchUpdateGps(c *gin.Context) {
 		// Convert to OS path
 		osPath := filepath.FromSlash(p)
 
-		// Write GPS to EXIF (creates backup first)
-		if err := imaging.WriteGPS(osPath, trashDir, req.Lat, req.Lng, &existingMeta); err != nil {
+		// Write GPS to EXIF via EXIF service
+		if err := s.exifClient.WriteGPS(context.Background(), osPath, req.Lat, req.Lng, &existingMeta); err != nil {
 			log.Printf("BatchUpdateGps: WriteGPS failed for %s: %v", p, err)
 			failedCount++
 			failedFiles = append(failedFiles, p)
@@ -3450,7 +3473,7 @@ func (s *Server) handleBatchUpdateGps(c *gin.Context) {
 		}
 
 		// Enrich any missing EXIF fields from the file into the DB record
-		enriched := imaging.EnrichMissingMetadata(osPath, &existingMeta)
+		enriched, _ := s.exifClient.EnrichMissingMetadata(context.Background(), osPath, &existingMeta)
 
 		// Upsert ImageMetadata in DB (reuse existingMeta already loaded above)
 		if existingMeta.ID == 0 {

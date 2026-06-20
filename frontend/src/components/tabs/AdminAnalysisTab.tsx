@@ -6,10 +6,10 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
-import { fetchOCRStatus, startOcrClassification, startOcrClassificationChanges, stopOcrClassification, fetchOcrClassificationStatus, fetchLlmSettings, updateLlmSettings, createLlmProvider, updateLlmProvider, deleteLlmProvider, fetchLlmModels, fetchTagScanStatus, pauseTagScan, resumeTagScan, updateSettings, fetchSettings, probeEmbeddingDimension } from "@/api/endpoints"
-import { Shield, Loader2, Zap, Wand2, Play, Square, RefreshCw, Plus } from "lucide-react"
+import { fetchOCRStatus, startOcrClassification, startOcrClassificationChanges, stopOcrClassification, fetchOcrClassificationStatus, fetchLlmSettings, updateLlmSettings, createLlmProvider, updateLlmProvider, deleteLlmProvider, fetchLlmModels, fetchTagScanStatus, pauseTagScan, resumeTagScan, updateSettings, fetchSettings, probeEmbeddingDimension, fetchExifServiceStatus } from "@/api/endpoints"
+import { Shield, Loader2, Zap, Wand2, Play, Square, RefreshCw, Plus, Database } from "lucide-react"
 import { useTranslation } from "@/i18n"
-import type { OCRStatus, OcrClassificationStatusResponse, LlmSettingsResponse, LlmProviderDTO, LlmModelDTO, TagScanStatusResponse, LlmProviderType } from "@/types"
+import type { OCRStatus, OcrClassificationStatusResponse, LlmSettingsResponse, LlmProviderDTO, LlmModelDTO, TagScanStatusResponse, LlmProviderType, ExifServiceStatus } from "@/types"
 import { ProviderConfigForm } from "@/components/settings/ProviderConfigForm"
 // Provider type display labels
 const PROVIDER_LABELS: Record<LlmProviderType, string> = {
@@ -45,6 +45,10 @@ export function AdminAnalysisTab() {
   const [ocrScanStatus, setOcrScanStatus] = useState<OcrClassificationStatusResponse | null>(null)
   const [ocrConcurrentWorkers, setOcrConcurrentWorkers] = useState(4)
   const [isSavingWorkers, setIsSavingWorkers] = useState(false)
+
+  // EXIF service status state
+  const [exifStatus, setExifStatus] = useState<ExifServiceStatus | null>(null)
+  const [isExifLoading, setIsExifLoading] = useState(false)
 
   // LLM Settings state
   const [llmSettings, setLlmSettings] = useState<LlmSettingsResponse>(EMPTY_SETTINGS)
@@ -177,6 +181,18 @@ export function AdminAnalysisTab() {
   const [isTagScanSaving, setIsTagScanSaving] = useState(false)
   const [isTagScanPausing, setIsTagScanPausing] = useState(false)
   const [tagScanFormDirty, setTagScanFormDirty] = useState(false)
+
+  const loadExifStatus = useCallback(async () => {
+    try {
+      setIsExifLoading(true)
+      const status = await fetchExifServiceStatus()
+      setExifStatus(status)
+    } catch {
+      setExifStatus(null)
+    } finally {
+      setIsExifLoading(false)
+    }
+  }, [])
 
   const loadOCRStatus = useCallback(async () => {
     try {
@@ -664,6 +680,9 @@ export function AdminAnalysisTab() {
         setIsLlmLoading(false)
       }
 
+      // Load EXIF status
+      loadExifStatus()
+
       // Check initial OCR classification status
       try {
         const status = await fetchOcrClassificationStatus()
@@ -818,6 +837,69 @@ export function AdminAnalysisTab() {
               </Button>
             )}
           </div>
+        </CardContent>
+      </Card>
+
+      {/* EXIF Metadata Service */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Database className="h-5 w-5" />
+            {t("adminPanel.exif.title")}
+          </CardTitle>
+          <CardDescription>{t("adminPanel.exif.description")}</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between rounded-lg border p-3">
+            <div className="space-y-1">
+              <div className="text-sm font-medium">{t("adminPanel.exif.status")}</div>
+              {isExifLoading ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  {t("common.loading")}
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                      exifStatus?.enabled && exifStatus?.health === "healthy"
+                        ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                        : exifStatus?.health === "disabled"
+                        ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200"
+                        : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
+                    }`}
+                  >
+                    {exifStatus?.enabled && exifStatus?.health === "healthy"
+                      ? t("adminPanel.exif.statusHealthy")
+                      : exifStatus?.health === "disabled"
+                      ? t("adminPanel.exif.statusDisabled")
+                      : t("adminPanel.exif.statusUnhealthy")}
+                  </span>
+                </div>
+              )}
+            </div>
+            <Button variant="outline" size="sm" onClick={loadExifStatus} disabled={isExifLoading}>
+              {isExifLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+            </Button>
+          </div>
+
+          {exifStatus?.serviceURL && (
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">{t("adminPanel.exif.serviceURL")}</span>
+              <span className="font-mono text-xs">{exifStatus.serviceURL}</span>
+            </div>
+          )}
+
+          {exifStatus?.lastCheck && (
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">{t("adminPanel.exif.lastCheck")}</span>
+              <span className="text-xs">{new Date(exifStatus.lastCheck).toLocaleString()}</span>
+            </div>
+          )}
+
+          {exifStatus?.error && (
+            <p className="text-xs text-destructive">{exifStatus.error}</p>
+          )}
         </CardContent>
       </Card>
 

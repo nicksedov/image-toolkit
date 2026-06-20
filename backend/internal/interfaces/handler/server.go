@@ -49,10 +49,11 @@ type Server struct {
 	agent               *agent.Agent
 	agentConfig         agent.AgentConfig
 	conversationService *agent.ConversationService
+	exifClient          imaging.ExifClient
 }
 
 // NewServer creates a new server instance
-func NewServer(db *gorm.DB, scanManager *imaging.ScanManager, ocrManager *imaging.OcrManager, llmOcrService *imaging.LlmOcrService, backgroundSync *imaging.BackgroundSyncManager, tagScanManager *imaging.TagScanManager, embeddingBackfill *imaging.EmbeddingBackfillManager, thumbnailService *thumbnail.Service, cfg *config.AppConfig, geolocationService *geocoder.GeolocationService, nominatimClient *geocoder.NominatimClient, mcpSrv *mcpserver.FlashbacksMCPServer, ag *agent.Agent, agCfg agent.AgentConfig, convService *agent.ConversationService) *Server {
+func NewServer(db *gorm.DB, scanManager *imaging.ScanManager, ocrManager *imaging.OcrManager, llmOcrService *imaging.LlmOcrService, backgroundSync *imaging.BackgroundSyncManager, tagScanManager *imaging.TagScanManager, embeddingBackfill *imaging.EmbeddingBackfillManager, thumbnailService *thumbnail.Service, cfg *config.AppConfig, geolocationService *geocoder.GeolocationService, nominatimClient *geocoder.NominatimClient, mcpSrv *mcpserver.FlashbacksMCPServer, ag *agent.Agent, agCfg agent.AgentConfig, convService *agent.ConversationService, exifClient imaging.ExifClient) *Server {
 	var ocrClient ocr.Client
 	if cfg.OCREnabled {
 		ocrClient = ocr.NewClient(cfg.OCRHost, cfg.OCRPort)
@@ -84,6 +85,7 @@ func NewServer(db *gorm.DB, scanManager *imaging.ScanManager, ocrManager *imagin
 		agent:               ag,
 		agentConfig:         agCfg,
 		conversationService: convService,
+		exifClient:          exifClient,
 	}
 	s.thumbnailBatch = helpers.NewThumbnailBatch(thumbnailService, s.thumbnailCache)
 	s.galleryAccess = helpers.NewGalleryAccess(db)

@@ -71,6 +71,7 @@ import type {
   SmartSearchResponse,
   EmbeddingBackfillStatus,
   SyncStatusResponse,
+  ExifServiceStatus,
 } from "@/types"
 
 export function fetchDuplicates(page: number, pageSize: number): Promise<DuplicatesResponse> {
@@ -392,6 +393,12 @@ export function fetchAuditLogs(page: number): Promise<AuditLogsResponse> {
 
 export function fetchOCRStatus(): Promise<OCRStatusResponse> {
   return apiGet<OCRStatusResponse>("/api/ocr-status")
+}
+
+// --- EXIF Service Status ---
+
+export function fetchExifServiceStatus(): Promise<ExifServiceStatus> {
+  return apiGet<ExifServiceStatus>("/api/exif-status")
 }
 
 // --- OCR Classification ---

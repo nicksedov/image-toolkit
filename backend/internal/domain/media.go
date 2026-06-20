@@ -18,6 +18,15 @@ type ImageFile struct {
 	UpdatedAt time.Time `json:"updatedAt"`
 }
 
+// ExifHealthStatus represents the EXIF service health check result.
+type ExifHealthStatus struct {
+	Status            string `json:"status"`
+	Version           string `json:"version"`
+	ExiftoolAvailable bool   `json:"exiftoolAvailable"`
+	DatabaseConnected bool   `json:"databaseConnected"`
+	Uptime            string `json:"uptime"`
+}
+
 // DuplicateGroup represents a group of duplicate images
 type DuplicateGroup struct {
 	Hash  string

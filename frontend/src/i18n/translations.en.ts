@@ -437,6 +437,18 @@ export const translationsEn = {
   "adminPanel.ocr.concurrentWorkersSaved": "Concurrent workers updated",
   "adminPanel.ocr.concurrentWorkersSaveFailed": "Failed to update concurrent workers",
 
+  // EXIF Service Status
+  "adminPanel.exif.title": "EXIF Metadata Service",
+  "adminPanel.exif.description": "External service for reading and writing image EXIF metadata",
+  "adminPanel.exif.status": "Service Status",
+  "adminPanel.exif.statusHealthy": "Service is running",
+  "adminPanel.exif.statusUnhealthy": "Service unavailable",
+  "adminPanel.exif.statusDisabled": "Disabled",
+  "adminPanel.exif.serviceURL": "Service URL",
+  "adminPanel.exif.lastCheck": "Last check",
+  "adminPanel.exif.refresh": "Refresh",
+  "adminPanel.exif.refreshFailed": "Failed to check EXIF service status",
+
   // Thumbnail Cache
   "adminPanel.thumbnailCache.title": "Thumbnail Cache",
   "adminPanel.thumbnailCache.description": "Settings for thumbnail caching to speed up gallery display",

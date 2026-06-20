@@ -15,8 +15,8 @@ import (
 func setupBackgroundSyncManager(t *testing.T) (*BackgroundSyncManager, func()) {
 	t.Helper()
 	db, cleanup := testutil.NewTestDB(t)
-	// Create manager without thumbnail service or geocoder (nil)
-	manager := NewBackgroundSyncManager(db, nil, nil)
+	// Create manager without thumbnail service, geocoder, or exif client (nil)
+	manager := NewBackgroundSyncManager(db, nil, nil, nil)
 	return manager, cleanup
 }
 

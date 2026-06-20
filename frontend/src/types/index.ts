@@ -456,6 +456,16 @@ export interface OCRStatusResponse {
   status: OCRStatus
 }
 
+// --- EXIF Service Status Types ---
+
+export interface ExifServiceStatus {
+  enabled: boolean
+  health: "healthy" | "unhealthy" | "disabled" | string
+  lastCheck: string
+  error: string
+  serviceURL: string
+}
+
 // --- OCR Classification Types ---
 
 export interface OcrBoundingBoxDTO {

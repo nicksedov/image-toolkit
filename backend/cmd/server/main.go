@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"log"
-	"os/exec"
 	"strings"
 	"time"
 
@@ -16,6 +15,7 @@ import (
 	"image-toolkit/internal/domain"
 	"image-toolkit/internal/infrastructure/config"
 	"image-toolkit/internal/infrastructure/database"
+	"image-toolkit/internal/infrastructure/exifclient"
 	"image-toolkit/internal/infrastructure/geocoder"
 	"image-toolkit/internal/infrastructure/mcpserver"
 	"image-toolkit/internal/infrastructure/ocr"
@@ -51,18 +51,10 @@ func main() {
 
 	fmt.Println("Database connected successfully!")
 
-	// Check for exiftool availability
-	fmt.Println("Checking for exiftool...")
-	if _, err := exec.LookPath("exiftool"); err != nil {
-		log.Fatalf("exiftool not found in PATH. Please install exiftool: https://exiftool.org/")
-	}
-	fmt.Println("exiftool found!")
-
-	// Initialize exiftool for EXIF extraction
-	if err := imaging.InitExifTool(); err != nil {
-		log.Fatalf("Failed to initialize exiftool: %v", err)
-	}
-	fmt.Println("exiftool initialized!")
+	// Initialize EXIF service client
+	fmt.Println("Initializing EXIF service client...")
+	exifSvcClient := exifclient.NewHTTPExifClient(cfg.ExifServiceURL)
+	fmt.Printf("EXIF service client initialized: %s\n", cfg.ExifServiceURL)
 
 	// Initialize OCR classifier client and health check
 	var ocrCheckInterval int
@@ -146,7 +138,7 @@ func main() {
 	fmt.Println("Geolocation service initialized (Nominatim-backed cache)")
 
 	// Create background sync manager
-	backgroundSync := imaging.NewBackgroundSyncManager(db, thumbnailService, geolocationService)
+	backgroundSync := imaging.NewBackgroundSyncManager(db, thumbnailService, geolocationService, exifSvcClient)
 
 	// Read schedule from DB (default: weekdays, 03:30, UTC)
 	syncHour := 3
@@ -300,7 +292,7 @@ func main() {
 	fmt.Println("AI agent initialized")
 
 	// Start web server
-	server := handler.NewServer(db, scanManager, ocrManager, llmOcrService, backgroundSync, tagScanManager, embeddingBackfill, thumbnailService, cfg, geolocationService, nominatimClient, mcpSrv, ag, agCfg, convService)
+	server := handler.NewServer(db, scanManager, ocrManager, llmOcrService, backgroundSync, tagScanManager, embeddingBackfill, thumbnailService, cfg, geolocationService, nominatimClient, mcpSrv, ag, agCfg, convService, exifSvcClient)
 	router := server.SetupRouter(authMiddleware, csrfProtection, authHandlers)
 
 	// Start OCR health check if enabled
