@@ -1,4 +1,4 @@
-const CACHE_NAME = 'flashbacks-v1';
+const CACHE_NAME = 'flashbacks-v2';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -30,7 +30,7 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Fetch: network-first for API, cache-first for static assets
+// Fetch: network-first for JS modules, cache-first for everything else
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
@@ -52,12 +52,27 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Static assets: cache-first with network fallback
+  // JavaScript modules: network-first to avoid stale chunk references
+  if (url.pathname.endsWith('.js')) {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response.ok && url.origin === location.origin) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+          }
+          return response;
+        })
+        .catch(() => caches.match(request))
+    );
+    return;
+  }
+
+  // Other static assets (CSS, images, fonts): cache-first with network fallback
   event.respondWith(
     caches.match(request).then((cached) => {
       if (cached) return cached;
       return fetch(request).then((response) => {
-        // Cache successful responses for same-origin requests
         if (response.ok && url.origin === location.origin) {
           const clone = response.clone();
           caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
