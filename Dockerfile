@@ -13,7 +13,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o server ./cmd/serv
 
 FROM alpine:3.23
 
-RUN apk add --no-cache ca-certificates tzdata curl perl exiftool
+RUN apk add --no-cache ca-certificates tzdata curl
 
 WORKDIR /app
 

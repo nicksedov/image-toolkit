@@ -4,7 +4,6 @@ go 1.25.0
 
 require (
 	github.com/MadAppGang/gocluster v0.0.0-20161226093512-f4629d7b12f8
-	github.com/barasher/go-exiftool v1.3.0
 	github.com/deepteams/webp v1.2.1
 	github.com/disintegration/imaging v1.6.2
 	github.com/gin-contrib/cors v1.7.7
@@ -15,7 +14,6 @@ require (
 	github.com/modelcontextprotocol/go-sdk v1.6.1
 	github.com/stretchr/testify v1.11.1
 	golang.org/x/crypto v0.50.0
-	golang.org/x/image v0.39.0
 	gorm.io/driver/postgres v1.5.4
 	gorm.io/gorm v1.30.0
 )
@@ -61,6 +59,7 @@ require (
 	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
 	go.mongodb.org/mongo-driver/v2 v2.5.0 // indirect
 	golang.org/x/arch v0.23.0 // indirect
+	golang.org/x/image v0.39.0 // indirect
 	golang.org/x/net v0.52.0 // indirect
 	golang.org/x/oauth2 v0.35.0 // indirect
 	golang.org/x/sys v0.43.0 // indirect
